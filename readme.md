@@ -1,20 +1,13 @@
 Weechat Discord
 ===============
 
-### Deadness indicator: 100%
-
-I'm done. I'm 900% done. Someone can feel free to fork this jar of horrors, but I'm done dealing with the nightmare of the Discord protocol. The PR on discord-api-docs removing the /ack endpoint documentation was the last straw, it was *clearly* never intended to be used as a client. As there is no API that's actually intended to be used, I'm not going to maintain this steaming pile of Rust FFI barbarity.
-
-I'll leave things the way they are so folks can still use it, but don't expect me to be enthusiastic about bug reports.
-
----
+This project is currently being rewritten. It works, in that you can send and receive messages. Not very well.
 
 ### Building
 
 Dependencies:
 
 * Weechat developer libraries. Usually called `weechat-dev`, or sometimes just `weechat` includes them.
-* OpenSSL 1.0 (NOT 1.1). Usually called `openssl-1.0`, `libssl1.0-dev`, or something similar. *This is important*. The Makefile will set up paths to override the version to 1.0, so if you get errors building openssl-sys-extras, run `cargo clean` and use the Makefile.
 
 The makefile should give enough information for build commands. Here's the essentials:
 

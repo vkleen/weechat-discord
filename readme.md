@@ -14,7 +14,7 @@ The makefile should give enough information for build commands. Here's the essen
     cd weechat-discord # or wherever you cloned it
     cargo build --release
 
-This will produce a shared object called `target/release/libweecord.so`. Place it in your weechat plugins directory, which is probably located at `~/.weechat/plugins` (may need to be created)
+This will produce a shared object called `target/release/libweecord.so` (or `.dylib` on macos). Place it in your weechat plugins directory, which is probably located at `~/.weechat/plugins` (may need to be created)
 
 The Makefile has a tiny bit of automation that helps with development:
 
@@ -45,3 +45,11 @@ Note you may also have to adjust a few settings for best use:
     ## doesn't work currently: weechat.completion.default_template -> append "|%(weecord_completion)"
     weechat.bar.status.items -> replace buffer_name with buffer_short_name
     plugins.var.python.go.short_name -> on (if you use go.py)
+
+## MacOS
+
+Weechat does not search for mac dynamic libraries (.dylib) by default, this can be fixed by adding dylibs to the plugin search path,
+
+```
+/set weechat.plugin.extension ".so,.dll,.dylib"
+```

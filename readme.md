@@ -26,9 +26,13 @@ Maybe important note: The previous version of this project, written in Go, used 
 
 ### Using
 
-Due to some idiocracy on Discord's part, [you will need to obtain a login token](https://github.com/hammerandchisel/discord-api-docs/issues/69#issuecomment-223886862). The wonderful tip by the Discord devs on how to do that, though, doesn't work: for me, and only for chromium, I went into inspector (ctrl+shift+i, because Discord *also* decided to do the *wonderful* thing of ripping out right-click menus), Application tab, Local Storage on left, discordapp.com, token entry.
+Due to some idiocracy on Discord's part, [you will need to obtain a login token](https://github.com/hammerandchisel/discord-api-docs/issues/69#issuecomment-223886862). 
+You can:
+* Use a python3 script to find saved tokens, `python3 find_token.py`
+* Or find the token manually:
+The wonderful tip by the Discord devs on how to do that, though, doesn't work: for me, and only for chromium, I went into inspector (ctrl+shift+i, because Discord *also* decided to do the *wonderful* thing of ripping out right-click menus), Application tab, Local Storage on left, discordapp.com, token entry.
 
-Set that token (make sure to remove the quotes if you copied them in!):
+Set that token:
 
     /discord token 123456789ABCDEF
 

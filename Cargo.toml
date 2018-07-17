@@ -1,26 +1,18 @@
 [package]
 name = "weecord"
 version = "0.1.0"
-authors = ["Porter Smith <flowbish@gmail.com>", "khyperia <khyperia@live.com>"]
+authors = ["Porter Smith <flowbish@gmail.com>", "khyperia <khyperia@live.com>", "Noskcaj <kcajdev@gmail.com>"]
 build = "build.rs"
 
 [build-dependencies]
-gcc = "*"
-pkg-config = "*"
+gcc = "0.3.54"
+pkg-config = "0.3.11"
 
 [lib]
 name = "weecord"
 crate-type = ["dylib"]
 
 [dependencies]
-libc = "*"
-clippy = {version = "*", optional = true}
-
-[dependencies.discord]
-git = "https://github.com/SpaceManiac/discord-rs.git"
-# disable "voice" -> opus/sodiumoxide
-default-features = false
-features = []
-
-[features]
-default = []
+libc = "0.2.42"
+serenity = { git = "https://github.com/Noskcaj19/serenity" }
+lazy_static = "1.0.2"

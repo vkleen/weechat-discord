@@ -7,7 +7,9 @@ pub struct Buffer {
     ptr: *mut c_void,
 }
 
-pub const MAIN_BUFFER: Buffer = Buffer { ptr: 0 as *mut c_void };
+pub const MAIN_BUFFER: Buffer = Buffer {
+    ptr: 0 as *mut c_void,
+};
 
 /*
 pub struct Completion {
@@ -41,7 +43,6 @@ impl PartialEq for WeechatAny {
     }
 }
 
-
 pub struct SharedString(pub String);
 
 fn strip_indexer_field(field: &str) -> &str {
@@ -62,10 +63,10 @@ pub trait WeechatObject {
         if field_type != "" {
             let actual_type = hdata_get_var_type_string(self.hdata(), field);
             if field_type != actual_type {
-                really_bad(format!("Field {} had type {} but we expected {}",
-                                   field,
-                                   actual_type,
-                                   field_type));
+                really_bad(format!(
+                    "Field {} had type {} but we expected {}",
+                    field, actual_type, field_type
+                ));
             }
         }
         T::new::<Self>(self, field)
@@ -150,31 +151,35 @@ impl HDataGetResult for i32 {
 }
 
 pub fn really_bad(message: String) -> ! {
-    MAIN_BUFFER.print(&format!("{}: Internal error - {}", ::weechat::COMMAND, message));
+    MAIN_BUFFER.print(&format!(
+        "{}: Internal error - {}",
+        ::weechat::COMMAND,
+        message
+    ));
     panic!(message); // hopefully we hit a catch_unwind
 }
 
 impl Buffer {
     pub fn new(name: &str, on_input: fn(Buffer, &str)) -> Option<Buffer> {
         extern "C" {
-            fn wdc_buffer_new(name: *const c_char,
-                              pointer: *const c_void,
-                              input_callback: extern "C" fn(*const c_void,
-                                                            *mut c_void,
-                                                            *mut c_void,
-                                                            *const c_char)
-                                                            -> c_int,
-                              close_callback: extern "C" fn(*const c_void,
-                                                            *mut c_void,
-                                                            *mut c_void)
-                                                            -> c_int)
-                              -> *mut c_void;
+            fn wdc_buffer_new(
+                name: *const c_char,
+                pointer: *const c_void,
+                input_callback: extern "C" fn(
+                    *const c_void,
+                    *mut c_void,
+                    *mut c_void,
+                    *const c_char,
+                ) -> c_int,
+                close_callback: extern "C" fn(*const c_void, *mut c_void, *mut c_void) -> c_int,
+            ) -> *mut c_void;
         }
-        extern "C" fn input_cb(pointer: *const c_void,
-                               data: *mut c_void,
-                               buffer: *mut c_void,
-                               input_data: *const c_char)
-                               -> c_int {
+        extern "C" fn input_cb(
+            pointer: *const c_void,
+            data: *mut c_void,
+            buffer: *mut c_void,
+            input_data: *const c_char,
+        ) -> c_int {
             let _ = data;
             wrap_panic(|| {
                 let buffer = Buffer { ptr: buffer };
@@ -188,10 +193,11 @@ impl Buffer {
             });
             0
         }
-        extern "C" fn close_cb(pointer: *const c_void,
-                               data: *mut c_void,
-                               buffer: *mut c_void)
-                               -> c_int {
+        extern "C" fn close_cb(
+            pointer: *const c_void,
+            data: *mut c_void,
+            buffer: *mut c_void,
+        ) -> c_int {
             let _ = pointer;
             let _ = data;
             let _ = buffer;
@@ -347,79 +353,6 @@ impl WeechatObject for Buffer {
     }
 }
 
-pub struct PokeableFd {
-    _hook: Hook,
-    pipe: [c_int; 2],
-    _callback: Box<Box<FnMut()>>,
-}
-
-pub struct PokeableFdPoker {
-    fd: c_int,
-}
-
-impl PokeableFd {
-    pub fn new<F: FnMut() + 'static>(callback: F) -> PokeableFd {
-        extern "C" {
-            fn wdc_hook_fd(fd: c_int,
-                           pointer: *const c_void,
-                           callback: extern "C" fn(*const c_void, *mut c_void, c_int) -> c_int)
-                           -> *mut c_void;
-        }
-        extern "C" fn callback_fn(pointer: *const c_void, data: *mut c_void, fd: c_int) -> c_int {
-            let _ = data;
-            let mut tmp = 0 as c_char;
-            unsafe { while read(fd, (&mut tmp) as *mut c_char as *mut c_void, 1) == 1 {} }
-            wrap_panic(|| {
-                           let callback = pointer as *mut Box<FnMut()>;
-                           (unsafe { &mut **callback })();
-                       });
-            0
-        }
-        let mut pipe_fds = [0; 2];
-        unsafe {
-            pipe(&mut pipe_fds[0] as *mut c_int);
-            // O_NONBLOCK is used in callback_fn while draining the pipe
-            fcntl(pipe_fds[0],
-                  F_SETFL,
-                  fcntl(pipe_fds[0], F_GETFL) | O_NONBLOCK);
-        }
-        let callback: Box<Box<FnMut()>> = Box::new(Box::new(callback));
-        let hook = unsafe {
-            // haha screw you borrowck
-            let callback = &*callback as *const _ as *const c_void;
-            let hook = wdc_hook_fd(pipe_fds[0], callback, callback_fn);
-            Hook { ptr: hook }
-        };
-        // TODO: Check if hook is nil
-        PokeableFd {
-            _hook: hook,
-            pipe: pipe_fds,
-            _callback: callback,
-        }
-    }
-
-    pub fn get_poker(&self) -> PokeableFdPoker {
-        PokeableFdPoker { fd: self.pipe[1] }
-    }
-}
-
-impl PokeableFdPoker {
-    pub fn poke(&self) {
-        unsafe {
-            write(self.fd, &(0 as c_char) as *const c_char as *const c_void, 1);
-        }
-    }
-}
-
-impl Drop for PokeableFd {
-    fn drop(&mut self) {
-        unsafe {
-            close(self.pipe[0]);
-            close(self.pipe[1]);
-        }
-    }
-}
-
 fn wrap_panic<R, F: FnOnce() -> R + UnwindSafe>(f: F) -> Option<R> {
     let result = catch_unwind(f);
     match result {
@@ -430,11 +363,12 @@ fn wrap_panic<R, F: FnOnce() -> R + UnwindSafe>(f: F) -> Option<R> {
                 None => "unknown error",
             };
             let result = catch_unwind(|| {
-                                          MAIN_BUFFER
-                                              .print(&format!("{}: Fatal error (caught) - {}",
-                                                             ::weechat::COMMAND,
-                                                             msg))
-                                      });
+                MAIN_BUFFER.print(&format!(
+                    "{}: Fatal error (caught) - {}",
+                    ::weechat::COMMAND,
+                    msg
+                ))
+            });
             let _ = result; // eat error without logging :(
             None
         }
@@ -464,37 +398,41 @@ pub struct HookCommand {
     _callback: Box<Box<FnMut(Buffer, &str)>>,
 }
 
-pub fn hook_command<F: FnMut(Buffer, &str) + 'static>(cmd: &str,
-                                                      desc: &str,
-                                                      args: &str,
-                                                      argdesc: &str,
-                                                      compl: &str,
-                                                      func: F)
-                                                      -> Option<HookCommand> {
+pub fn hook_command<F: FnMut(Buffer, &str) + 'static>(
+    cmd: &str,
+    desc: &str,
+    args: &str,
+    argdesc: &str,
+    compl: &str,
+    func: F,
+) -> Option<HookCommand> {
     type CB = FnMut(Buffer, &str);
     extern "C" {
-        fn wdc_hook_command(command: *const c_char,
-                            description: *const c_char,
-                            args: *const c_char,
-                            args_description: *const c_char,
-                            completion: *const c_char,
-                            pointer: *const c_void,
-                            callback: extern "C" fn(*const c_void,
-                                                    *mut c_void,
-                                                    *mut c_void,
-                                                    c_int,
-                                                    *mut *mut c_char,
-                                                    *mut *mut c_char)
-                                                    -> c_int)
-                            -> *mut c_void;
+        fn wdc_hook_command(
+            command: *const c_char,
+            description: *const c_char,
+            args: *const c_char,
+            args_description: *const c_char,
+            completion: *const c_char,
+            pointer: *const c_void,
+            callback: extern "C" fn(
+                *const c_void,
+                *mut c_void,
+                *mut c_void,
+                c_int,
+                *mut *mut c_char,
+                *mut *mut c_char,
+            ) -> c_int,
+        ) -> *mut c_void;
     }
-    extern "C" fn callback(pointer: *const c_void,
-                           data: *mut c_void,
-                           buffer: *mut c_void,
-                           argc: c_int,
-                           argv: *mut *mut c_char,
-                           argv_eol: *mut *mut c_char)
-                           -> c_int {
+    extern "C" fn callback(
+        pointer: *const c_void,
+        data: *mut c_void,
+        buffer: *mut c_void,
+        argc: c_int,
+        argv: *mut *mut c_char,
+        argv_eol: *mut *mut c_char,
+    ) -> c_int {
         let _ = data;
         let _ = argv;
         wrap_panic(|| {
@@ -522,20 +460,22 @@ pub fn hook_command<F: FnMut(Buffer, &str) + 'static>(cmd: &str,
         let compl = unwrap1!(CString::new(compl));
         let custom_callback: Box<Box<CB>> = Box::new(Box::new(func));
         let pointer = &*custom_callback as *const _ as *const c_void;
-        let hook = wdc_hook_command(cmd.as_ptr(),
-                                    desc.as_ptr(),
-                                    args.as_ptr(),
-                                    argdesc.as_ptr(),
-                                    compl.as_ptr(),
-                                    pointer,
-                                    callback);
+        let hook = wdc_hook_command(
+            cmd.as_ptr(),
+            desc.as_ptr(),
+            args.as_ptr(),
+            argdesc.as_ptr(),
+            compl.as_ptr(),
+            pointer,
+            callback,
+        );
         if hook.is_null() {
             None
         } else {
             Some(HookCommand {
-                     _hook: Hook { ptr: hook },
-                     _callback: custom_callback,
-                 })
+                _hook: Hook { ptr: hook },
+                _callback: custom_callback,
+            })
         }
     }
 }
@@ -572,15 +512,20 @@ fn hdata_get(name: &str) -> *mut c_void {
 
 fn hdata_pointer(hdata: *mut c_void, obj: *mut c_void, name: &str) -> Option<*mut c_void> {
     extern "C" {
-        fn wdc_hdata_pointer(hdata: *mut c_void,
-                             obj: *mut c_void,
-                             name: *const c_char)
-                             -> *mut c_void;
+        fn wdc_hdata_pointer(
+            hdata: *mut c_void,
+            obj: *mut c_void,
+            name: *const c_char,
+        ) -> *mut c_void;
     }
     unsafe {
         let name = unwrap1!(CString::new(name));
         let result = wdc_hdata_pointer(hdata, obj, name.as_ptr());
-        if result.is_null() { None } else { Some(result) }
+        if result.is_null() {
+            None
+        } else {
+            Some(result)
+        }
     }
 }
 
@@ -626,10 +571,11 @@ fn hdata_integer(hdata: *mut c_void, data: *mut c_void, name: &str) -> Option<c_
 
 fn hdata_string(hdata: *mut c_void, data: *mut c_void, name: &str) -> Option<String> {
     extern "C" {
-        fn wdc_hdata_string(hdata: *mut c_void,
-                            data: *mut c_void,
-                            name: *const c_char)
-                            -> *const c_char;
+        fn wdc_hdata_string(
+            hdata: *mut c_void,
+            data: *mut c_void,
+            name: *const c_char,
+        ) -> *const c_char;
     }
     unsafe {
         let name = unwrap1!(CString::new(name));
@@ -668,21 +614,17 @@ pub fn set_option(name: &str, value: &str) -> String {
         wdc_config_set_plugin(name_c.as_ptr(), value_c.as_ptr())
     };
     match (result, before) {
-        (0, Some(before)) => {
-            format!("option {} successfully changed from {} to {}",
-                    name,
-                    before,
-                    value)
-        }
+        (0, Some(before)) => format!(
+            "option {} successfully changed from {} to {}",
+            name, before, value
+        ),
         (0, None) | (1, None) => format!("option {} successfully set to {}", name, value),
         (1, Some(before)) => format!("option {} already contained {}", name, before),
         (2, _) => format!("option {} not found", name),
-        (_, Some(before)) => {
-            format!("error when setting option {} to {} (was {})",
-                    name,
-                    value,
-                    before)
-        }
+        (_, Some(before)) => format!(
+            "error when setting option {} to {} (was {})",
+            name, value, before
+        ),
         (_, None) => format!("error when setting option {} to {}", name, value),
     }
 }

@@ -7,9 +7,9 @@ def main():
     print("Searching for Discord localstorage databases...")
     try:
         subprocess.check_output(["rg", "--version"])
-        command = "rg ~/ --files -g 'https*.discordapp.com_0.localstorage'"
+        command = "rg ~/ --hidden --files -g 'http*discordapp.com_0.localstorage'"
     except FileNotFoundError:
-        command = "find ~/ -name 'https*.discordapp.com_0.localstorage'"
+        command = "find ~/ -name 'http*discordapp.com_0.localstorage'"
 
     output = subprocess.Popen(
         [command], shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL

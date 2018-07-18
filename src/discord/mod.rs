@@ -54,9 +54,7 @@ fn create_buffers(current_user: &CurrentUser) {
                 Buffer::new(&name_id, buffer_input).unwrap()
             };
 
-            let mut short_name = channel.name.clone();
-            short_name.truncate(30);
-            buffer.set("short_name", &short_name);
+            buffer.set("short_name", &channel.name);
             buffer.set("localvar_set_channelid", &name_id);
             buffer.set("localvar_set_type", channel_type);
             buffer.set("localvar_set_nick", &nick);
@@ -78,7 +76,6 @@ fn create_buffers(current_user: &CurrentUser) {
 
             if let Ok(msgs) = channel.messages(|_| retriever) {
                 for msg in msgs.iter().rev().cloned() {
-                    // buffer.print_tags("notify_none", &msg.content);
                     formatting::display_msg(&buffer, &msg, false);
                 }
             }

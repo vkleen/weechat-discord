@@ -2,6 +2,7 @@ use ffi::Buffer;
 
 use serenity::model::prelude::*;
 use serenity::prelude::*;
+use serenity::CACHE;
 
 pub struct Handler();
 
@@ -11,7 +12,34 @@ impl EventHandler for Handler {
         let string_channel = msg.channel_id.0.to_string();
 
         if let Some(buffer) = Buffer::search(&string_channel) {
-            buffer.print_tags("", &format!("{}\t{}", msg.author.name, msg.content_safe()));
+            let is_private = if let Some(channel) = msg.channel() {
+                if let Channel::Private(_) = channel {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            let self_mentioned = msg.mentions_user_id(CACHE.read().user.id);
+
+            let tags = {
+                let mut tags = Vec::new();
+                if self_mentioned {
+                    tags.push("notify_highlight");
+                } else if is_private {
+                    tags.push("notify_private");
+                } else {
+                    tags.push("notify_message");
+                };
+                tags.join(",")
+            };
+
+            buffer.print_tags(
+                &tags,
+                &format!("{}\t{}", msg.author.name, msg.content_safe()),
+            );
         }
     }
 

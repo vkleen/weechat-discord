@@ -4,6 +4,8 @@ use serenity::model::prelude::*;
 use serenity::prelude::*;
 use serenity::CACHE;
 
+use super::formatting;
+
 pub struct Handler();
 
 impl EventHandler for Handler {
@@ -38,7 +40,11 @@ impl EventHandler for Handler {
 
             buffer.print_tags(
                 &tags,
-                &format!("{}\t{}", msg.author.name, msg.content_safe()),
+                &format!(
+                    "{}\t{}",
+                    msg.author.name,
+                    formatting::discord_to_weechat(&msg.content_safe())
+                ),
             );
         }
     }

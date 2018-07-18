@@ -173,3 +173,7 @@ void wdc_hook_completion_add(void* t_gui_completion, const char* word) {
 char* wdc_string_remove_color(const char* str) {
     return weechat_string_remove_color(str, NULL);
 }
+
+const char* wdc_color(const char* color_name) {
+    return weechat_color(color_name);
+}

@@ -642,6 +642,18 @@ pub fn remove_color(string: &str) -> String {
     }
 }
 
+pub fn color_codes(color_name: &str) -> String {
+    extern "C" {
+        fn wdc_color(string: *const c_char) -> *const c_char;
+    }
+    unsafe {
+        let string_c = unwrap1!(CString::new(color_name));
+        let result_c = wdc_color(string_c.as_ptr());
+        let result = CStr::from_ptr(result_c).to_str().unwrap().into();
+        result
+    }
+}
+
 /*
 pub fn hook_completion<F: Fn(Buffer, Completion) + 'static>(name: &str,
                                                             description: &str,

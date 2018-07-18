@@ -1,6 +1,7 @@
 use ffi::{self, Buffer};
 
 mod event_handler;
+mod formatting;
 
 use std::thread;
 

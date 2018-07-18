@@ -15,7 +15,7 @@ fn main() {
     for path in weechat.include_paths {
         config.include(path);
     }
-    config.file("src/weecord.c");
+    config.file("src/ffi/weecord.c");
     config.flag("-Wall");
     config.flag("-Wextra");
     config.compile("libweecord.a");

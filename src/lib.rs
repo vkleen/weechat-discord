@@ -4,8 +4,6 @@ extern crate serenity;
 extern crate lazy_static;
 extern crate parsing;
 
-#[macro_use]
-mod macros;
 mod discord;
 mod ffi;
 

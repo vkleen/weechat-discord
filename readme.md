@@ -1,7 +1,7 @@
 Weechat Discord
 ===============
 
-This project is currently being rewritten. It works, in that you can send and receive messages. Not very well.
+This project is currently being rewritten. It works, a bit rough still, but is usable, and productive.
 
 ### Building
 

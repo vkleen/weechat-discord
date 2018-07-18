@@ -2,6 +2,9 @@ use libc::*;
 use std::ffi::*;
 use std::panic::*;
 
+#[macro_use]
+mod macros;
+
 #[derive(PartialEq, Eq, Hash)]
 pub struct Buffer {
     ptr: *mut c_void,

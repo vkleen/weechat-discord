@@ -34,4 +34,4 @@ $(testdir)/plugins: | $(testdir)
 
 format:
 	cargo fmt
-	clang-format -style="{BasedOnStyle: google, IndentWidth: 4}" -i src/*.c
+	clang-format -style="{BasedOnStyle: google, IndentWidth: 4}" -i src/**/*.c

@@ -35,7 +35,8 @@ pub fn display_msg(buffer: &Buffer, msg: &Message, notify: bool) {
         tags.join(",")
     };
 
-    buffer.print_tags(
+    buffer.print_tags_dated(
+        msg.timestamp.timestamp() as i32,
         &tags,
         &format!(
             "{}\t{}",

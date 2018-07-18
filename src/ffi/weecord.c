@@ -52,9 +52,9 @@ void wdc_print(struct t_gui_buffer* buffer, const char* message) {
     weechat_printf(buffer, "%s", message);
 }
 
-void wdc_print_tags(struct t_gui_buffer* buffer, const char* tags,
+void wdc_print_tags(struct t_gui_buffer* buffer, int date, const char* tags,
                     const char* message) {
-    weechat_printf_date_tags(buffer, 0, tags, "%s", message);
+    weechat_printf_date_tags(buffer, date, tags, "%s", message);
 }
 
 const char* wdc_config_get_plugin(const char* message) {

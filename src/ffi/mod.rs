@@ -244,13 +244,22 @@ impl Buffer {
     }
 
     pub fn print_tags(&self, tags: &str, message: &str) {
+        self.print_tags_dated(0, tags, message);
+    }
+
+    pub fn print_tags_dated(&self, date: i32, tags: &str, message: &str) {
         extern "C" {
-            fn wdc_print_tags(buffer: *mut c_void, tags: *const c_char, message: *const c_char);
+            fn wdc_print_tags(
+                buffer: *mut c_void,
+                date: c_int,
+                tags: *const c_char,
+                message: *const c_char,
+            );
         }
         unsafe {
             let msg = unwrap1!(CString::new(message));
             let tags = unwrap1!(CString::new(tags));
-            wdc_print_tags(self.ptr, tags.as_ptr(), msg.as_ptr());
+            wdc_print_tags(self.ptr, date, tags.as_ptr(), msg.as_ptr());
         }
     }
 

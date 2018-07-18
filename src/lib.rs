@@ -57,7 +57,7 @@ Example:
 ";
     pub const COMPLETIONS: &'static str =
         "\
-         connect || disconnect || token || debug replace || query";
+         connect || disconnect || token || autostart || noautostart || query";
 }
 
 // *DO NOT* touch this outside of init/end
@@ -76,6 +76,14 @@ pub fn init() -> Option<()> {
     unsafe {
         MAIN_COMMAND_HOOK = Box::into_raw(Box::new(hook));
     };
+
+    if let Some(autostart) = get_option("autostart") {
+        if autostart == "true" {
+            if let Some(t) = ffi::get_option("token") {
+                *DISCORD.lock() = Some(discord::init(&t));
+            }
+        }
+    }
     Some(())
 }
 
@@ -102,7 +110,11 @@ fn run_command(_buffer: &Buffer, command: &str) {
         command_print("see /help discord for more information")
     } else if command == "connect" {
         match ffi::get_option("token") {
-            Some(t) => *DISCORD.lock() = Some(discord::init(&t)),
+            Some(t) => {
+                if DISCORD.lock().is_none() {
+                    *DISCORD.lock() = Some(discord::init(&t))
+                }
+            }
             None => {
                 command_print("Error: plugins.var.weecord.token unset. Run:");
                 command_print("/discord token 123456789ABCDEF");
@@ -119,11 +131,18 @@ fn run_command(_buffer: &Buffer, command: &str) {
     } else if command.starts_with("token ") {
         let token = &command["token ".len()..];
         user_set_option("token", token.trim_matches('"'));
+    } else if command == "autostart" {
+        set_option("autostart", "true");
+        command_print("Discord will now load on startup");
+    } else if command == "noautostart" {
+        set_option("autostart", "false");
+        command_print("Discord will not load on startup");
+    } else {
+        command_print("unknown command");
+    }
     // } else if command.starts_with("query ") {
     //     query_command(buffer, &command["query ".len()..]);
     // } else if command.starts_with("debug ") {
     //     debug_command(&command["debug ".len()..]);
-    } else {
-        command_print("unknown command");
-    }
+    // }
 }

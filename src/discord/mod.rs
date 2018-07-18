@@ -3,6 +3,7 @@ use ffi::{self, Buffer};
 mod event_handler;
 mod formatting;
 
+use std::sync::mpsc;
 use std::thread;
 
 use serenity::client::bridge::gateway::ShardManager;
@@ -23,6 +24,7 @@ pub fn init(token: &str) -> DiscordClient {
 }
 
 fn create_buffers(current_user: &CurrentUser) {
+    let nick = format!("@{}", current_user.name);
     for guild in current_user.guilds().unwrap() {
         let name_id = guild.id.0.to_string();
         let buffer = if let Some(buffer) = Buffer::search(&name_id) {
@@ -57,6 +59,7 @@ fn create_buffers(current_user: &CurrentUser) {
             buffer.set("short_name", &short_name);
             buffer.set("localvar_set_channelid", &name_id);
             buffer.set("localvar_set_type", channel_type);
+            buffer.set("localvar_set_nick", &nick);
             let title = if let Some(ref topic) = channel.topic {
                 if !topic.is_empty() {
                     format!("{} | {}", channel.name, topic)
@@ -104,7 +107,8 @@ pub struct DiscordClient {
 
 impl DiscordClient {
     pub fn start(token: &str) -> Result<DiscordClient, ()> {
-        let handler = event_handler::Handler;
+        let (tx, rx) = mpsc::channel();
+        let handler = event_handler::Handler(Arc::new(Mutex::new(tx)));
 
         let mut client = match Client::new(token, handler) {
             Ok(client) => client,
@@ -116,6 +120,7 @@ impl DiscordClient {
             client.start_shards(1).unwrap();
         });
 
+        rx.recv().unwrap();
         Ok(DiscordClient { shard_manager })
     }
 

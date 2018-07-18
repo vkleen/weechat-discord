@@ -5,9 +5,16 @@ use serenity::prelude::*;
 
 use super::formatting;
 
-pub struct Handler;
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
+
+pub struct Handler(pub Arc<Mutex<Sender<()>>>);
 
 impl EventHandler for Handler {
+    fn ready(&self, _: Context, _: Ready) {
+        self.0.lock().send(()).unwrap();
+    }
+
     // Called when a message is received
     fn message(&self, _: Context, msg: Message) {
         let string_channel = msg.channel_id.0.to_string();

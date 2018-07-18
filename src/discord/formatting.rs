@@ -1,6 +1,50 @@
 use ffi::color_codes;
 use parsing::{self, Style};
 
+use ffi::Buffer;
+use serenity::model::prelude::*;
+use serenity::CACHE;
+
+pub fn display_msg(buffer: &Buffer, msg: &Message, notify: bool) {
+    let is_private = if let Some(channel) = msg.channel() {
+        if let Channel::Private(_) = channel {
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    let self_mentioned = msg.mentions_user_id(CACHE.read().user.id);
+
+    let tags = {
+        let mut tags = Vec::new();
+        if notify {
+            if self_mentioned {
+                tags.push("notify_highlight");
+            } else if is_private {
+                tags.push("notify_private");
+            } else {
+                tags.push("notify_message");
+            };
+        } else {
+            tags.push("notify_none");
+        }
+
+        tags.join(",")
+    };
+
+    buffer.print_tags(
+        &tags,
+        &format!(
+            "{}\t{}",
+            msg.author.name,
+            discord_to_weechat(&msg.content_safe())
+        ),
+    );
+}
+
 pub fn discord_to_weechat(msg: &str) -> String {
     let ast = parsing::parse_msg(msg).unwrap_or_else(|| Vec::new());
     let mut result = String::new();

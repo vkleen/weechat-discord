@@ -34,7 +34,7 @@ fn create_buffers(current_user: &CurrentUser) {
         buffer.set("localvar_set_type", "server");
         for channel in guild.id.channels().unwrap().values() {
             if let Ok(perms) = channel.permissions_for(current_user.id) {
-                if !perms.send_messages() {
+                if !perms.send_messages() || !perms.read_message_history() {
                     continue;
                 }
             }
@@ -67,6 +67,18 @@ fn create_buffers(current_user: &CurrentUser) {
                 channel.name.clone()
             };
             buffer.set("title", &title);
+
+            // Load history
+            use serenity::builder::GetMessages;
+
+            let retriever = GetMessages::default().limit(25);
+
+            if let Ok(msgs) = channel.messages(|_| retriever) {
+                for msg in msgs.iter().rev().cloned() {
+                    // buffer.print_tags("notify_none", &msg.content);
+                    formatting::display_msg(&buffer, &msg, false);
+                }
+            }
         }
     }
 }
@@ -92,7 +104,7 @@ pub struct DiscordClient {
 
 impl DiscordClient {
     pub fn start(token: &str) -> Result<DiscordClient, ()> {
-        let handler = event_handler::Handler();
+        let handler = event_handler::Handler;
 
         let mut client = match Client::new(token, handler) {
             Ok(client) => client,

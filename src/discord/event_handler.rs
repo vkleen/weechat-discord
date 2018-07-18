@@ -11,7 +11,7 @@ impl EventHandler for Handler {
         let string_channel = msg.channel_id.0.to_string();
 
         if let Some(buffer) = Buffer::search(&string_channel) {
-            buffer.print(&msg.content);
+            buffer.print_tags("", &format!("{}\t{}", msg.author.name, msg.content_safe()));
         }
     }
 

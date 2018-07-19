@@ -35,14 +35,19 @@ pub fn display_msg(buffer: &Buffer, msg: &Message, notify: bool) {
         tags.join(",")
     };
 
+    let mut msg_content = msg.content_safe();
+
+    for attachement in &msg.attachments {
+        if !msg_content.is_empty() {
+            msg_content.push('\n');
+        }
+        msg_content.push_str(&attachement.proxy_url);
+    }
+
     buffer.print_tags_dated(
         msg.timestamp.timestamp() as i32,
         &tags,
-        &format!(
-            "{}\t{}",
-            msg.author.name,
-            discord_to_weechat(&msg.content_safe())
-        ),
+        &format!("{}\t{}", msg.author.name, discord_to_weechat(&msg_content)),
     );
 }
 

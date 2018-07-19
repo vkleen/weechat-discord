@@ -16,11 +16,9 @@ WEECHAT_PLUGIN_LICENSE("MIT");
 
 static struct t_weechat_plugin* weechat_plugin;
 
-
 struct t_weechat_plugin* get_plugin() {
     return weechat_plugin;
 }
-
 
 int weechat_plugin_init(struct t_weechat_plugin* plugin, int argc,
                         char* argv[]) {
@@ -126,9 +124,22 @@ int wdc_nicklist_nick_exists(struct t_gui_buffer* buffer, const char* nick) {
     return gnick != NULL;
 }
 
+void wdc_nicklist_add_group(struct t_gui_buffer* buffer, const char* name) {
+    (void)weechat_nicklist_add_group(buffer, NULL, name,
+                                     "weechat.color.nicklist_group", 1);
+}
+
 void wdc_nicklist_add_nick(struct t_gui_buffer* buffer, const char* nick) {
     const char* color = weechat_info_get("nick_color", nick);
     (void)weechat_nicklist_add_nick(buffer, NULL, nick, color, "", "", 1);
+}
+
+void wdc_nicklist_add_nick_to_group(struct t_gui_buffer* buffer,
+                                    const char* group, const char* nick) {
+    struct t_gui_nick_group* ptr_group =
+        weechat_nicklist_search_group(buffer, NULL, group);
+    const char* color = weechat_info_get("nick_color", nick);
+    (void)weechat_nicklist_add_nick(buffer, ptr_group, nick, color, "", "", 1);
 }
 
 void wdc_nicklist_remove_nick(struct t_gui_buffer* buffer, const char* nick) {

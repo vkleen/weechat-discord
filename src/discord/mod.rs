@@ -127,7 +127,20 @@ pub fn load_nicks(buffer: &Buffer) {
                 {
                     continue;
                 } else {
-                    buffer.add_nick(member.display_name().as_ref());
+                    if let Some((role, pos)) = member.highest_role_info() {
+                        if let Some(role) = role.find() {
+                            buffer.add_nicklist_group(&format!(
+                                "{}|{}",
+                                ::std::i64::MAX - pos,
+                                role.name
+                            ));
+                            buffer.add_nick_to_group(member.display_name().as_ref(), &role.name)
+                        } else {
+                            buffer.add_nick(member.display_name().as_ref());
+                        }
+                    } else {
+                        buffer.add_nick(member.display_name().as_ref());
+                    }
                 }
             }
         }

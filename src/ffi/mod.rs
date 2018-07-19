@@ -326,6 +326,31 @@ impl Buffer {
         }
     }
 
+    pub fn add_nicklist_group(&self, name: &str) {
+        extern "C" {
+            fn wdc_nicklist_add_group(buffer: *const c_void, name: *const c_char);
+        }
+        unsafe {
+            let name = CString::new(name).unwrap();
+            wdc_nicklist_add_group(self.ptr, name.as_ptr());
+        }
+    }
+
+    pub fn add_nick_to_group(&self, nick: &str, group: &str) {
+        extern "C" {
+            fn wdc_nicklist_add_nick_to_group(
+                buffer: *const c_void,
+                group: *const c_char,
+                nick: *const c_char,
+            );
+        }
+        unsafe {
+            let nick = CString::new(nick).unwrap();
+            let group = CString::new(group).unwrap();
+            wdc_nicklist_add_nick_to_group(self.ptr, group.as_ptr(), nick.as_ptr());
+        }
+    }
+
     pub fn remove_nick(&self, nick: &str) {
         extern "C" {
             fn wdc_nicklist_remove_nick(buffer: *const c_void, nick: *const c_char);

@@ -8,6 +8,7 @@ mod discord;
 mod ffi;
 
 use ffi::*;
+use std::ptr;
 
 pub use ffi::wdr_end;
 pub use ffi::wdr_init;
@@ -59,8 +60,8 @@ Example:
 }
 
 // *DO NOT* touch this outside of init/end
-static mut MAIN_COMMAND_HOOK: *mut HookCommand = 0 as *mut _;
-static mut MAIN_COMMAND_HOOK2: *mut SignalHook = 0 as *mut _;
+static mut MAIN_COMMAND_HOOK: *mut HookCommand = ptr::null_mut();
+static mut MAIN_COMMAND_HOOK2: *mut SignalHook = ptr::null_mut();
 
 fn handle_buffer_switch(data: SignalHookData) {
     match data {
@@ -104,7 +105,9 @@ pub fn init() -> Option<()> {
 pub fn end() -> Option<()> {
     unsafe {
         let _ = Box::from_raw(MAIN_COMMAND_HOOK);
-        MAIN_COMMAND_HOOK = ::std::ptr::null_mut();
+        MAIN_COMMAND_HOOK = ptr::null_mut();
+        let _ = Box::from_raw(MAIN_COMMAND_HOOK2);
+        MAIN_COMMAND_HOOK2 = ptr::null_mut();
     };
     Some(())
 }

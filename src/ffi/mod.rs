@@ -1,6 +1,7 @@
 use libc::*;
 use std::ffi::*;
 use std::panic::*;
+use std::ptr;
 
 #[macro_use]
 mod macros;
@@ -11,7 +12,7 @@ pub struct Buffer {
 }
 
 pub const MAIN_BUFFER: Buffer = Buffer {
-    ptr: 0 as *mut c_void,
+    ptr: ptr::null_mut(),
 };
 
 /*

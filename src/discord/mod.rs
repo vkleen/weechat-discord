@@ -41,7 +41,11 @@ fn create_buffers(current_user: &CurrentUser) {
         } else {
             format!("@{}", current_user.name)
         };
-        for channel in guild.id.channels().unwrap().values() {
+
+        let channels = guild.id.channels().unwrap();
+        let mut channels = channels.values().collect::<Vec<_>>();
+        channels.sort_by_key(|g| g.position);
+        for channel in channels {
             if let Ok(perms) = channel.permissions_for(current_user.id) {
                 if !perms.send_messages() || !perms.read_message_history() {
                     continue;

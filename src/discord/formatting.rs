@@ -5,7 +5,9 @@ use ffi::Buffer;
 use serenity::model::prelude::*;
 use serenity::CACHE;
 
+// TODO: Rework args
 pub fn display_msg(buffer: &Buffer, msg: &Message, notify: bool) {
+    let cache_lock = CACHE.read();
     let is_private = if let Some(channel) = msg.channel() {
         if let Channel::Private(_) = channel {
             true
@@ -16,7 +18,7 @@ pub fn display_msg(buffer: &Buffer, msg: &Message, notify: bool) {
         false
     };
 
-    let self_mentioned = msg.mentions_user_id(CACHE.read().user.id);
+    let self_mentioned = msg.mentions_user_id(cache_lock.user.id);
 
     let tags = {
         let mut tags = Vec::new();
@@ -44,10 +46,20 @@ pub fn display_msg(buffer: &Buffer, msg: &Message, notify: bool) {
         msg_content.push_str(&attachement.proxy_url);
     }
 
+    let display_name = buffer.get("localvar_guildid").and_then(|id| {
+        id.parse::<u64>().ok().map(|id| GuildId(id)).and_then(|id| {
+            cache_lock
+                .member(id, msg.author.id)
+                .map(|member| member.display_name().to_string())
+        })
+    });
+
+    let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
+
     buffer.print_tags_dated(
         msg.timestamp.timestamp() as i32,
         &tags,
-        &format!("{}\t{}", msg.author.name, discord_to_weechat(&msg_content)),
+        &format!("{}\t{}", author, discord_to_weechat(&msg_content)),
     );
 }
 

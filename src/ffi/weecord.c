@@ -16,6 +16,12 @@ WEECHAT_PLUGIN_LICENSE("MIT");
 
 static struct t_weechat_plugin* weechat_plugin;
 
+
+struct t_weechat_plugin* get_plugin() {
+    return weechat_plugin;
+}
+
+
 int weechat_plugin_init(struct t_weechat_plugin* plugin, int argc,
                         char* argv[]) {
     (void)argc;
@@ -168,6 +174,15 @@ void* wdc_hook_completion(const char* completion_item, const char* description,
 void wdc_hook_completion_add(void* t_gui_completion, const char* word) {
     weechat_hook_completion_list_add((struct t_gui_completion*)t_gui_completion,
                                      word, 0, WEECHAT_LIST_POS_SORT);
+}
+
+struct t_hook* wdc_hook_signal(const char* signal,
+                               int (*callback)(const void* pointer, void* data,
+                                               const char* signal,
+                                               const char* type_data,
+                                               void* signal_data),
+                               const void* callback_pointer) {
+    return weechat_hook_signal(signal, callback, callback_pointer, NULL);
 }
 
 char* wdc_string_remove_color(const char* str) {

@@ -1,11 +1,12 @@
 use ffi::{self, Buffer};
 
 mod event_handler;
-mod formatting;
+pub mod formatting;
 
 use std::sync::mpsc;
 use std::thread;
 
+use serenity::builder::GetMessages;
 use serenity::client::bridge::gateway::ShardManager;
 use serenity::model::prelude::*;
 use serenity::prelude::Mutex;
@@ -68,16 +69,26 @@ fn create_buffers(current_user: &CurrentUser) {
                 channel.name.clone()
             };
             buffer.set("title", &title);
+        }
+    }
+}
 
-            // Load history
-            use serenity::builder::GetMessages;
+pub fn load_history(buffer: &Buffer) {
+    if let Some(channel) = buffer.get("localvar_channelid") {
+        if let Some(_) = buffer.get("localvar_loaded_history") {
+            return;
+        }
+        buffer.set("localvar_set_loaded_history", "true");
+        let channel = match channel.parse::<u64>() {
+            Ok(v) => ChannelId(v),
+            Err(_) => return,
+        };
 
-            let retriever = GetMessages::default().limit(25);
+        let retriever = GetMessages::default().limit(25);
 
-            if let Ok(msgs) = channel.messages(|_| retriever) {
-                for msg in msgs.iter().rev().cloned() {
-                    formatting::display_msg(&buffer, &msg, false);
-                }
+        if let Ok(msgs) = channel.messages(|_| retriever) {
+            for msg in msgs.iter().rev().cloned() {
+                formatting::display_msg(&buffer, &msg, false);
             }
         }
     }

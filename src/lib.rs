@@ -60,6 +60,14 @@ Example:
 
 // *DO NOT* touch this outside of init/end
 static mut MAIN_COMMAND_HOOK: *mut HookCommand = 0 as *mut _;
+static mut MAIN_COMMAND_HOOK2: *mut SignalHook = 0 as *mut _;
+
+fn handle_buffer_switch(data: SignalHookData) {
+    match data {
+        SignalHookData::Pointer(buffer) => discord::load_history(&buffer),
+        _ => {}
+    }
+}
 
 // Called when plugin is loaded in Weechat
 pub fn init() -> Option<()> {
@@ -71,6 +79,10 @@ pub fn init() -> Option<()> {
         weechat::COMPLETIONS,
         move |buffer, input| run_command(&buffer, input),
     )?;
+
+    ffi::hook_signal("buffer_switch", handle_buffer_switch)
+        .map(|hook| unsafe { MAIN_COMMAND_HOOK2 = Box::into_raw(Box::new(hook)) });
+
     unsafe {
         MAIN_COMMAND_HOOK = Box::into_raw(Box::new(hook));
     };

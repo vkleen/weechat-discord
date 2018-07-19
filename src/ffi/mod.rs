@@ -5,7 +5,7 @@ use std::panic::*;
 #[macro_use]
 mod macros;
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash, Debug)]
 pub struct Buffer {
     ptr: *mut c_void,
 }
@@ -163,6 +163,10 @@ pub fn really_bad(message: String) -> ! {
 }
 
 impl Buffer {
+    pub fn from_ptr(ptr: *mut c_void) -> Buffer {
+        Buffer { ptr }
+    }
+
     pub fn new(name: &str, on_input: fn(Buffer, &str)) -> Option<Buffer> {
         extern "C" {
             fn wdc_buffer_new(
@@ -663,6 +667,95 @@ pub fn color_codes(color_name: &str) -> String {
         let result_c = wdc_color(string_c.as_ptr());
         let result = CStr::from_ptr(result_c).to_str().unwrap().into();
         result
+    }
+}
+
+#[derive(Debug)]
+pub enum SignalHookData {
+    String(String),
+    Integer(i32),
+    Pointer(Buffer),
+}
+
+impl SignalHookData {
+    pub fn from_value_data(data_type: &str, data: *mut c_void) -> Option<SignalHookData> {
+        match data_type {
+            "string" => {
+                if let Ok(str) = unsafe { CStr::from_ptr(data as *const c_char).to_str() } {
+                    Some(SignalHookData::String(str.to_owned()))
+                } else {
+                    None
+                }
+            }
+            "integer" => {
+                let data = data as *const c_int;
+                if data.is_null() {
+                    None
+                } else {
+                    unsafe { Some(SignalHookData::Integer(*(data))) }
+                }
+            }
+            "pointer" => Some(SignalHookData::Pointer(Buffer::from_ptr(data))),
+            _ => None,
+        }
+    }
+}
+
+pub struct SignalHook {
+    _custom_callback: Box<Box<FnMut(SignalHookData)>>,
+    _hook: *mut c_void,
+}
+
+pub fn hook_signal<F: FnMut(SignalHookData) + 'static>(
+    signal: &str,
+    func: F,
+) -> Option<SignalHook> {
+    type CB = FnMut(SignalHookData);
+    extern "C" {
+        fn wdc_hook_signal(
+            signal: *const c_char,
+            callback: extern "C" fn(
+                *const c_void,
+                *mut c_void,
+                *const c_char,
+                *const c_char,
+                *mut c_void,
+            ) -> c_int,
+            pointer: *const c_void,
+        ) -> *mut c_void;
+    }
+    extern "C" fn cb(
+        pointer: *const c_void,
+        _data: *mut c_void,
+        _signal: *const c_char,
+        type_data: *const c_char,
+        signal_data: *mut c_void,
+    ) -> c_int {
+        let type_str = unsafe { CStr::from_ptr(type_data) };
+        let type_str = match type_str.to_str() {
+            Ok(s) => s,
+            Err(_) => return 1,
+        };
+
+        if let Some(typed_data) = SignalHookData::from_value_data(type_str, signal_data) {
+            let pointer = pointer as *mut Box<CB>;
+            (unsafe { &mut **pointer })(typed_data);
+        };
+        0
+    }
+
+    let ptr = CString::new(signal).ok()?;
+    let _custom_callback: Box<Box<CB>> = Box::new(Box::new(func));
+    let pointer = &*_custom_callback as *const _ as *const c_void;
+    let _hook = unsafe { wdc_hook_signal(ptr.as_ptr(), cb, pointer) };
+
+    if _hook.is_null() {
+        None
+    } else {
+        Some(SignalHook {
+            _hook,
+            _custom_callback,
+        })
     }
 }
 

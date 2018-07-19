@@ -26,7 +26,6 @@ pub fn init(token: &str) -> DiscordClient {
 
 fn create_buffers(current_user: &CurrentUser) {
     // TODO: Use guild nick
-    let nick = format!("@{}", current_user.name);
     for guild in current_user.guilds().unwrap() {
         let guild_name_id = guild.id.0.to_string();
         let buffer = if let Some(buffer) = Buffer::search(&guild_name_id) {
@@ -36,6 +35,12 @@ fn create_buffers(current_user: &CurrentUser) {
         };
         buffer.set("short_name", &guild.name);
         buffer.set("localvar_set_type", "server");
+
+        let nick = if let Ok(current_member) = guild.id.member(current_user.id) {
+            format!("@{}", current_member.display_name())
+        } else {
+            format!("@{}", current_user.name)
+        };
         for channel in guild.id.channels().unwrap().values() {
             if let Ok(perms) = channel.permissions_for(current_user.id) {
                 if !perms.send_messages() || !perms.read_message_history() {
@@ -119,8 +124,9 @@ pub fn load_nicks(buffer: &Buffer) {
 
             let guild_lock = guild.read();
 
-            let members = &guild_lock.members;
-            for (user_id, member) in members {
+            let none_user: Option<UserId> = None;
+            for member in guild_lock.members(None, none_user).unwrap() {
+                let user_id = member.user.read().id;
                 let member_perms = guild_lock.permissions_in(channel_id, user_id);
                 if !member_perms.send_messages()
                     || !member_perms.read_message_history()

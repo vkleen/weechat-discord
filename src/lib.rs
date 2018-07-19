@@ -64,7 +64,10 @@ static mut MAIN_COMMAND_HOOK2: *mut SignalHook = 0 as *mut _;
 
 fn handle_buffer_switch(data: SignalHookData) {
     match data {
-        SignalHookData::Pointer(buffer) => discord::load_history(&buffer),
+        SignalHookData::Pointer(buffer) => {
+            discord::load_history(&buffer);
+            discord::load_nicks(&buffer)
+        }
         _ => {}
     }
 }

@@ -27,11 +27,11 @@ pub fn init(token: &str) -> DiscordClient {
 fn create_buffers(current_user: &CurrentUser) {
     let nick = format!("@{}", current_user.name);
     for guild in current_user.guilds().unwrap() {
-        let name_id = guild.id.0.to_string();
-        let buffer = if let Some(buffer) = Buffer::search(&name_id) {
+        let guild_name_id = guild.id.0.to_string();
+        let buffer = if let Some(buffer) = Buffer::search(&guild_name_id) {
             buffer
         } else {
-            Buffer::new(&name_id, |_, _| {}).unwrap()
+            Buffer::new(&guild_name_id, |_, _| {}).unwrap()
         };
         buffer.set("short_name", &guild.name);
         buffer.set("localvar_set_type", "server");
@@ -57,6 +57,7 @@ fn create_buffers(current_user: &CurrentUser) {
 
             buffer.set("short_name", &channel.name);
             buffer.set("localvar_set_channelid", &name_id);
+            buffer.set("localvar_set_guildid", &guild_name_id);
             buffer.set("localvar_set_type", channel_type);
             buffer.set("localvar_set_nick", &nick);
             let title = if let Some(ref topic) = channel.topic {
@@ -89,6 +90,45 @@ pub fn load_history(buffer: &Buffer) {
         if let Ok(msgs) = channel.messages(|_| retriever) {
             for msg in msgs.iter().rev().cloned() {
                 formatting::display_msg(&buffer, &msg, false);
+            }
+        }
+    }
+}
+
+pub fn load_nicks(buffer: &Buffer) {
+    if let Some(guild_id) = buffer.get("localvar_guildid") {
+        if let Some(channel_id) = buffer.get("localvar_channelid") {
+            if let Some(_) = buffer.get("localvar_loaded_nicks") {
+                return;
+            }
+            buffer.set("localvar_set_loaded_nicks", "true");
+            buffer.set("nicklist", "1");
+
+            let guild_id = match guild_id.parse::<u64>() {
+                Ok(v) => GuildId(v),
+                Err(_) => return,
+            };
+
+            let channel_id = match channel_id.parse::<u64>() {
+                Ok(v) => ChannelId(v),
+                Err(_) => return,
+            };
+
+            let guild = guild_id.find().expect("No cache item");
+
+            let guild_lock = guild.read();
+
+            let members = &guild_lock.members;
+            for (user_id, member) in members {
+                let member_perms = guild_lock.permissions_in(channel_id, user_id);
+                if !member_perms.send_messages()
+                    || !member_perms.read_message_history()
+                    || !member_perms.read_messages()
+                {
+                    continue;
+                } else {
+                    buffer.add_nick(member.display_name().as_ref());
+                }
             }
         }
     }

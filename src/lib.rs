@@ -61,7 +61,7 @@ Example:
 
 // *DO NOT* touch this outside of init/end
 static mut MAIN_COMMAND_HOOK: *mut HookCommand = ptr::null_mut();
-static mut MAIN_COMMAND_HOOK2: *mut SignalHook = ptr::null_mut();
+static mut BUFFER_SWITCH_CB: *mut SignalHook = ptr::null_mut();
 
 fn handle_buffer_switch(data: SignalHookData) {
     match data {
@@ -84,11 +84,11 @@ pub fn init() -> Option<()> {
         move |buffer, input| run_command(&buffer, input),
     )?;
 
-    ffi::hook_signal("buffer_switch", handle_buffer_switch)
-        .map(|hook| unsafe { MAIN_COMMAND_HOOK2 = Box::into_raw(Box::new(hook)) });
+    let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
 
     unsafe {
         MAIN_COMMAND_HOOK = Box::into_raw(Box::new(hook));
+        BUFFER_SWITCH_CB = Box::into_raw(Box::new(buffer_switch_hook));
     };
 
     if let Some(autostart) = get_option("autostart") {
@@ -106,8 +106,8 @@ pub fn end() -> Option<()> {
     unsafe {
         let _ = Box::from_raw(MAIN_COMMAND_HOOK);
         MAIN_COMMAND_HOOK = ptr::null_mut();
-        let _ = Box::from_raw(MAIN_COMMAND_HOOK2);
-        MAIN_COMMAND_HOOK2 = ptr::null_mut();
+        let _ = Box::from_raw(BUFFER_SWITCH_CB);
+        BUFFER_SWITCH_CB = ptr::null_mut();
     };
     Some(())
 }

@@ -47,7 +47,7 @@ fn create_buffers(current_user: &CurrentUser) {
         channels.sort_by_key(|g| g.position);
         for channel in channels {
             if let Ok(perms) = channel.permissions_for(current_user.id) {
-                if !perms.send_messages() || !perms.read_message_history() {
+                if !perms.read_message_history() {
                     continue;
                 }
             }

@@ -25,7 +25,6 @@ pub fn init(token: &str) -> DiscordClient {
 }
 
 fn create_buffers(current_user: &CurrentUser) {
-    // TODO: Use guild nick
     for guild in current_user.guilds().unwrap() {
         let guild_name_id = guild.id.0.to_string();
         let buffer = if let Some(buffer) = Buffer::search(&guild_name_id) {

@@ -1,4 +1,4 @@
-use ffi::{self, Buffer};
+use ffi::{self, Buffer, MAIN_BUFFER};
 
 mod event_handler;
 pub mod formatting;
@@ -15,11 +15,16 @@ use serenity::{Client, CACHE};
 use std::sync::Arc;
 
 pub fn init(token: &str) -> DiscordClient {
-    let discord_client = DiscordClient::start(token).unwrap();
+    MAIN_BUFFER.print("Connecting to Discord...");
+    let (discord_client, rx) = DiscordClient::start(token).unwrap();
 
-    let current_user = CACHE.read().user.clone();
+    thread::spawn(move || {
+        rx.recv().unwrap();
+        MAIN_BUFFER.print("Connected to Discord!");
+        let current_user = CACHE.read().user.clone();
 
-    create_buffers(&current_user);
+        create_buffers(&current_user);
+    });
 
     discord_client
 }
@@ -177,7 +182,7 @@ pub struct DiscordClient {
 }
 
 impl DiscordClient {
-    pub fn start(token: &str) -> Result<DiscordClient, ()> {
+    pub fn start(token: &str) -> Result<(DiscordClient, mpsc::Receiver<()>), ()> {
         let (tx, rx) = mpsc::channel();
         let handler = event_handler::Handler(Arc::new(Mutex::new(tx)));
 
@@ -190,9 +195,7 @@ impl DiscordClient {
         thread::spawn(move || {
             client.start_shards(1).unwrap();
         });
-
-        rx.recv().unwrap();
-        Ok(DiscordClient { shard_manager })
+        Ok((DiscordClient { shard_manager }, rx))
     }
 
     pub fn shutdown(&self) {

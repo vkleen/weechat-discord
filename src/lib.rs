@@ -15,6 +15,7 @@ pub use ffi::wdr_init;
 
 use serenity::prelude::Mutex;
 use std::sync::Arc;
+use std::thread;
 
 lazy_static! {
     static ref DISCORD: Arc<Mutex<Option<discord::DiscordClient>>> = Arc::new(Mutex::new(None));
@@ -66,8 +67,10 @@ static mut BUFFER_SWITCH_CB: *mut SignalHook = ptr::null_mut();
 fn handle_buffer_switch(data: SignalHookData) {
     match data {
         SignalHookData::Pointer(buffer) => {
-            discord::load_history(&buffer);
-            discord::load_nicks(&buffer)
+            thread::spawn(move || {
+                discord::load_history(&buffer);
+                discord::load_nicks(&buffer)
+            });
         }
         _ => {}
     }

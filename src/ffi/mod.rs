@@ -11,6 +11,8 @@ pub struct Buffer {
     ptr: *mut c_void,
 }
 
+unsafe impl Send for Buffer {}
+
 pub const MAIN_BUFFER: Buffer = Buffer {
     ptr: ptr::null_mut(),
 };

@@ -6,6 +6,7 @@ use serenity::model::prelude::*;
 use serenity::CACHE;
 
 // TODO: Rework args
+// TODO: Color things
 pub fn display_msg(buffer: &Buffer, msg: &Message, notify: bool) {
     let cache_lock = CACHE.read();
     let is_private = if let Some(channel) = msg.channel() {
@@ -44,6 +45,33 @@ pub fn display_msg(buffer: &Buffer, msg: &Message, notify: bool) {
             msg_content.push('\n');
         }
         msg_content.push_str(&attachement.proxy_url);
+    }
+
+    for embed in &msg.embeds {
+        if !msg_content.is_empty() {
+            msg_content.push('\n');
+        }
+        if let Some(ref author) = embed.author {
+            msg_content.push_str(&author.name);
+            msg_content.push('\n');
+        }
+        if let Some(ref title) = embed.title {
+            msg_content.push_str(title);
+            msg_content.push('\n');
+        }
+        if let Some(ref description) = embed.description {
+            msg_content.push_str(description);
+            msg_content.push('\n');
+        }
+        for field in &embed.fields {
+            msg_content.push_str(&field.name);
+            msg_content.push_str(&field.value);
+            msg_content.push('\n');
+        }
+        if let Some(ref footer) = embed.footer {
+            msg_content.push_str(&footer.text);
+            msg_content.push('\n');
+        }
     }
 
     let display_name = buffer.get("localvar_guildid").and_then(|id| {

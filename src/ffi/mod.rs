@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use libc::*;
 use std::ffi::*;
 use std::panic::*;

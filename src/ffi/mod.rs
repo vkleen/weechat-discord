@@ -308,6 +308,15 @@ impl Buffer {
         }
     }
 
+    pub fn clear(&self) {
+        extern "C" {
+            fn wdc_buffer_clear(buffer: *mut c_void);
+        }
+        unsafe {
+            wdc_buffer_clear(self.ptr);
+        }
+    }
+
     /*
     pub fn nick_exists(&self, nick: &str) -> bool {
         extern "C" {

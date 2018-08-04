@@ -93,6 +93,7 @@ pub fn load_history(buffer: &Buffer) {
         if let Some(_) = buffer.get("localvar_loaded_history") {
             return;
         }
+        buffer.clear();
         buffer.set("localvar_set_loaded_history", "true");
         let channel = match channel.parse::<u64>() {
             Ok(v) => ChannelId(v),

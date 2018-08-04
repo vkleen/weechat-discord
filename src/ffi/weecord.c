@@ -98,6 +98,10 @@ void wdc_buffer_set(struct t_gui_buffer* buffer, const char* property,
     weechat_buffer_set(buffer, property, value);
 }
 
+void wdc_buffer_clear(struct t_gui_buffer* buffer) {
+    weechat_buffer_clear(buffer);
+}
+
 const char* wdc_buffer_get(struct t_gui_buffer* buffer, const char* property) {
     return weechat_buffer_get_string(buffer, property);
 }

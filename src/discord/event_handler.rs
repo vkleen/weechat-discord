@@ -1,18 +1,21 @@
 use ffi::Buffer;
+use printing;
 
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 
-use super::formatting;
-
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
-pub struct Handler(pub Arc<Mutex<Sender<()>>>);
+pub enum WeecordEvent {
+    Ready,
+}
+
+pub struct Handler(pub Arc<Mutex<Sender<WeecordEvent>>>);
 
 impl EventHandler for Handler {
     fn ready(&self, _: Context, _: Ready) {
-        self.0.lock().send(()).unwrap();
+        self.0.lock().send(WeecordEvent::Ready).unwrap();
     }
 
     // Called when a message is received
@@ -21,9 +24,9 @@ impl EventHandler for Handler {
 
         if let Some(buffer) = Buffer::search(&string_channel) {
             if msg.is_own() {
-                formatting::display_msg(&buffer, &msg, false);
+                printing::print_msg(&buffer, &msg, false);
             } else {
-                formatting::display_msg(&buffer, &msg, true);
+                printing::print_msg(&buffer, &msg, true);
             }
         }
     }
@@ -36,5 +39,6 @@ impl EventHandler for Handler {
 
     // fn channel_update(&self, _: Context, _: Option<Channel>, _: Channel) {}
 
+    // TODO: Why are we not getting these events
     // fn typing_start(&self, _: Context, event: TypingStartEvent) {}
 }

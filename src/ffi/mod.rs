@@ -158,11 +158,7 @@ impl HDataGetResult for i32 {
 }
 
 pub fn really_bad(message: String) -> ! {
-    MAIN_BUFFER.print(&format!(
-        "{}: Internal error - {}",
-        ::weechat::COMMAND,
-        message
-    ));
+    ::plugin_print(&format!("Internal error - {}", message));
     panic!(message); // hopefully we hit a catch_unwind
 }
 
@@ -416,13 +412,8 @@ fn wrap_panic<R, F: FnOnce() -> R + UnwindSafe>(f: F) -> Option<R> {
                 Some(msg) => msg,
                 None => "unknown error",
             };
-            let result = catch_unwind(|| {
-                MAIN_BUFFER.print(&format!(
-                    "{}: Fatal error (caught) - {}",
-                    ::weechat::COMMAND,
-                    msg
-                ))
-            });
+            let result =
+                catch_unwind(|| ::plugin_print(&format!("Fatal error (caught) - {}", msg)));
             let _ = result; // eat error without logging :(
             None
         }

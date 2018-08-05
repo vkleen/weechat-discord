@@ -1,8 +1,9 @@
 use ffi::Buffer;
-use printing;
+use {buffers, printing};
 
 use serenity::model::prelude::*;
 use serenity::prelude::*;
+use serenity::CACHE;
 
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -21,12 +22,37 @@ impl EventHandler for Handler {
     // Called when a message is received
     fn message(&self, _: Context, msg: Message) {
         let string_channel = msg.channel_id.0.to_string();
-
         if let Some(buffer) = Buffer::search(&string_channel) {
             if msg.is_own() {
                 printing::print_msg(&buffer, &msg, false);
             } else {
                 printing::print_msg(&buffer, &msg, true);
+            }
+        } else {
+            match msg.channel_id.get() {
+                chan @ Ok(Channel::Private(_)) => {
+                    if let Some(buffer) = Buffer::search(&string_channel) {
+                        if msg.is_own() {
+                            printing::print_msg(&buffer, &msg, false);
+                        } else {
+                            printing::print_msg(&buffer, &msg, true);
+                        }
+                    } else {
+                        buffers::create_buffer_from_dm(chan.unwrap(), &CACHE.read().user.name);
+                    }
+                }
+                chan @ Ok(Channel::Group(_)) => {
+                    if let Some(buffer) = Buffer::search(&string_channel) {
+                        if msg.is_own() {
+                            printing::print_msg(&buffer, &msg, false);
+                        } else {
+                            printing::print_msg(&buffer, &msg, true);
+                        }
+                    } else {
+                        buffers::create_buffer_from_group(chan.unwrap(), &CACHE.read().user.name);
+                    }
+                }
+                _ => {}
             }
         }
     }

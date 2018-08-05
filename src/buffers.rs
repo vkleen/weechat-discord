@@ -76,6 +76,57 @@ fn create_buffer_from_channel(channel: &GuildChannel, nick: &str) {
     buffer.set("title", &title);
 }
 
+// TODO: Reduce code duplication
+pub fn create_buffer_from_dm(channel: Channel, nick: &str) {
+    let channel = match channel.private() {
+        Some(chan) => chan,
+        None => return,
+    };
+    let channel = channel.read();
+
+    let name_id = channel.id.0.to_string();
+    let buffer = if let Some(buffer) = Buffer::search(&name_id) {
+        buffer
+    } else {
+        Buffer::new(&name_id, ::hook::buffer_input).unwrap()
+    };
+
+    buffer.set("short_name", &channel.name());
+    buffer.set("localvar_set_channelid", &name_id);
+    buffer.set("localvar_set_nick", &nick);
+    let title = format!("DM with {}", channel.recipient.read().name);
+    buffer.set("title", &title);
+}
+
+pub fn create_buffer_from_group(channel: Channel, nick: &str) {
+    let channel = match channel.group() {
+        Some(chan) => chan,
+        None => return,
+    };
+    let channel = channel.read();
+
+    let name_id = channel.channel_id.0.to_string();
+    let buffer = if let Some(buffer) = Buffer::search(&name_id) {
+        buffer
+    } else {
+        Buffer::new(&name_id, ::hook::buffer_input).unwrap()
+    };
+
+    buffer.set("short_name", &channel.name());
+    buffer.set("localvar_set_channelid", &name_id);
+    buffer.set("localvar_set_nick", &nick);
+    let title = format!(
+        "DM with {}",
+        channel
+            .recipients
+            .values()
+            .map(|u| u.read().name.to_owned())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    buffer.set("title", &title);
+}
+
 // TODO: Make this nicer somehow
 pub fn load_nicks(buffer: &Buffer) {
     if let Some(guild_id) = buffer.get("localvar_guildid") {

@@ -313,6 +313,16 @@ impl Buffer {
         }
     }
 
+    pub fn group_exists(&self, group: &str) -> bool {
+        extern "C" {
+            fn wdc_nicklist_group_exists(buffer: *const c_void, group: *const c_char) -> c_int;
+        }
+        unsafe {
+            let group = CString::new(group).unwrap();
+            wdc_nicklist_group_exists(self.ptr, group.as_ptr()) != 0
+        }
+    }
+
     /*
     pub fn nick_exists(&self, nick: &str) -> bool {
         extern "C" {

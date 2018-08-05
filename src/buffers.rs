@@ -113,11 +113,10 @@ pub fn load_nicks(buffer: &Buffer) {
                 } else {
                     if let Some((role, pos)) = member.highest_role_info() {
                         if let Some(role) = role.find() {
-                            buffer.add_nicklist_group(&format!(
-                                "{}|{}",
-                                ::std::i64::MAX - pos,
-                                role.name
-                            ));
+                            let role_name = &format!("{}|{}", ::std::i64::MAX - pos, role.name);
+                            if !buffer.group_exists(role_name) {
+                                buffer.add_nicklist_group(role_name);
+                            }
                             buffer.add_nick_to_group(member.display_name().as_ref(), &role.name)
                         } else {
                             buffer.add_nick(member.display_name().as_ref());

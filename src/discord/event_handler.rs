@@ -16,7 +16,7 @@ pub struct Handler(pub Arc<Mutex<Sender<WeecordEvent>>>);
 
 impl EventHandler for Handler {
     fn ready(&self, _: Context, _: Ready) {
-        self.0.lock().send(WeecordEvent::Ready).unwrap();
+        let _ = self.0.lock().send(WeecordEvent::Ready);
     }
 
     // Called when a message is received

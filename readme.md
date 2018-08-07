@@ -11,6 +11,8 @@ Ditch the slow Electron client and use your terminal!
 
 There seems to be conflicting information on custom clients, there is very little about custom clients explicitly, however, there is some information on "selfbots". Im not sure whether not weechat-discord is a selfbot (but it probably is).
 
+---
+
 ## Important
 
 ***There is potentially a risk from using weechat-discord, use it at your own risk, I am not responsible if your are banned***
@@ -60,6 +62,9 @@ In response to [D0cR3d](https://www.reddit.com/user/D0cR3d) (2018)
 ```
 That's exactly why they probably removed it, for people like you. Selfbots ARE against the terms of service.
 ```
+
+---
+
 
 With that in mind:
 
@@ -116,6 +121,8 @@ Note you may also have to adjust a few settings for best use:
     ## doesn't work currently: weechat.completion.default_template -> append "|%(weecord_completion)"
     weechat.bar.status.items -> replace buffer_name with buffer_short_name
     plugins.var.python.go.short_name -> on (if you use go.py)
+
+---
 
 ## MacOS
 

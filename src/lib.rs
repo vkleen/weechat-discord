@@ -9,6 +9,7 @@ mod discord;
 mod ffi;
 mod hook;
 mod printing;
+mod utils;
 
 pub use ffi::{get_option, wdr_end, wdr_init, MAIN_BUFFER};
 

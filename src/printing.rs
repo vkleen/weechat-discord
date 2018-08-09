@@ -83,9 +83,32 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
 
     let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
 
+    fn color_to_8bit(colour: ::serenity::utils::Colour) -> u8 {
+        let r = (u16::from(colour.r()) * 5 / 255) as u8;
+        let g = (u16::from(colour.g()) * 5 / 255) as u8;
+        let b = (u16::from(colour.b()) * 5 / 255) as u8;
+        16 + 36 * r + 6 * g + b
+    }
+
+    let s;
+    if let Some(mem) = ::utils::member(msg) {
+        if let Some(color) = mem.colour() {
+            s = ::ffi::color_codes(&color_to_8bit(color).to_string())
+        } else {
+            s = "!".to_owned()
+        }
+    } else {
+        s = "&".to_owned()
+    }
+
     buffer.print_tags_dated(
         msg.timestamp.timestamp() as i32,
         &tags,
-        &format!("{}\t{}", author, format::discord_to_weechat(&msg_content)),
+        &format!(
+            "{}{}\t{}",
+            s,
+            author,
+            format::discord_to_weechat(&msg_content)
+        ),
     );
 }

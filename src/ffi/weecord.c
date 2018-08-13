@@ -115,6 +115,10 @@ void wdc_load_backlog(void* buffer) {
     wdc_hook_signal_send("logger_backlog", WEECHAT_HOOK_SIGNAL_POINTER, buffer);
 }
 
+void wdc_hook_signal_notify(void* buffer, const char* signal) {
+    wdc_hook_signal_send(signal, WEECHAT_HOOK_SIGNAL_POINTER, buffer);
+}
+
 struct t_hook* wdc_hook_fd(int fd, const void* pointer,
                            int (*callback)(const void* pointer, void* data,
                                            int fd)) {

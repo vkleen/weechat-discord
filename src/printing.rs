@@ -73,7 +73,8 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
         }
     }
 
-    let display_name = buffer.get("localvar_guildid").and_then(|id| {
+    let maybe_guild = on_main! {{ buffer.get("localvar_guildid") }};
+    let display_name = maybe_guild.and_then(|id| {
         id.parse::<u64>().ok().map(|id| GuildId(id)).and_then(|id| {
             cache_lock
                 .member(id, msg.author.id)
@@ -83,9 +84,11 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
 
     let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
 
-    buffer.print_tags_dated(
-        msg.timestamp.timestamp() as i32,
-        &tags,
-        &format!("{}\t{}", author, format::discord_to_weechat(&msg_content)),
-    );
+    on_main! {{
+        buffer.print_tags_dated(
+            msg.timestamp.timestamp() as i32,
+            &tags,
+            &format!("{}\t{}", author, format::discord_to_weechat(&msg_content)),
+        );
+    }};
 }

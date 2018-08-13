@@ -4,6 +4,8 @@ extern crate serenity;
 extern crate lazy_static;
 extern crate parsing;
 
+#[macro_use]
+mod synchronization;
 mod buffers;
 mod discord;
 mod ffi;
@@ -15,6 +17,7 @@ pub use ffi::{get_option, wdr_end, wdr_init, MAIN_BUFFER};
 // Called when plugin is loaded in Weechat
 pub fn init() -> Option<()> {
     hook::init();
+    synchronization::init();
 
     if let Some(autostart) = get_option("autostart") {
         if autostart == "true" {

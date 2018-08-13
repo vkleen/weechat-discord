@@ -8,6 +8,7 @@ use serenity::model::id::ChannelId;
 // *DO NOT* touch this outside of init/end
 static mut MAIN_COMMAND_HOOK: *mut HookCommand = ptr::null_mut();
 static mut BUFFER_SWITCH_CB: *mut SignalHook = ptr::null_mut();
+static mut TRIGGER_CB: *mut SignalHook = ptr::null_mut();
 
 pub fn init() -> Option<()> {
     let hook = ffi::hook_command(
@@ -20,10 +21,12 @@ pub fn init() -> Option<()> {
     )?;
 
     let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
+    let trigger_hook = ffi::hook_signal("main_thread_lock", handle_trigger)?;
 
     unsafe {
         MAIN_COMMAND_HOOK = Box::into_raw(Box::new(hook));
         BUFFER_SWITCH_CB = Box::into_raw(Box::new(buffer_switch_hook));
+        TRIGGER_CB = Box::into_raw(Box::new(trigger_hook));
     };
     Some(())
 }
@@ -34,6 +37,8 @@ pub fn destroy() {
         MAIN_COMMAND_HOOK = ptr::null_mut();
         let _ = Box::from_raw(BUFFER_SWITCH_CB);
         BUFFER_SWITCH_CB = ptr::null_mut();
+        let _ = Box::from_raw(TRIGGER_CB);
+        TRIGGER_CB = ptr::null_mut();
     };
 }
 
@@ -46,6 +51,20 @@ fn handle_buffer_switch(data: SignalHookData) {
             });
         }
         _ => {}
+    }
+}
+
+fn handle_trigger(_data: SignalHookData) {
+    if let Ok(tx) = ::synchronization::TX.lock() {
+        if let Some(ref tx) = *tx {
+            tx.send(()).unwrap();
+        }
+    }
+
+    if let Ok(tx) = ::synchronization::TX.lock() {
+        if let Some(ref tx) = *tx {
+            tx.send(()).unwrap();
+        }
     }
 }
 

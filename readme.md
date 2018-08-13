@@ -131,6 +131,3 @@ Weechat does not search for mac dynamic libraries (.dylib) by default, this can 
 ```
 /set weechat.plugin.extension ".so,.dll,.dylib"
 ```
-
-## Current Issues
-Weechat Discord being multi-threaded and weechat being fully single threading seems to be the cause of a few memory safety issues

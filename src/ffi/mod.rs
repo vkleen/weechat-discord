@@ -278,6 +278,16 @@ impl Buffer {
     }
     */
 
+    pub fn send_trigger_hook(&self, hook_name: &str) {
+        extern "C" {
+            fn wdc_hook_signal_notify(sig_data: *mut c_void, signal: *const c_char);
+        }
+        unsafe {
+            let hook_name = unwrap1!(CString::new(hook_name));
+            wdc_hook_signal_notify(self.ptr as *mut c_void, hook_name.as_ptr());
+        }
+    }
+
     pub fn set(&self, property: &str, value: &str) {
         extern "C" {
             fn wdc_buffer_set(buffer: *mut c_void, property: *const c_char, value: *const c_char);

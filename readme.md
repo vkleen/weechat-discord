@@ -19,52 +19,9 @@ There seems to be conflicting information on custom clients, there is very littl
 
 **This program is _very_ likely against TOS, but there is no (?) colloquial evidence of Discord banning users for using custom clients and not spamming***
 
-If you understand the risk: <a href="#building">Building</a>
-
-Now, the evidence:
-
-#### For
-
-["jhgg"](https://github.com/jhgg) on [Github (2016) said](https://github.com/discordapp/discord-api-docs/issues/69)
-
-```
-"Self bots aren't supported."
-"I repeat. Do not call /api/login or /api/auth/mfa/totp. 
-Instead, log in on the discord client, pop open the web inspector, (ctrl/cmd shift I), and type localStorage.token in the console to get your auth token."
-```
-
-and,
-```
-"We're not interested in banning self bots. Some users use them to do cool things."
-```
-
-#### Against
-
-Recently, [allthefoxes](https://www.reddit.com/user/allthefoxes) said on [reddit](https://www.reddit.com/r/discordapp/comments/9435e8/discord_wont_let_you_have_your_own_token/e3ifppw) (2018)
-
-```
-"This is definitely against our API Terms of Service.
-Using any kind of selfbot could lead to account termination."
-```
-
-However...
-
-#### Indeterminate
-
-[allthefoxes](https://www.reddit.com/user/allthefoxes) _also_ said on [reddit](https://www.reddit.com/r/discordapp/comments/9435e8/discord_wont_let_you_have_your_own_token/e3ifppw) (2018)
-
-```
-No, we remove it to protect our users from common scams and account takeover situations.
-...
-```
-
-In response to [D0cR3d](https://www.reddit.com/user/D0cR3d) (2018)
-```
-That's exactly why they probably removed it, for people like you. Selfbots ARE against the terms of service.
-```
+For more information, please see [this document](USAGE_WARNING.md).
 
 ---
-
 
 With that in mind:
 
@@ -73,6 +30,7 @@ With that in mind:
 Dependencies:
 
 * Weechat developer libraries. Usually called `weechat-dev`, or sometimes just `weechat` includes them.
+* [Rust](https://www.rust-lang.org)
 
 The makefile should give enough information for build commands. Here's the essentials:
 
@@ -81,14 +39,13 @@ The makefile should give enough information for build commands. Here's the essen
 
 This will produce a shared object called `target/release/libweecord.so` (or `.dylib` on macos). Place it in your weechat plugins directory, which is probably located at `~/.weechat/plugins` (may need to be created)
 
-The Makefile has a tiny bit of automation that helps with development:
+The Makefile has some automation that helps with development:
 
     make # (same as make all) just runs that `cargo build --release` command, produces weecord.so
     make install # builds and copies the .so to ~/.weechat/plugins, creating the dir if required
     make run # installs and runs `weechat -a` (-a means "don't autoconnect to servers")
 
 Maybe important note: The previous version of this project, written in Go, used to get **really upset** when the .so was modified during the same weechat session, even if unloaded. When developing, make sure to completely quit weechat when updating the .so, just to be sure (otherwise you might get a SIGSEGV and hard crash).
-
 
 ### Using
 
@@ -108,13 +65,22 @@ In the devtools menu of the website and desktop app (ctrl+shift+i or ctrl+opt+i)
 
 When this was written, discord deletes its token from the visible table, so you may need to refresh the page (ctrl/cmd+r) and grab the token as it is refreshing.
 
-Set that token:
+
+#### Setting up
+
+First, you either need to load the plugin, I have it set to autoload.
+
+Then, set that token:
 
     /discord token 123456789ABCDEF
 
 Then, connect:
 
     /discord connect
+
+If you want to always connect on load, you can enable autostart with:
+
+    /discord autostart
 
 Note you may also have to adjust a few settings for best use:
 

@@ -42,18 +42,17 @@ pub fn destroy() {
     };
 }
 
+#[allow(needless_pass_by_value)]
 fn handle_buffer_switch(data: SignalHookData) {
-    match data {
-        SignalHookData::Pointer(buffer) => {
-            thread::spawn(move || {
-                buffers::load_history(&buffer);
-                buffers::load_nicks(&buffer);
-            });
-        }
-        _ => {}
+    if let SignalHookData::Pointer(buffer) = data {
+        thread::spawn(move || {
+            buffers::load_history(&buffer);
+            buffers::load_nicks(&buffer);
+        });
     }
 }
 
+#[allow(needless_pass_by_value)]
 fn handle_trigger(_data: SignalHookData) {
     if let Ok(tx) = ::synchronization::TX.lock() {
         if let Some(ref tx) = *tx {
@@ -69,18 +68,19 @@ fn handle_trigger(_data: SignalHookData) {
 }
 
 // TODO: Transform irc/weechat style to discord style
+#[allow(needless_pass_by_value)]
 pub fn buffer_input(buffer: Buffer, message: &str) {
     let channel = buffer
         .get("localvar_channelid")
         .and_then(|id| id.parse().ok())
-        .map(|id| ChannelId(id));
+        .map(ChannelId);
 
     let message = ffi::remove_color(message);
 
     if let Some(channel) = channel {
         channel
             .say(message)
-            .expect(&format!("Unable to send message to {}", channel.0));
+            .unwrap_or_else(|_| panic!("Unable to send message to {}", channel.0));
     }
 }
 
@@ -135,8 +135,8 @@ fn user_set_option(name: &str, value: &str) {
 }
 
 mod weechat_cmd {
-    pub const COMMAND: &'static str = "discord";
-    pub const DESCRIPTION: &'static str = "\
+    pub const COMMAND: &str = "discord";
+    pub const DESCRIPTION: &str = "\
 Discord from the comfort of your favorite command-line IRC client!
 Source code available at https://github.com/Noskcaj19/weechat-discord
 Originally by https://github.com/khyperia/weechat-discord
@@ -145,14 +145,14 @@ plugins.var.weecord.token = <discord_token>
 plugins.var.weecord.rename.<id> = <string>
 plugins.var.weecord.autostart = <bool>
 ";
-    pub const ARGS: &'static str = "\
+    pub const ARGS: &str = "\
                      connect
                      disconnect
                      autostart
                      noautostart
                      token <token>
                      query <user>";
-    pub const ARGDESC: &'static str = "\
+    pub const ARGDESC: &str = "\
 connect: sign in to discord and open chat buffers
 disconnect: sign out of Discord
 autostart: automatically sign into discord on start
@@ -163,10 +163,8 @@ Example:
   /discord token 123456789ABCDEF
   /discord connect
   /discord autostart
-  /discord query khyperia
   /discord disconnect
 ";
-    pub const COMPLETIONS: &'static str =
-        "\
-         connect || disconnect || token || autostart || noautostart || query";
+    pub const COMPLETIONS: &str = "\
+                                   connect || disconnect || token || autostart || noautostart";
 }

@@ -75,7 +75,7 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
 
     let maybe_guild = on_main! {{ buffer.get("localvar_guildid") }};
     let display_name = maybe_guild.and_then(|id| {
-        id.parse::<u64>().ok().map(|id| GuildId(id)).and_then(|id| {
+        id.parse::<u64>().ok().map(GuildId).and_then(|id| {
             cache_lock
                 .member(id, msg.author.id)
                 .map(|member| member.display_name().to_string())

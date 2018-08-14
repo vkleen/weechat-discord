@@ -140,7 +140,7 @@ pub fn create_buffer_from_group(channel: Channel, nick: &str) {
 // TODO: Refactor this to use `?`
 pub fn load_nicks(buffer: &Buffer) {
     let (guild_id, channel_id) = on_main! {{
-        if let Some(_) = buffer.get("localvar_loaded_nicks") {
+        if buffer.get("localvar_loaded_nicks").is_some() {
             return;
         }
         buffer.set("localvar_set_loaded_nicks", "true");

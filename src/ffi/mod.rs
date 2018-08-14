@@ -90,10 +90,7 @@ pub trait WeechatObject {
 
 impl WeechatObject for WeechatAny {
     fn from_ptr_hdata(data: *mut c_void, hdata: *mut c_void) -> Self {
-        WeechatAny {
-            data: data,
-            hdata: hdata,
-        }
+        WeechatAny { data, hdata }
     }
 
     fn ptr(&self) -> *mut c_void {
@@ -407,7 +404,7 @@ impl Completion {
 
 impl WeechatObject for Buffer {
     fn from_ptr_hdata(ptr: *mut c_void, hdata: *mut c_void) -> Self {
-        let result = Buffer { ptr: ptr };
+        let result = Buffer { ptr };
         if hdata != result.hdata() {
             really_bad("Buffer hdata pointer was different!".into());
         };
@@ -714,8 +711,7 @@ pub fn color_codes(color_name: &str) -> String {
     unsafe {
         let string_c = unwrap1!(CString::new(color_name));
         let result_c = wdc_color(string_c.as_ptr());
-        let result = CStr::from_ptr(result_c).to_str().unwrap().into();
-        result
+        CStr::from_ptr(result_c).to_str().unwrap().into()
     }
 }
 

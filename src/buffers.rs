@@ -169,7 +169,7 @@ pub fn load_nicks(buffer: &Buffer) {
         (guild_id, channel_id)
     }};
 
-    let guild = guild_id.find().expect("No guild cache item");
+    let guild = guild_id.to_guild_cached().expect("No guild cache item");
 
     let guild_lock = guild.read();
 
@@ -186,7 +186,7 @@ pub fn load_nicks(buffer: &Buffer) {
         } else {
             on_main! {{
                 if let Some((role, pos)) = member.highest_role_info() {
-                    if let Some(role) = role.find() {
+                    if let Some(role) = role.to_role_cached() {
                         let role_name = &format!("{}|{}", ::std::i64::MAX - pos, role.name);
                         if !buffer.group_exists(role_name) {
                             buffer.add_nicklist_group(role_name);

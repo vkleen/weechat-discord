@@ -29,7 +29,7 @@ impl EventHandler for Handler {
                 printing::print_msg(&buffer, &msg, true);
             }
         } else {
-            match msg.channel_id.get() {
+            match msg.channel_id.to_channel() {
                 chan @ Ok(Channel::Private(_)) => {
                     if let Some(buffer) = Buffer::search(&string_channel) {
                         if msg.is_own() {

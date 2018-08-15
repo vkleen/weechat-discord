@@ -3,11 +3,21 @@ use printing;
 use serenity::builder::GetMessages;
 use serenity::model::prelude::*;
 use serenity::CACHE;
+use std::collections::HashMap;
 
-pub fn create_buffers() {
+pub fn create_buffers(ready_data: &Ready) {
     let current_user = CACHE.read().user.clone();
 
-    for guild in current_user.guilds().expect("Unable to fetch guilds") {
+    let guilds = current_user.guilds().expect("Unable to fetch guilds");
+    let mut map = HashMap::new();
+    for guild in guilds {
+        map.insert(guild.id, guild);
+    }
+
+    for guild_id in &ready_data.user_settings.guild_positions {
+        let guild = map
+            .get(&guild_id)
+            .expect("Found positioned guild with no guild");
         create_buffer_from_guild(&guild);
 
         // TODO: Colors?
@@ -16,7 +26,7 @@ pub fn create_buffers() {
         } else {
             format!("@{}", current_user.name)
         };
-        let channels = guild.id.channels().unwrap();
+        let channels = guild.id.channels().expect("Unable to fetch channels");
         let mut channels = channels.values().collect::<Vec<_>>();
         channels.sort_by_key(|g| g.position);
         for channel in channels {

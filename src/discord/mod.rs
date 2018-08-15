@@ -18,10 +18,11 @@ pub fn init(token: &str) {
     let (discord_client, events) = DiscordClient::start(token).unwrap();
 
     thread::spawn(move || {
-        events.recv().unwrap();
-        MAIN_BUFFER.print("Connected to Discord!");
+        if let Ok(event_handler::WeecordEvent::Ready(ready)) = events.recv() {
+            MAIN_BUFFER.print("Connected to Discord!");
 
-        ::buffers::create_buffers();
+            ::buffers::create_buffers(&ready);
+        }
     });
 
     *DISCORD.lock() = Some(discord_client);

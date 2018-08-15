@@ -9,14 +9,14 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 
 pub enum WeecordEvent {
-    Ready,
+    Ready(::serenity::model::gateway::Ready),
 }
 
 pub struct Handler(pub Arc<Mutex<Sender<WeecordEvent>>>);
 
 impl EventHandler for Handler {
-    fn ready(&self, _: Context, _: Ready) {
-        let _ = self.0.lock().send(WeecordEvent::Ready);
+    fn ready(&self, _: Context, ready: Ready) {
+        let _ = self.0.lock().send(WeecordEvent::Ready(ready));
     }
 
     // Called when a message is received

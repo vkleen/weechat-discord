@@ -241,3 +241,24 @@ pub fn load_history(buffer: &Buffer) {
         }
     }
 }
+
+pub fn update_nick() {
+    let current_user = CACHE.read().user.clone();
+
+    for guild in current_user.guilds().expect("Unable to fetch guilds") {
+        // TODO: Colors?
+        let nick = if let Ok(current_member) = guild.id.member(current_user.id) {
+            format!("@{}", current_member.display_name())
+        } else {
+            format!("@{}", current_user.name)
+        };
+
+        let channels = guild.id.channels().expect("Unable to fetch channels");
+        for channel_id in channels.keys() {
+            let string_channel = channel_id.0.to_string();
+            if let Some(buffer) = Buffer::search(&string_channel) {
+                buffer.set("localvar_set_nick", &nick);
+            }
+        }
+    }
+}

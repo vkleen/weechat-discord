@@ -5,7 +5,7 @@ use std::thread;
 use {buffers, discord, discord::DISCORD, plugin_print};
 
 use serenity::model::channel::Channel;
-use serenity::model::id::ChannelId;
+use serenity::model::id::{ChannelId, GuildId};
 use serenity::prelude::RwLock;
 use serenity::CACHE;
 
@@ -14,6 +14,7 @@ static mut MAIN_COMMAND_HOOK: *mut HookCommand = ptr::null_mut();
 static mut BUFFER_SWITCH_CB: *mut SignalHook = ptr::null_mut();
 static mut TRIGGER_CB: *mut SignalHook = ptr::null_mut();
 static mut QUERY_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
+static mut NICK_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
 
 pub fn init() -> Option<()> {
     let main_cmd_hook = ffi::hook_command(
@@ -26,6 +27,7 @@ pub fn init() -> Option<()> {
     )?;
 
     let query_hook = ffi::hook_command_run("/query", handle_query)?;
+    let nick_hook = ffi::hook_command_run("/nick", handle_nick)?;
     let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
     let trigger_hook = ffi::hook_signal("main_thread_lock", handle_trigger)?;
 
@@ -34,6 +36,7 @@ pub fn init() -> Option<()> {
         BUFFER_SWITCH_CB = Box::into_raw(Box::new(buffer_switch_hook));
         TRIGGER_CB = Box::into_raw(Box::new(trigger_hook));
         QUERY_CMD_HOOK = Box::into_raw(Box::new(query_hook));
+        NICK_CMD_HOOK = Box::into_raw(Box::new(nick_hook));
     };
     Some(())
 }
@@ -48,6 +51,8 @@ pub fn destroy() {
         TRIGGER_CB = ptr::null_mut();
         let _ = Box::from_raw(QUERY_CMD_HOOK);
         QUERY_CMD_HOOK = ptr::null_mut();
+        let _ = Box::from_raw(NICK_CMD_HOOK);
+        NICK_CMD_HOOK = ptr::null_mut();
     };
 }
 
@@ -118,6 +123,30 @@ fn handle_query(_buffer: Buffer, command: &str) {
             );
         }
     }
+}
+
+// TODO: Handle command options
+fn handle_nick(buffer: Buffer, command: &str) {
+    let substr = command["/nick".len()..].trim().to_owned();
+    let guild = on_main! {{
+        let guild = match buffer.get("localvar_guildid") {
+            Some(guild) => guild,
+            None => return,
+        };
+        match guild.parse::<u64>() {
+            Ok(v) => GuildId(v),
+            Err(_) => return,
+        }
+    }};
+    thread::spawn(move || {
+        let new_nick = if substr.is_empty() {
+            None
+        } else {
+            Some(substr.as_str())
+        };
+        let _ = guild.edit_nickname(new_nick);
+        buffers::update_nick();
+    });
 }
 
 fn run_command(_buffer: &Buffer, command: &str) {

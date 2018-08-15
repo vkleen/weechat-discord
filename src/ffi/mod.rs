@@ -767,6 +767,16 @@ pub fn color_codes(color_name: &str) -> String {
     }
 }
 
+pub fn update_bar_item(item_name: &str) {
+    extern "C" {
+        fn wdc_bar_item_update(string: *const c_char);
+    }
+    unsafe {
+        let string_c = unwrap1!(CString::new(item_name));
+        wdc_bar_item_update(string_c.as_ptr());
+    }
+}
+
 #[derive(Debug)]
 pub enum SignalHookData {
     String(String),

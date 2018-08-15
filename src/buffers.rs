@@ -1,4 +1,4 @@
-use ffi::Buffer;
+use ffi::{update_bar_item, Buffer};
 use printing;
 use serenity::builder::GetMessages;
 use serenity::model::prelude::*;
@@ -258,6 +258,7 @@ pub fn update_nick() {
             let string_channel = channel_id.0.to_string();
             if let Some(buffer) = Buffer::search(&string_channel) {
                 buffer.set("localvar_set_nick", &nick);
+                update_bar_item("input_prompt");
             }
         }
     }

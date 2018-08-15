@@ -38,7 +38,11 @@ impl EventHandler for Handler {
                             printing::print_msg(&buffer, &msg, true);
                         }
                     } else {
-                        buffers::create_buffer_from_dm(chan.unwrap(), &CACHE.read().user.name);
+                        buffers::create_buffer_from_dm(
+                            chan.unwrap(),
+                            &CACHE.read().user.name,
+                            false,
+                        );
                     }
                 }
                 chan @ Ok(Channel::Group(_)) => {

@@ -1,17 +1,22 @@
 use ffi::{self, *};
 use std::ptr;
+use std::sync::Arc;
 use std::thread;
 use {buffers, discord, discord::DISCORD, plugin_print};
 
+use serenity::model::channel::Channel;
 use serenity::model::id::ChannelId;
+use serenity::prelude::RwLock;
+use serenity::CACHE;
 
 // *DO NOT* touch this outside of init/end
 static mut MAIN_COMMAND_HOOK: *mut HookCommand = ptr::null_mut();
 static mut BUFFER_SWITCH_CB: *mut SignalHook = ptr::null_mut();
 static mut TRIGGER_CB: *mut SignalHook = ptr::null_mut();
+static mut QUERY_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
 
 pub fn init() -> Option<()> {
-    let hook = ffi::hook_command(
+    let main_cmd_hook = ffi::hook_command(
         weechat_cmd::COMMAND,
         weechat_cmd::DESCRIPTION,
         weechat_cmd::ARGS,
@@ -20,13 +25,15 @@ pub fn init() -> Option<()> {
         move |buffer, input| run_command(&buffer, input),
     )?;
 
+    let query_hook = ffi::hook_command_run("/query", handle_query)?;
     let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
     let trigger_hook = ffi::hook_signal("main_thread_lock", handle_trigger)?;
 
     unsafe {
-        MAIN_COMMAND_HOOK = Box::into_raw(Box::new(hook));
+        MAIN_COMMAND_HOOK = Box::into_raw(Box::new(main_cmd_hook));
         BUFFER_SWITCH_CB = Box::into_raw(Box::new(buffer_switch_hook));
         TRIGGER_CB = Box::into_raw(Box::new(trigger_hook));
+        QUERY_CMD_HOOK = Box::into_raw(Box::new(query_hook));
     };
     Some(())
 }
@@ -39,6 +46,8 @@ pub fn destroy() {
         BUFFER_SWITCH_CB = ptr::null_mut();
         let _ = Box::from_raw(TRIGGER_CB);
         TRIGGER_CB = ptr::null_mut();
+        let _ = Box::from_raw(QUERY_CMD_HOOK);
+        QUERY_CMD_HOOK = ptr::null_mut();
     };
 }
 
@@ -84,6 +93,33 @@ pub fn buffer_input(buffer: Buffer, message: &str) {
     }
 }
 
+// TODO: Make this faster
+// TODO: Handle command options
+fn handle_query(_buffer: Buffer, command: &str) {
+    let current_user = &CACHE.read().user;
+    let substr = &command["/query ".len()..].trim();
+
+    let mut found_members = Vec::new();
+    for guild in current_user.guilds().expect("Unable to fetch guilds") {
+        if let Some(guild) = guild.id.to_guild_cached() {
+            let guild = guild.read().clone();
+            for m in guild.members_containing(substr, false, true) {
+                found_members.push(m.clone());
+            }
+        }
+    }
+    found_members.dedup_by_key(|mem| mem.user.read().id);
+    if let Some(target) = found_members.get(0) {
+        if let Ok(chan) = target.user.read().create_dm_channel() {
+            buffers::create_buffer_from_dm(
+                Channel::Private(Arc::new(RwLock::new(chan))),
+                &current_user.name,
+                true,
+            );
+        }
+    }
+}
+
 fn run_command(_buffer: &Buffer, command: &str) {
     // TODO: Add rename command
     match command {
@@ -125,7 +161,7 @@ fn run_command(_buffer: &Buffer, command: &str) {
             plugin_print("Discord will not load on startup");
         }
         _ => {
-            plugin_print("unknown command");
+            plugin_print("Unknown command");
         }
     };
 }
@@ -150,15 +186,13 @@ plugins.var.weecord.autostart = <bool>
                      disconnect
                      autostart
                      noautostart
-                     token <token>
-                     query <user>";
-    pub const ARGDESC: &str = "\
+                     token <token>";
+    pub const ARGDESC: &'static str = "\
 connect: sign in to discord and open chat buffers
 disconnect: sign out of Discord
 autostart: automatically sign into discord on start
 noautostart: disable autostart
 token: set Discord login token
-query: open PM buffer with user
 Example:
   /discord token 123456789ABCDEF
   /discord connect

@@ -90,7 +90,7 @@ fn create_buffer_from_channel(channel: &GuildChannel, nick: &str) {
 }
 
 // TODO: Reduce code duplication
-pub fn create_buffer_from_dm(channel: Channel, nick: &str) {
+pub fn create_buffer_from_dm(channel: Channel, nick: &str, switch_to: bool) {
     let channel = match channel.private() {
         Some(chan) => chan,
         None => return,
@@ -108,6 +108,9 @@ pub fn create_buffer_from_dm(channel: Channel, nick: &str) {
         buffer.set("short_name", &channel.name());
         buffer.set("localvar_set_channelid", &name_id);
         buffer.set("localvar_set_nick", &nick);
+        if switch_to {
+            buffer.set("display", "1");
+        }
         let title = format!("DM with {}", channel.recipient.read().name);
         buffer.set("title", &title);
     }};

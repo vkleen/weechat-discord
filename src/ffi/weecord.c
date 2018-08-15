@@ -52,6 +52,14 @@ struct t_hook* wdc_hook_command(const char* command, const char* description,
                                 completion, callback, pointer, NULL);
 }
 
+struct t_hook* wdc_hook_command_run(const char* command, const void* pointer,
+                                    int (*callback)(const void* pointer,
+                                                    void* data,
+                                                    struct t_gui_buffer* buffer,
+                                                    const char* command)) {
+    return weechat_hook_command_run(command, callback, pointer, NULL);
+}
+
 void wdc_print(struct t_gui_buffer* buffer, const char* message) {
     weechat_printf(buffer, "%s", message);
 }
@@ -133,7 +141,8 @@ int wdc_nicklist_nick_exists(struct t_gui_buffer* buffer, const char* nick) {
 }
 
 int wdc_nicklist_group_exists(struct t_gui_buffer* buffer, const char* group) {
-    struct t_gui_nick_group* group_value = weechat_nicklist_search_group(buffer, NULL, group);
+    struct t_gui_nick_group* group_value =
+        weechat_nicklist_search_group(buffer, NULL, group);
     return group_value != NULL;
 }
 

@@ -542,6 +542,58 @@ pub fn hook_command<F: FnMut(Buffer, &str) + 'static>(
     }
 }
 
+pub struct HookCommandRun {
+    _hook: Hook,
+    _callback: Box<Box<FnMut(Buffer, &str)>>,
+}
+
+pub fn hook_command_run<F: FnMut(Buffer, &str) + 'static>(
+    cmd: &str,
+    func: F,
+) -> Option<HookCommandRun> {
+    type CB = FnMut(Buffer, &str);
+    extern "C" {
+        fn wdc_hook_command_run(
+            command: *const c_char,
+            pointer: *const c_void,
+            callback: extern "C" fn(*const c_void, *mut c_void, *mut c_void, *mut c_char) -> c_int,
+        ) -> *mut c_void;
+    }
+    extern "C" fn callback(
+        pointer: *const c_void,
+        data: *mut c_void,
+        buffer: *mut c_void,
+        command: *mut c_char,
+    ) -> c_int {
+        let _ = data;
+        wrap_panic(|| {
+            let pointer = pointer as *mut Box<CB>;
+            let buffer = Buffer { ptr: buffer };
+            let command = unsafe { CStr::from_ptr(command).to_str() };
+            let command = match command {
+                Ok(x) => x,
+                Err(_) => return,
+            };
+            (unsafe { &mut **pointer })(buffer, command);
+        });
+        0
+    }
+    unsafe {
+        let cmd = unwrap1!(CString::new(cmd));
+        let custom_callback: Box<Box<CB>> = Box::new(Box::new(func));
+        let pointer = &*custom_callback as *const _ as *const c_void;
+        let hook = wdc_hook_command_run(cmd.as_ptr(), pointer, callback);
+        if hook.is_null() {
+            None
+        } else {
+            Some(HookCommandRun {
+                _hook: Hook { ptr: hook },
+                _callback: custom_callback,
+            })
+        }
+    }
+}
+
 pub fn info_get(info_name: &str, arguments: &str) -> Option<String> {
     extern "C" {
         fn wdc_info_get(info_name: *const c_char, arguments: *const c_char) -> *const c_char;

@@ -156,8 +156,6 @@ pub fn load_nicks(buffer: &Buffer) {
         if buffer.get("localvar_loaded_nicks").is_some() {
             return;
         }
-        buffer.set("localvar_set_loaded_nicks", "true");
-        buffer.set("nicklist", "1");
 
         let guild_id = match buffer.get("localvar_guildid") {
             Some(guild_id) => guild_id,
@@ -178,6 +176,9 @@ pub fn load_nicks(buffer: &Buffer) {
             Ok(v) => ChannelId(v),
             Err(_) => return,
         };
+
+        buffer.set("localvar_set_loaded_nicks", "true");
+        buffer.set("nicklist", "1");
 
         (guild_id, channel_id)
     }};

@@ -222,16 +222,17 @@ pub fn load_history(buffer: &Buffer) {
         if buffer.get("localvar_loaded_history").is_some() {
             return;
         }
-        buffer.clear();
-        buffer.set("localvar_set_loaded_history", "true");
         let channel = match buffer.get("localvar_channelid") {
             Some(channel) => channel,
             None => return,
         };
-        match channel.parse::<u64>() {
+        let channel=match channel.parse::<u64>() {
             Ok(v) => ChannelId(v),
             Err(_) => return,
-        }
+        };
+        buffer.clear();
+        buffer.set("localvar_set_loaded_history", "true");
+        channel
     }};
 
     let retriever = GetMessages::default().limit(25);

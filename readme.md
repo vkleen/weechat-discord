@@ -9,15 +9,11 @@ Ditch the slow Electron client and use your terminal!
 
 ## A note on using the Discord API (TOS)
 
-There seems to be conflicting information on custom clients, there is very little about custom clients explicitly, however, there is some information on "selfbots". Im not sure whether not weechat-discord is a selfbot (but it probably is).
-
----
-
-## Important
-
 ***There is potentially a risk from using weechat-discord, use it at your own risk, I am not responsible if your are banned***
 
-**This program is _very_ likely against TOS, but there is no (?) colloquial evidence of Discord banning users for using custom clients and not spamming***
+There seems to be conflicting information on custom clients, there is very little about custom clients explicitly, however, there is some information on "selfbots". Im not sure whether not weechat-discord is a selfbot (but it probably is).
+
+**This program is _very_ likely against TOS, but there is no (?) colloquial evidence of Discord banning users for using custom clients and not spamming**
 
 For more information, please see [this document](USAGE_WARNING.md).
 

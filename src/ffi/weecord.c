@@ -5,7 +5,7 @@
 #define NULL ((void*)0)
 #endif
 
-int wdr_init(void);
+int wdr_init(int argc, char *argv[]);
 int wdr_end(void);
 
 WEECHAT_PLUGIN_NAME("weecord");
@@ -22,10 +22,8 @@ struct t_weechat_plugin* get_plugin() {
 
 int weechat_plugin_init(struct t_weechat_plugin* plugin, int argc,
                         char* argv[]) {
-    (void)argc;
-    (void)argv;
     weechat_plugin = plugin;
-    if (wdr_init()) {
+    if (wdr_init(argc, argv)) {
         return WEECHAT_RC_ERROR;
     } else {
         return WEECHAT_RC_OK;

@@ -15,14 +15,16 @@ mod printing;
 pub use ffi::{get_option, wdr_end, wdr_init, MAIN_BUFFER};
 
 // Called when plugin is loaded in Weechat
-pub fn init() -> Option<()> {
+pub fn init(args: &[String]) -> Option<()> {
     hook::init();
     synchronization::init();
 
     if let Some(autostart) = get_option("autostart") {
-        if autostart == "true" {
-            if let Some(t) = ffi::get_option("token") {
-                discord::init(&t);
+        if !args.contains(&"-a".to_owned()) {
+            if autostart == "true" {
+                if let Some(t) = ffi::get_option("token") {
+                    discord::init(&t);
+                }
             }
         }
     }

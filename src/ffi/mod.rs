@@ -439,8 +439,22 @@ fn wrap_panic<R, F: FnOnce() -> R + UnwindSafe>(f: F) -> Option<R> {
 
 #[no_mangle]
 #[allow(unused)]
-pub extern "C" fn wdr_init() -> c_int {
-    match wrap_panic(::init) {
+pub extern "C" fn wdr_init(argc: c_int, arg_ptr: *const *const c_char) -> c_int {
+    let args;
+    if argc == 0 || arg_ptr.is_null() {
+        args = Vec::with_capacity(0);
+    } else {
+        unsafe {
+            let argv = ::std::slice::from_raw_parts(arg_ptr, argc as usize);
+
+            args = argv
+                .iter()
+                .map(|v| CStr::from_ptr(*v).to_string_lossy().into_owned())
+                .collect();
+        }
+    }
+
+    match wrap_panic(|| ::init(&args)) {
         Some(Some(())) => 0,
         _ => 1,
     }

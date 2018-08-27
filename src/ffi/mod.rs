@@ -258,8 +258,13 @@ impl Buffer {
             );
         }
         unsafe {
-            let msg = unwrap1!(CString::new(message));
+            // let msg = unwrap1!(CString::new(message));
             let tags = unwrap1!(CString::new(tags));
+            // In the event we get an error, try wiping all the nulls and trying again
+            let msg = match CString::new(message) {
+                Ok(msg) => msg,
+                Err(_) => unwrap1!(CString::new(message.replace("\0", ""))),
+            };
             wdc_print_tags(self.ptr, date, tags.as_ptr(), msg.as_ptr());
         }
     }

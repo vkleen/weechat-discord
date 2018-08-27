@@ -3,21 +3,35 @@ use printing;
 use serenity::builder::GetMessages;
 use serenity::model::prelude::*;
 use serenity::CACHE;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 pub fn create_buffers(ready_data: &Ready) {
     let current_user = CACHE.read().user.clone();
 
-    let guilds = current_user.guilds().expect("Unable to fetch guilds");
-    let mut map = HashMap::new();
-    for guild in guilds {
-        map.insert(guild.id, guild);
+    let guilds = match current_user.guilds() {
+        Ok(guilds) => guilds,
+        _ => {
+            on_main! {{ ::plugin_print("Error getting user guilds"); }}
+            vec![]
+        }
+    };
+    let mut map: HashMap<_, _> = guilds.iter().map(|g| (g.id, g)).collect();
+
+    let mut sorted_guilds = VecDeque::new();
+
+    // Add the guilds ordered from the client
+    for guild_id in &ready_data.user_settings.guild_positions {
+        if let Some(guild) = map.remove(&guild_id) {
+            sorted_guilds.push_back(guild);
+        }
     }
 
-    for guild_id in &ready_data.user_settings.guild_positions {
-        let guild = map
-            .get(&guild_id)
-            .expect("Found positioned guild with no guild");
+    // Prepend any remaning guilds
+    for guild in map.values() {
+        sorted_guilds.push_front(guild.clone());
+    }
+
+    for guild in &sorted_guilds {
         create_buffer_from_guild(&guild);
 
         // TODO: Colors?

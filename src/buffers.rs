@@ -203,7 +203,7 @@ pub fn load_nicks(buffer: &Buffer) {
 
     // Typeck not smart enough
     let none_user: Option<UserId> = None;
-    for member in guild_lock.members(None, none_user).unwrap() {
+    for member in guild_lock.members(Some(1000), none_user).unwrap() {
         let user_id = member.user.read().id;
         let member_perms = guild_lock.permissions_in(channel_id, user_id);
         if !member_perms.send_messages()

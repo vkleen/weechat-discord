@@ -2,6 +2,7 @@ use ffi::{self, *};
 use std::ptr;
 use std::sync::Arc;
 use std::thread;
+use std::time::Duration;
 use {buffers, discord, discord::DISCORD, plugin_print};
 
 use serenity::model::channel::Channel;
@@ -127,25 +128,55 @@ fn handle_query(_buffer: Buffer, command: &str) {
 
 // TODO: Handle command options
 fn handle_nick(buffer: Buffer, command: &str) {
-    let substr = command["/nick".len()..].trim().to_owned();
-    let guild = on_main! {{
-        let guild = match buffer.get("localvar_guildid") {
-            Some(guild) => guild,
-            None => return,
-        };
-        match guild.parse::<u64>() {
-            Ok(v) => GuildId(v),
-            Err(_) => return,
-        }
-    }};
+    let mut substr = command["/nick".len()..].trim().to_owned();
+    let all;
+    // TODO: NLL
+    {
+        let mut split = substr.split(" ");
+        all = split.next() == Some("-all");
+    }
+    if all {
+        substr = substr["-all".len()..].trim().to_owned();
+    }
+    let guilds = if all {
+        let current_user = &CACHE.read().user;
+
+        // TODO: Error handling
+        current_user
+            .guilds()
+            .unwrap_or_default()
+            .iter()
+            .map(|g| g.id)
+            .collect()
+    } else {
+        let guild = on_main! {{
+            let guild = match buffer.get("localvar_guildid") {
+                Some(guild) => guild,
+                None => return,
+            };
+            match guild.parse::<u64>() {
+                Ok(v) => GuildId(v),
+                Err(_) => return,
+            }
+        }};
+        vec![guild]
+    };
+
     thread::spawn(move || {
-        let new_nick = if substr.is_empty() {
-            None
-        } else {
-            Some(substr.as_str())
-        };
-        let _ = guild.edit_nickname(new_nick);
-        buffers::update_nick();
+        for guild in guilds {
+            let new_nick = if substr.is_empty() {
+                None
+            } else {
+                Some(substr.as_str())
+            };
+            let _ = guild.edit_nickname(new_nick);
+            // Make it less spammy
+            thread::sleep(Duration::from_secs(1));
+        }
+
+        on_main! {{
+            buffers::update_nick();
+        }};
     });
 }
 

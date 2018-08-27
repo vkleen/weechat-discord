@@ -3,11 +3,9 @@ mod event_handler;
 pub mod format;
 
 use self::discord_client::DiscordClient;
-use MAIN_BUFFER;
-
 use serenity::prelude::Mutex;
-use std::sync::Arc;
-use std::thread;
+use std::{sync::Arc, thread};
+use MAIN_BUFFER;
 
 lazy_static! {
     pub(crate) static ref DISCORD: Arc<Mutex<Option<DiscordClient>>> = Arc::new(Mutex::new(None));

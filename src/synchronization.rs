@@ -1,5 +1,7 @@
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::Mutex;
+use std::sync::{
+    mpsc::{channel, Receiver, Sender},
+    Mutex,
+};
 
 lazy_static! {
     pub static ref TX: Mutex<Option<Sender<()>>> = Mutex::new(None);

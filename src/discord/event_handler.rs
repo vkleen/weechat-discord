@@ -1,12 +1,6 @@
-use ffi::Buffer;
-use {buffers, printing, utils};
-
-use serenity::model::prelude::*;
-use serenity::prelude::*;
-use serenity::CACHE;
-
-use std::sync::mpsc::Sender;
-use std::sync::Arc;
+use serenity::{model::prelude::*, prelude::*, CACHE};
+use std::sync::{mpsc::Sender, Arc};
+use {buffers, ffi::Buffer, printing, utils};
 
 pub enum WeecordEvent {
     Ready(::serenity::model::gateway::Ready),
@@ -69,6 +63,6 @@ impl EventHandler for Handler {
 
     // fn channel_update(&self, _: Context, _: Option<Channel>, _: Channel) {}
 
-    // TODO: Why are we not getting these events
+    // TODO Why are we not getting these events
     // fn typing_start(&self, _: Context, event: TypingStartEvent) {}
 }

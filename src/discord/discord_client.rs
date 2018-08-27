@@ -1,11 +1,9 @@
 use discord::event_handler::{Handler, WeecordEvent};
-
-use serenity::client::bridge::gateway::ShardManager;
-use serenity::prelude::*;
-
-use std::sync::mpsc;
-use std::sync::Arc;
-use std::thread;
+use serenity::{client::bridge::gateway::ShardManager, prelude::*};
+use std::{
+    sync::{mpsc, Arc},
+    thread,
+};
 
 pub struct DiscordClient {
     shard_manager: Arc<Mutex<ShardManager>>,

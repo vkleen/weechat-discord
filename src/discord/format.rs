@@ -1,5 +1,7 @@
-use ffi::color_codes;
-use parsing::{self, Style};
+use {
+    ffi::color_codes,
+    parsing::{self, Style},
+};
 
 pub fn discord_to_weechat(msg: &str) -> String {
     let ast = parsing::parse_msg(msg).unwrap_or_else(Vec::new);

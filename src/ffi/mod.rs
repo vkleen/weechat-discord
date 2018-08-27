@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 use libc::*;
-use std::ffi::*;
-use std::panic::*;
-use std::ptr;
+use std::{ffi::*, panic::*, ptr};
 
 #[macro_use]
 mod macros;

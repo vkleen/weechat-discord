@@ -1,10 +1,9 @@
-use ffi::{update_bar_item, Buffer};
-use printing;
-use serenity::builder::GetMessages;
-use serenity::model::prelude::*;
-use serenity::CACHE;
+use serenity::{builder::GetMessages, model::prelude::*, CACHE};
 use std::collections::{HashMap, VecDeque};
-use utils;
+use {
+    ffi::{update_bar_item, Buffer},
+    printing, utils,
+};
 
 pub fn create_buffers(ready_data: &Ready) {
     let current_user = CACHE.read().user.clone();

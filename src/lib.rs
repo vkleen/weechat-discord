@@ -13,7 +13,8 @@ mod hook;
 mod printing;
 mod utils;
 
-pub use ffi::{get_option, wdr_end, wdr_init, MAIN_BUFFER};
+use ffi::get_option;
+pub use ffi::{wdr_end, wdr_init, MAIN_BUFFER};
 
 // Called when plugin is loaded in Weechat
 pub fn init(args: &[String]) -> Option<()> {

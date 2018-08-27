@@ -1,14 +1,18 @@
-use ffi::{self, *};
-use std::ptr;
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
-use {buffers, discord, discord::DISCORD, plugin_print};
-
-use serenity::model::channel::Channel;
-use serenity::model::id::{ChannelId, GuildId};
-use serenity::prelude::RwLock;
-use serenity::CACHE;
+use serenity::{
+    model::{
+        channel::Channel,
+        id::{ChannelId, GuildId},
+    },
+    prelude::RwLock,
+    CACHE,
+};
+use std::{ptr, sync::Arc, thread, time::Duration};
+use {
+    buffers, discord,
+    discord::DISCORD,
+    ffi::{self, *},
+    plugin_print,
+};
 
 // *DO NOT* touch this outside of init/end
 static mut MAIN_COMMAND_HOOK: *mut HookCommand = ptr::null_mut();

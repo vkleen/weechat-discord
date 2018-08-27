@@ -1,8 +1,5 @@
-use ffi::Buffer;
-use serenity::model::prelude::*;
-use serenity::CACHE;
-
-use discord::format;
+use serenity::{model::prelude::*, CACHE};
+use {discord::format, ffi::Buffer};
 
 // TODO: Rework args
 // TODO: Color things

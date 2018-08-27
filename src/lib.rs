@@ -17,12 +17,12 @@ use ffi::get_option;
 pub use ffi::{wdr_end, wdr_init, MAIN_BUFFER};
 
 // Called when plugin is loaded in Weechat
-pub fn init(args: &[String]) -> Option<()> {
+pub fn init(args: &[&str]) -> Option<()> {
     hook::init();
     synchronization::init();
 
     if let Some(autostart) = get_option("autostart") {
-        if !args.contains(&"-a".to_owned()) {
+        if !args.contains(&"-a") {
             if autostart == "true" {
                 if let Some(t) = ffi::get_option("token") {
                     discord::init(&t);

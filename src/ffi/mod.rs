@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use libc::*;
-use std::{ffi::*, panic::*, ptr};
+use std::{convert::AsRef, ffi::*, panic::*, ptr};
 
 #[macro_use]
 mod macros;
@@ -452,12 +452,14 @@ pub extern "C" fn wdr_init(argc: c_int, arg_ptr: *const *const c_char) -> c_int 
 
             args = argv
                 .iter()
-                .map(|v| CStr::from_ptr(*v).to_string_lossy().into_owned())
+                .map(|v| CStr::from_ptr(*v).to_string_lossy())
                 .collect();
         }
     }
 
-    match wrap_panic(|| ::init(&args)) {
+    let x: Vec<_> = args.iter().map(AsRef::as_ref).collect();
+
+    match wrap_panic(|| ::init(&x)) {
         Some(Some(())) => 0,
         _ => 1,
     }

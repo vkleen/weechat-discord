@@ -1,5 +1,5 @@
 use ffi::Buffer;
-use {buffers, printing};
+use {buffers, printing, utils};
 
 use serenity::model::prelude::*;
 use serenity::prelude::*;
@@ -21,7 +21,7 @@ impl EventHandler for Handler {
 
     // Called when a message is received
     fn message(&self, _: Context, msg: Message) {
-        let string_channel = msg.channel_id.0.to_string();
+        let string_channel = utils::buffer_id_from_channel(&msg.channel_id);
         if let Some(buffer) = Buffer::search(&string_channel) {
             if msg.is_own() {
                 printing::print_msg(&buffer, &msg, false);

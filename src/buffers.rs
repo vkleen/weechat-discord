@@ -4,6 +4,7 @@ use serenity::builder::GetMessages;
 use serenity::model::prelude::*;
 use serenity::CACHE;
 use std::collections::{HashMap, VecDeque};
+use utils;
 
 pub fn create_buffers(ready_data: &Ready) {
     let current_user = CACHE.read().user.clone();
@@ -50,7 +51,7 @@ pub fn create_buffers(ready_data: &Ready) {
 }
 
 fn create_buffer_from_guild(guild: &GuildInfo) {
-    let guild_name_id = guild.id.0.to_string();
+    let guild_name_id = utils::buffer_id_from_guild(&guild.id);
     let buffer = on_main! {{
         if let Some(buffer) = Buffer::search(&guild_name_id) {
             buffer
@@ -63,7 +64,7 @@ fn create_buffer_from_guild(guild: &GuildInfo) {
 }
 
 fn create_buffer_from_channel(channel: &GuildChannel, nick: &str) {
-    let guild_name_id = channel.guild_id.0.to_string();
+    let guild_name_id = utils::buffer_id_from_guild(&channel.guild_id);
 
     let current_user = CACHE.read().user.clone();
     if let Ok(perms) = channel.permissions_for(current_user.id) {
@@ -78,7 +79,7 @@ fn create_buffer_from_channel(channel: &GuildChannel, nick: &str) {
         ChannelType::Group | ChannelType::Text => "channel",
     };
 
-    let name_id = channel.id.0.to_string();
+    let name_id = utils::buffer_id_from_channel(&channel.id);
     on_main! {{
         let buffer = if let Some(buffer) = Buffer::search(&name_id) {
             buffer
@@ -86,8 +87,8 @@ fn create_buffer_from_channel(channel: &GuildChannel, nick: &str) {
             Buffer::new(&name_id, ::hook::buffer_input).unwrap()
         };
         buffer.set("short_name", &channel.name);
-        buffer.set("localvar_set_channelid", &name_id);
-        buffer.set("localvar_set_guildid", &guild_name_id);
+        buffer.set("localvar_set_channelid", &name_id[1..]);
+        buffer.set("localvar_set_guildid", &guild_name_id[1..]);
         buffer.set("localvar_set_type", channel_type);
         buffer.set("localvar_set_nick", &nick);
         let title = if let Some(ref topic) = channel.topic {
@@ -111,7 +112,7 @@ pub fn create_buffer_from_dm(channel: Channel, nick: &str, switch_to: bool) {
     };
     let channel = channel.read();
 
-    let name_id = channel.id.0.to_string();
+    let name_id = utils::buffer_id_from_channel(&channel.id);
     on_main! {{
         let buffer = if let Some(buffer) = Buffer::search(&name_id) {
             buffer
@@ -120,7 +121,7 @@ pub fn create_buffer_from_dm(channel: Channel, nick: &str, switch_to: bool) {
         };
 
         buffer.set("short_name", &channel.name());
-        buffer.set("localvar_set_channelid", &name_id);
+        buffer.set("localvar_set_channelid", &name_id[1..]);
         buffer.set("localvar_set_nick", &nick);
         if switch_to {
             buffer.set("display", "1");
@@ -147,7 +148,7 @@ pub fn create_buffer_from_group(channel: Channel, nick: &str) {
             .join(", ")
     );
 
-    let name_id = channel.channel_id.0.to_string();
+    let name_id = utils::buffer_id_from_channel(&channel.channel_id);
 
     on_main! {{
         let buffer = if let Some(buffer) = Buffer::search(&name_id) {
@@ -157,7 +158,7 @@ pub fn create_buffer_from_group(channel: Channel, nick: &str) {
         };
 
         buffer.set("short_name", &channel.name());
-        buffer.set("localvar_set_channelid", &name_id);
+        buffer.set("localvar_set_channelid", &name_id[1..]);
         buffer.set("localvar_set_nick", &nick);
         buffer.set("title", &title);
     }};
@@ -240,7 +241,7 @@ pub fn load_history(buffer: &Buffer) {
             Some(channel) => channel,
             None => return,
         };
-        let channel=match channel.parse::<u64>() {
+        let channel = match channel.parse::<u64>() {
             Ok(v) => ChannelId(v),
             Err(_) => return,
         };
@@ -271,7 +272,7 @@ pub fn update_nick() {
 
         let channels = guild.id.channels().expect("Unable to fetch channels");
         for channel_id in channels.keys() {
-            let string_channel = channel_id.0.to_string();
+            let string_channel = utils::buffer_id_from_channel(&channel_id);
             if let Some(buffer) = Buffer::search(&string_channel) {
                 buffer.set("localvar_set_nick", &nick);
                 update_bar_item("input_prompt");

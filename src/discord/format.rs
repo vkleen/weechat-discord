@@ -8,7 +8,8 @@ pub fn discord_to_weechat(msg: &str) -> String {
         match node {
             Style::Text(txt) => result.push_str(&txt),
             Style::Code(code) => {
-                result.push_str(&color_codes("/grey"));
+                // TODO: Code blocks
+                result.push_str(&color_codes("*8"));
                 result.push_str(&code);
                 result.push_str(&color_codes("reset"));
             }

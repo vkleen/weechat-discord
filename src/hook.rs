@@ -1,3 +1,4 @@
+use dirs;
 use serenity::{
     model::{
         channel::Channel,
@@ -6,7 +7,7 @@ use serenity::{
     prelude::RwLock,
     CACHE,
 };
-use std::{ptr, sync::Arc, thread, time::Duration};
+use std::{fs, ptr, sync::Arc, thread, time::Duration};
 use {
     buffers, discord,
     discord::DISCORD,
@@ -186,6 +187,7 @@ fn handle_nick(buffer: Buffer, command: &str) {
 
 fn run_command(_buffer: &Buffer, command: &str) {
     // TODO: Add rename command
+    // TODO: Get a proper parser
     match command {
         "" => plugin_print("see /help discord for more information"),
         "connect" => {
@@ -224,6 +226,43 @@ fn run_command(_buffer: &Buffer, command: &str) {
             set_option("autostart", "false");
             plugin_print("Discord will not load on startup");
         }
+        _ if command.starts_with("upload ") => {
+            let mut file = command["upload ".len()..].to_owned();
+            // TODO: Find a better way to expand paths
+            if file.starts_with("~/") {
+                let rest: String = file.chars().skip(2).collect();
+                let dir = match dirs::home_dir() {
+                    Some(dir) => dir.to_string_lossy().into_owned(),
+                    None => ".".to_owned(),
+                };
+                file = format!("{}/{}", dir, rest);
+            }
+            let full = match fs::canonicalize(file) {
+                Ok(f) => f.to_string_lossy().into_owned(),
+                Err(e) => {
+                    plugin_print(&format!("Unable to resolve file path: {}", e));
+                    return;
+                }
+            };
+            let full = full.as_str();
+            // TODO: Check perms and file size
+            let channel = on_main! {{
+                let buffer = match Buffer::current() {
+                    Some(buf) => buf,
+                    None => return,
+                };
+                let channel = match buffer.get("localvar_channelid") {
+                    Some(channel) => channel,
+                    None => return,
+                };
+                match channel.parse::<u64>() {
+                    Ok(v) => ChannelId(v),
+                    Err(_) => return,
+                }
+            }};
+            // TODO: Check result here
+            let _ = channel.send_files(vec![full], |m| m);
+        }
         _ => {
             plugin_print("Unknown command");
         }
@@ -250,19 +289,23 @@ plugins.var.weecord.autostart = <bool>
                      disconnect
                      autostart
                      noautostart
-                     token <token>";
+                     token <token>
+                     upload <file>";
     pub const ARGDESC: &'static str = "\
 connect: sign in to discord and open chat buffers
 disconnect: sign out of Discord
 autostart: automatically sign into discord on start
 noautostart: disable autostart
 token: set Discord login token
+upload: upload a file to the current channel
 Example:
   /discord token 123456789ABCDEF
   /discord connect
   /discord autostart
   /discord disconnect
+  /discord upload file.txt
 ";
-    pub const COMPLETIONS: &str = "\
-                                   connect || disconnect || token || autostart || noautostart";
+    pub const COMPLETIONS: &str =
+        "\
+         connect || disconnect || token || autostart || noautostart || upload %(filename)";
 }

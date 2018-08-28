@@ -232,6 +232,18 @@ impl Buffer {
         }
     }
 
+    pub fn current() -> Option<Buffer> {
+        extern "C" {
+            fn wdc_current_buffer() -> *mut c_void;
+        }
+        let result = unsafe { wdc_current_buffer() };
+        if result.is_null() {
+            None
+        } else {
+            Some(Buffer { ptr: result })
+        }
+    }
+
     pub fn print(&self, message: &str) {
         extern "C" {
             fn wdc_print(buffer: *mut c_void, message: *const c_char);

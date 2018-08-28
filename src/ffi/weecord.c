@@ -89,6 +89,10 @@ struct t_gui_buffer* wdc_buffer_search(const char* name) {
     return weechat_buffer_search("weecord", name);
 }
 
+struct t_gui_buffer* wdc_current_buffer() {
+    return weechat_current_buffer();
+}
+
 struct t_gui_buffer* wdc_buffer_new(
     const char* name, const void* pointer,
     int (*input_callback)(const void* pointer, void* data,

@@ -15,6 +15,7 @@ crate-type = ["dylib"]
 [dependencies]
 libc = "0.2.42"
 lazy_static = "1.0.2"
+dirs = "1.0.3"
 
 [dependencies.serenity]
 git = "https://github.com/terminal-discord/serenity"

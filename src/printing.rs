@@ -36,6 +36,19 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
 
     let mut msg_content = msg.content_safe();
 
+    // TODO: Report content_safe() bug
+    // TODO: Use nicknames instead of user names
+    for u in &msg.mentions {
+        let mut at_distinct = String::with_capacity(38);
+        at_distinct.push('@');
+        at_distinct.push_str(&u.name);
+        at_distinct.push('#');
+        let mention = u.mention().replace("<@", "<@!");
+        use std::fmt::Write;
+        let _ = write!(at_distinct, "{:04}", u.discriminator);
+        msg_content = msg_content.replace(&mention, &at_distinct);
+    }
+
     for attachement in &msg.attachments {
         if !msg_content.is_empty() {
             msg_content.push('\n');

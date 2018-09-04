@@ -203,16 +203,18 @@ pub fn load_nicks(buffer: &Buffer) {
 
     // Typeck not smart enough
     let none_user: Option<UserId> = None;
-    for member in guild_lock.members(Some(1000), none_user).unwrap() {
-        let user_id = member.user.read().id;
-        let member_perms = guild_lock.permissions_in(channel_id, user_id);
-        if !member_perms.send_messages()
-            || !member_perms.read_message_history()
-            || !member_perms.read_messages()
-        {
-            continue;
-        } else {
-            on_main! {{
+    // TODO: What to do with more than 1000 members?
+    let members = guild_lock.members(Some(1000), none_user).unwrap();
+    on_main! {{
+        for member in members {
+            let user_id = member.user.read().id;
+            let member_perms = guild_lock.permissions_in(channel_id, user_id);
+            if !member_perms.send_messages()
+                || !member_perms.read_message_history()
+                || !member_perms.read_messages()
+            {
+                continue;
+            } else {
                 if let Some((role, pos)) = member.highest_role_info() {
                     if let Some(role) = role.to_role_cached() {
                         let role_name = &format!("{}|{}", ::std::i64::MAX - pos, role.name);
@@ -226,9 +228,9 @@ pub fn load_nicks(buffer: &Buffer) {
                 } else {
                     buffer.add_nick(member.display_name().as_ref());
                 }
-            }};
+            }
         }
-    }
+    }};
 }
 
 pub fn load_history(buffer: &Buffer) {

@@ -74,17 +74,9 @@ fn handle_buffer_switch(data: SignalHookData) {
 
 #[allow(needless_pass_by_value)]
 fn handle_trigger(_data: SignalHookData) {
-    if let Ok(tx) = ::synchronization::TX.lock() {
-        if let Some(ref tx) = *tx {
-            tx.send(()).unwrap();
-        }
-    }
-
-    if let Ok(tx) = ::synchronization::TX.lock() {
-        if let Some(ref tx) = *tx {
-            tx.send(()).unwrap();
-        }
-    }
+    let barrier = ::synchronization::BARRIER.clone();
+    barrier.wait();
+    barrier.wait();
 }
 
 // TODO: Transform irc/weechat style to discord style

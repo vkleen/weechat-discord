@@ -32,6 +32,17 @@ pub fn create_buffers(ready_data: &Ready) {
     }
 
     for guild in &sorted_guilds {
+        let guild_settings = ready_data.user_guild_settings.get(&guild.id);
+        let guild_muted;
+        let mut channel_muted = HashMap::new();
+        if let Some(guild_settings) = guild_settings {
+            guild_muted = guild_settings.muted;
+            for (channel_id, channel_override) in guild_settings.channel_overrides.iter() {
+                channel_muted.insert(channel_id, channel_override.muted);
+            }
+        } else {
+            guild_muted = false;
+        }
         create_buffer_from_guild(&guild);
 
         // TODO: Colors?
@@ -44,7 +55,9 @@ pub fn create_buffers(ready_data: &Ready) {
         let mut channels = channels.values().collect::<Vec<_>>();
         channels.sort_by_key(|g| g.position);
         for channel in channels {
-            create_buffer_from_channel(&channel, &nick)
+            let is_muted =
+                guild_muted || channel_muted.get(&channel.id).cloned().unwrap_or_default();
+            create_buffer_from_channel(&channel, &nick, is_muted);
         }
     }
 }
@@ -62,7 +75,7 @@ fn create_buffer_from_guild(guild: &GuildInfo) {
     buffer.set("localvar_set_type", "server");
 }
 
-fn create_buffer_from_channel(channel: &GuildChannel, nick: &str) {
+fn create_buffer_from_channel(channel: &GuildChannel, nick: &str, muted: bool) {
     let guild_name_id = utils::buffer_id_from_guild(&channel.guild_id);
 
     let current_user = CACHE.read().user.clone();
@@ -90,7 +103,7 @@ fn create_buffer_from_channel(channel: &GuildChannel, nick: &str) {
         buffer.set("localvar_set_guildid", &guild_name_id[1..]);
         buffer.set("localvar_set_type", channel_type);
         buffer.set("localvar_set_nick", &nick);
-        let title = if let Some(ref topic) = channel.topic {
+        let mut title = if let Some(ref topic) = channel.topic {
             if !topic.is_empty() {
                 format!("{} | {}", channel.name, topic)
             } else {
@@ -99,7 +112,12 @@ fn create_buffer_from_channel(channel: &GuildChannel, nick: &str) {
         } else {
             channel.name.clone()
         };
+
+        if muted {
+            title += " (muted)";
+        }
         buffer.set("title", &title);
+        buffer.set("localvar_set_muted", &(muted as u8).to_string());
     }};
 }
 

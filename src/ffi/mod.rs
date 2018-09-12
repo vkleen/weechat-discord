@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 use libc::*;
+use std::fs::File;
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::{convert::AsRef, ffi::*, panic::*, ptr};
 
 #[macro_use]
@@ -897,6 +899,42 @@ pub fn hook_signal<F: FnMut(SignalHookData) + 'static>(
     }
 }
 
+pub struct FdHook {
+    file: File,
+    _callback: Box<Box<FnMut(RawFd)>>,
+    _hook: *mut c_void,
+}
+
+pub fn hook_fd<F: FnMut(RawFd) + 'static>(file: File, func: F) -> Option<FdHook> {
+    type CB = FnMut(RawFd);
+    extern "C" {
+        fn wdc_hook_fd(
+            fd: c_int,
+            pointer: *const c_void,
+            callback: extern "C" fn(*const c_void, *mut c_void, c_int) -> c_int,
+        ) -> *mut c_void;
+    }
+    extern "C" fn callback(pointer: *const c_void, _data: *mut c_void, fd: c_int) -> c_int {
+        let pointer = pointer as *mut Box<CB>;
+        (unsafe { &mut **pointer })(fd as RawFd);
+        0
+    }
+
+    let _callback: Box<Box<CB>> = Box::new(Box::new(func));
+    let pointer = &*_callback as *const _ as *const c_void;
+    let fd = file.as_raw_fd();
+    let _hook = unsafe { wdc_hook_fd(fd, pointer, callback) };
+
+    if _hook.is_null() {
+        None
+    } else {
+        Some(FdHook {
+            file,
+            _callback,
+            _hook,
+        })
+    }
+}
 /*
 pub fn hook_completion<F: Fn(Buffer, Completion) + 'static>(name: &str,
                                                             description: &str,

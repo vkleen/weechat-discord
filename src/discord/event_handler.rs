@@ -17,7 +17,7 @@ impl EventHandler for Handler {
     fn message(&self, _: Context, msg: Message) {
         let string_channel = utils::buffer_id_from_channel(&msg.channel_id);
         if let Some(buffer) = Buffer::search(&string_channel) {
-                        let muted = utils::buffer_is_muted(&buffer);
+            let muted = utils::buffer_is_muted(&buffer);
             let notify = !msg.is_own() && !muted;
             printing::print_msg(&buffer, &msg, notify);
         } else {

@@ -5,7 +5,7 @@
 #define NULL ((void*)0)
 #endif
 
-int wdr_init(int argc, char *argv[]);
+int wdr_init(int argc, char* argv[]);
 int wdr_end(void);
 
 WEECHAT_PLUGIN_NAME("weecord");
@@ -121,9 +121,7 @@ void wdc_hook_signal_send(const char* signal, const char* type_data,
     weechat_hook_signal_send(signal, type_data, signal_data);
 }
 
-void wdc_bar_item_update(const char* name) {
-    weechat_bar_item_update(name);
-}
+void wdc_bar_item_update(const char* name) { weechat_bar_item_update(name); }
 
 void wdc_load_backlog(void* buffer) {
     wdc_hook_signal_send("logger_backlog", WEECHAT_HOOK_SIGNAL_POINTER, buffer);

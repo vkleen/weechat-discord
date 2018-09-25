@@ -32,7 +32,7 @@ pub fn create_buffers(ready_data: &Ready) {
     }
 
     for guild in &sorted_guilds {
-        let guild_settings = ready_data.user_guild_settings.get(&guild.id);
+        let guild_settings = ready_data.user_guild_settings.get(&guild.id.into());
         let guild_muted;
         let mut channel_muted = HashMap::new();
         if let Some(guild_settings) = guild_settings {

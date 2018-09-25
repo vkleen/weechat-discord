@@ -2,7 +2,7 @@
 use libc::*;
 use std::fs::File;
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::{convert::AsRef, ffi::*, panic::*, ptr};
+use std::{convert::AsRef, ffi::{CStr, CString}, panic::{UnwindSafe, catch_unwind}, ptr};
 
 #[macro_use]
 mod macros;

@@ -2,7 +2,12 @@
 use libc::*;
 use std::fs::File;
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::{convert::AsRef, ffi::{CStr, CString}, panic::{UnwindSafe, catch_unwind}, ptr};
+use std::{
+    convert::AsRef,
+    ffi::{CStr, CString},
+    panic::{catch_unwind, UnwindSafe},
+    ptr,
+};
 
 #[macro_use]
 mod macros;
@@ -935,6 +940,49 @@ pub fn hook_fd<F: FnMut(RawFd) + 'static>(file: File, func: F) -> Option<FdHook>
         })
     }
 }
+
+pub struct TimerHook {
+    _callback: Box<Box<FnMut(i32)>>,
+    _hook: *mut c_void,
+}
+
+pub fn hook_timer<F: FnMut(i32) + 'static>(
+    interval: i32,
+    align_second: i32,
+    max_calls: i32,
+    func: F,
+) -> Option<TimerHook> {
+    type CB = FnMut(i32);
+    extern "C" {
+        fn wdc_hook_timer(
+            interval: c_int,
+            align_second: c_int,
+            max_calls: c_int,
+            pointer: *const c_void,
+            callback: extern "C" fn(*const c_void, *mut c_void, c_int) -> c_int,
+        ) -> *mut c_void;
+    }
+    extern "C" fn callback(
+        pointer: *const c_void,
+        _data: *mut c_void,
+        calls_remaining: c_int,
+    ) -> c_int {
+        let pointer = pointer as *mut Box<CB>;
+        (unsafe { &mut **pointer })(calls_remaining as i32);
+        0
+    }
+
+    let _callback: Box<Box<CB>> = Box::new(Box::new(func));
+    let pointer = &*_callback as *const _ as *const c_void;
+    let _hook = unsafe { wdc_hook_timer(interval, align_second, max_calls, pointer, callback) };
+
+    if _hook.is_null() {
+        None
+    } else {
+        Some(TimerHook { _callback, _hook })
+    }
+}
+
 /*
 pub fn hook_completion<F: Fn(Buffer, Completion) + 'static>(name: &str,
                                                             description: &str,

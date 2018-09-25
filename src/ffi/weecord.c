@@ -137,6 +137,14 @@ struct t_hook* wdc_hook_fd(int fd, const void* pointer,
     return weechat_hook_fd(fd, 1, 0, 0, callback, pointer, NULL);
 }
 
+struct t_hook* wdc_hook_timer(long interval, int align_second, int max_calls,
+                              const void* callback_pointer,
+                              int (*callback)(const void* pointer, void* data,
+                                              int remaining_calls)) {
+    return weechat_hook_timer(interval, align_second, max_calls, callback,
+                              callback_pointer, NULL);
+}
+
 void wdc_unhook(struct t_hook* hook) { weechat_unhook(hook); }
 
 int wdc_nicklist_nick_exists(struct t_gui_buffer* buffer, const char* nick) {

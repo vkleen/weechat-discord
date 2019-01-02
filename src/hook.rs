@@ -18,9 +18,9 @@ use {
 // *DO NOT* touch this outside of init/end
 static mut MAIN_COMMAND_HOOK: *mut HookCommand = ptr::null_mut();
 static mut BUFFER_SWITCH_CB: *mut SignalHook = ptr::null_mut();
-static mut TRIGGER_CB: *mut SignalHook = ptr::null_mut();
 static mut QUERY_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
 static mut NICK_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
+static mut TIMER_HOOK: *mut TimerHook = ptr::null_mut();
 
 pub fn init() -> Option<()> {
     let main_cmd_hook = ffi::hook_command(
@@ -35,12 +35,12 @@ pub fn init() -> Option<()> {
     let query_hook = ffi::hook_command_run("/query", handle_query)?;
     let nick_hook = ffi::hook_command_run("/nick", handle_nick)?;
     let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
-    let trigger_hook = ffi::hook_signal("main_thread_lock", handle_trigger)?;
+    let timer_hook = ffi::hook_timer(50, 0, 0, handle_timer)?;
 
     unsafe {
         MAIN_COMMAND_HOOK = Box::into_raw(Box::new(main_cmd_hook));
         BUFFER_SWITCH_CB = Box::into_raw(Box::new(buffer_switch_hook));
-        TRIGGER_CB = Box::into_raw(Box::new(trigger_hook));
+        TIMER_HOOK = Box::into_raw(Box::new(timer_hook));
         QUERY_CMD_HOOK = Box::into_raw(Box::new(query_hook));
         NICK_CMD_HOOK = Box::into_raw(Box::new(nick_hook));
     };
@@ -53,8 +53,8 @@ pub fn destroy() {
         MAIN_COMMAND_HOOK = ptr::null_mut();
         let _ = Box::from_raw(BUFFER_SWITCH_CB);
         BUFFER_SWITCH_CB = ptr::null_mut();
-        let _ = Box::from_raw(TRIGGER_CB);
-        TRIGGER_CB = ptr::null_mut();
+        let _ = Box::from_raw(TIMER_HOOK);
+        TIMER_HOOK = ptr::null_mut();
         let _ = Box::from_raw(QUERY_CMD_HOOK);
         QUERY_CMD_HOOK = ptr::null_mut();
         let _ = Box::from_raw(NICK_CMD_HOOK);
@@ -62,7 +62,7 @@ pub fn destroy() {
     };
 }
 
-#[allow(needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value)]
 fn handle_buffer_switch(data: SignalHookData) {
     if let SignalHookData::Pointer(buffer) = data {
         thread::spawn(move || {
@@ -72,15 +72,14 @@ fn handle_buffer_switch(data: SignalHookData) {
     }
 }
 
-#[allow(needless_pass_by_value)]
-fn handle_trigger(_data: SignalHookData) {
-    let barrier = ::synchronization::BARRIER.clone();
-    barrier.wait();
-    barrier.wait();
+fn handle_timer(_remaining: i32) {
+    while let Ok(_) = ::synchronization::CHAN.1.try_recv() {
+        let _ = ::synchronization::CHAN.0.send(());
+    }
 }
 
 // TODO: Transform irc/weechat style to discord style
-#[allow(needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value)]
 pub fn buffer_input(buffer: Buffer, message: &str) {
     let channel = buffer
         .get("localvar_channelid")
@@ -149,14 +148,15 @@ fn handle_nick(buffer: Buffer, command: &str) {
         let guild = on_main! {{
             let guild = match buffer.get("localvar_guildid") {
                 Some(guild) => guild,
-                None => return,
+                None => return None,
             };
-            match guild.parse::<u64>() {
-                Ok(v) => GuildId(v),
-                Err(_) => return,
-            }
+            guild.parse::<u64>().map(|v| GuildId(v)).ok()
         }};
-        vec![guild]
+        if let Some(guild) = guild {
+            vec![guild]
+        } else {
+            vec![]
+        }
     };
 
     thread::spawn(move || {
@@ -241,19 +241,21 @@ fn run_command(_buffer: &Buffer, command: &str) {
             let channel = on_main! {{
                 let buffer = match Buffer::current() {
                     Some(buf) => buf,
-                    None => return,
+                    None => return None,
                 };
                 let channel = match buffer.get("localvar_channelid") {
                     Some(channel) => channel,
-                    None => return,
+                    None => return None,
                 };
                 match channel.parse::<u64>() {
-                    Ok(v) => ChannelId(v),
-                    Err(_) => return,
+                    Ok(v) => return Some(ChannelId(v)),
+                    Err(_) => return None,
                 }
             }};
             // TODO: Check result here
-            let _ = channel.send_files(vec![full], |m| m);
+            if let Some(channel) = channel {
+                let _ = channel.send_files(vec![full], |m| m);
+            }
         }
         _ => {
             plugin_print("Unknown command");

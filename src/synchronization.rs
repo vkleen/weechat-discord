@@ -1,9 +1,11 @@
 use serenity::prelude::Mutex;
-use std::sync::{Arc, Barrier};
 
 lazy_static! {
-    pub static ref M1: Mutex<()> = Mutex::new(());
-    pub static ref BARRIER: Arc<Barrier> = Arc::new(Barrier::new(1));
+    pub static ref MAIN_ENTRY_MUTEX: Mutex<()> = Mutex::new(());
+    pub static ref CHAN: (
+        crossbeam_channel::Sender<()>,
+        crossbeam_channel::Receiver<()>
+    ) = crossbeam_channel::bounded(0);
 }
 
 /// A macro that will cause all code inside to be executed
@@ -13,15 +15,13 @@ lazy_static! {
 /// TODO: Make this work at the type level
 macro_rules! on_main {
     ($block:block) => {{
-        let _lock = $crate::synchronization::M1.lock();
+        let __on_main_fn = || $block;
+        let _lock = $crate::synchronization::MAIN_ENTRY_MUTEX.lock();
 
-        let barrier = $crate::synchronization::BARRIER.clone();
-        barrier.wait();
+        let _ = $crate::synchronization::CHAN.0.send(());
+        let val = __on_main_fn();
+        let _ = $crate::synchronization::CHAN.1.recv();
 
-        let __tmp = $block;
-
-        barrier.wait();
-
-        __tmp
+        val
     }};
 }

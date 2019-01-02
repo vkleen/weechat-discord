@@ -19,14 +19,14 @@ impl EventHandler for Handler {
         if let Some(buffer) = Buffer::search(&string_channel) {
             let muted = utils::buffer_is_muted(&buffer);
             let notify = !msg.is_own() && !muted;
-            printing::print_msg(&buffer, &msg, notify);
+            on_main! {{printing::print_msg(&buffer, &msg, notify)}};
         } else {
             match msg.channel_id.to_channel() {
                 chan @ Ok(Channel::Private(_)) => {
                     if let Some(buffer) = Buffer::search(&string_channel) {
                         let muted = utils::buffer_is_muted(&buffer);
                         let notify = !msg.is_own() && !muted;
-                        printing::print_msg(&buffer, &msg, notify);
+                        on_main! {{ printing::print_msg(&buffer, &msg, notify) }};
                     } else {
                         // TODO: Implement "switch_to"
                         buffers::create_buffer_from_dm(
@@ -40,7 +40,7 @@ impl EventHandler for Handler {
                     if let Some(buffer) = Buffer::search(&string_channel) {
                         let muted = utils::buffer_is_muted(&buffer);
                         let notify = !msg.is_own() && !muted;
-                        printing::print_msg(&buffer, &msg, notify);
+                        on_main! {{ printing::print_msg(&buffer, &msg, notify) }};
                     } else {
                         buffers::create_buffer_from_group(chan.unwrap(), &CACHE.read().user.name);
                     }

@@ -16,6 +16,7 @@ crate-type = ["dylib"]
 libc = "0.2.42"
 lazy_static = "1.0.2"
 dirs = "1.0.3"
+crossbeam-channel = "0.3.6"
 
 [dependencies.serenity]
 git = "https://github.com/terminal-discord/serenity"

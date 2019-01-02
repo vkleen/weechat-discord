@@ -2,6 +2,7 @@ extern crate libc;
 extern crate serenity;
 #[macro_use]
 extern crate lazy_static;
+extern crate crossbeam_channel;
 extern crate dirs;
 extern crate parsing;
 

@@ -2,6 +2,6 @@
 **/*.rs.bk
 Cargo.lock
 
-/test_dir/
+/test_dir*/
 
 /.vscode/

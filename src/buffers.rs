@@ -169,7 +169,7 @@ pub fn create_buffer_from_group(channel: Channel, nick: &str) {
 
     let name_id = utils::buffer_id_from_channel(&channel.channel_id);
 
-    on_main! { {
+    on_main! {{
         let buffer = if let Some(buffer) = Buffer::search(&name_id) {
             buffer
         } else {
@@ -186,41 +186,36 @@ pub fn create_buffer_from_group(channel: Channel, nick: &str) {
 // TODO: Make this nicer somehow
 // TODO: Refactor this to use `?`
 pub fn load_nicks(buffer: &Buffer) {
-    let ret = on_main! {{
+    let (guild_id, channel_id) = on_main! {{
         if buffer.get("localvar_loaded_nicks").is_some() {
-            return None;
+            return;
         }
 
         let guild_id = match buffer.get("localvar_guildid") {
             Some(guild_id) => guild_id,
-            None => return None,
+            None => return,
         };
 
         let channel_id = match buffer.get("localvar_channelid") {
             Some(channel_id) => channel_id,
-            None => return None,
+            None => return,
         };
 
         let guild_id = match guild_id.parse::<u64>() {
             Ok(v) => GuildId(v),
-            Err(_) => return None,
+            Err(_) => return,
         };
 
         let channel_id = match channel_id.parse::<u64>() {
             Ok(v) => ChannelId(v),
-            Err(_) => return None,
+            Err(_) => return,
         };
 
         buffer.set("localvar_set_loaded_nicks", "true");
         buffer.set("nicklist", "1");
 
-        Some((guild_id, channel_id))
+        (guild_id, channel_id)
     }};
-
-    let (guild_id, channel_id) = match ret {
-        Some((g, c)) => (g, c),
-        None => return,
-    };
 
     let guild = guild_id.to_guild_cached().expect("No guild cache item");
 
@@ -259,33 +254,33 @@ pub fn load_nicks(buffer: &Buffer) {
 }
 
 pub fn load_history(buffer: &Buffer) {
-    if let Some(channel) = on_main! {{
+    let channel = on_main! {{
         if buffer.get("localvar_loaded_history").is_some() {
-            return None;
+            return;
         }
         let channel = match buffer.get("localvar_channelid") {
             Some(channel) => channel,
             None => {
-                return None;
+                return;
             }
         };
         let channel = match channel.parse::<u64>() {
             Ok(v) => ChannelId(v),
-            Err(_) => return None,
+            Err(_) => return,
         };
         buffer.clear();
         buffer.set("localvar_set_loaded_history", "true");
-        Some(channel)
-    }} {
-        let retriever = GetMessages::default().limit(25);
+        channel
+    }};
 
-        if let Ok(msgs) = channel.messages(|_| retriever) {
-            on_main! {{
-                for msg in msgs.iter().rev().cloned() {
-                    printing::print_msg(&buffer, &msg, false);
-                }
-            }};
-        }
+    let retriever = GetMessages::default().limit(25);
+
+    if let Ok(msgs) = channel.messages(|_| retriever) {
+        on_main! {{
+            for msg in msgs.iter().rev().cloned() {
+                printing::print_msg(&buffer, &msg, false);
+            }
+        }};
     }
 }
 

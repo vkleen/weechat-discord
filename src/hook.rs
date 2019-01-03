@@ -35,6 +35,7 @@ pub fn init() -> Option<()> {
     let query_hook = ffi::hook_command_run("/query", handle_query)?;
     let nick_hook = ffi::hook_command_run("/nick", handle_nick)?;
     let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
+    // TODO: Dynamic timer delay like weeslack?
     let timer_hook = ffi::hook_timer(50, 0, 0, handle_timer)?;
 
     unsafe {
@@ -73,8 +74,8 @@ fn handle_buffer_switch(data: SignalHookData) {
 }
 
 fn handle_timer(_remaining: i32) {
-    while let Ok(_) = ::synchronization::CHAN.1.try_recv() {
-        let _ = ::synchronization::CHAN.0.send(());
+    while let Ok(_) = ::synchronization::WEE_SYNC.try_recv() {
+        let _ = ::synchronization::WEE_SYNC.send();
     }
 }
 
@@ -148,15 +149,14 @@ fn handle_nick(buffer: Buffer, command: &str) {
         let guild = on_main! {{
             let guild = match buffer.get("localvar_guildid") {
                 Some(guild) => guild,
-                None => return None,
+                None => return,
             };
-            guild.parse::<u64>().map(|v| GuildId(v)).ok()
+            match guild.parse::<u64>() {
+                Ok(v) => GuildId(v),
+                Err(_) => return,
+            }
         }};
-        if let Some(guild) = guild {
-            vec![guild]
-        } else {
-            vec![]
-        }
+        vec![guild]
     };
 
     thread::spawn(move || {
@@ -241,21 +241,19 @@ fn run_command(_buffer: &Buffer, command: &str) {
             let channel = on_main! {{
                 let buffer = match Buffer::current() {
                     Some(buf) => buf,
-                    None => return None,
+                    None => return,
                 };
                 let channel = match buffer.get("localvar_channelid") {
                     Some(channel) => channel,
-                    None => return None,
+                    None => return,
                 };
                 match channel.parse::<u64>() {
-                    Ok(v) => return Some(ChannelId(v)),
-                    Err(_) => return None,
+                    Ok(v) => ChannelId(v),
+                    Err(_) => return,
                 }
             }};
             // TODO: Check result here
-            if let Some(channel) = channel {
-                let _ = channel.send_files(vec![full], |m| m);
-            }
+            let _ = channel.send_files(vec![full], |m| m);
         }
         _ => {
             plugin_print("Unknown command");

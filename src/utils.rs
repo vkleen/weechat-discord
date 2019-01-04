@@ -1,4 +1,4 @@
-use ffi::Buffer;
+use crate::ffi::Buffer;
 use serenity::model::id::{ChannelId, GuildId};
 
 pub fn buffer_id_from_guild(id: &GuildId) -> String {

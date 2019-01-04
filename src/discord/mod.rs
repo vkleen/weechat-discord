@@ -3,9 +3,10 @@ mod event_handler;
 pub mod format;
 
 use self::discord_client::DiscordClient;
+use crate::MAIN_BUFFER;
+use lazy_static::lazy_static;
 use serenity::prelude::Mutex;
 use std::{sync::Arc, thread};
-use MAIN_BUFFER;
 
 lazy_static! {
     pub(crate) static ref DISCORD: Arc<Mutex<Option<DiscordClient>>> = Arc::new(Mutex::new(None));
@@ -19,7 +20,7 @@ pub fn init(token: &str) {
         if let Ok(event_handler::WeecordEvent::Ready(ready)) = events.recv() {
             MAIN_BUFFER.print("Connected to Discord!");
 
-            ::buffers::create_buffers(&ready);
+            crate::buffers::create_buffers(&ready);
         }
     });
 

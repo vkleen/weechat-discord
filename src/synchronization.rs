@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use serenity::prelude::Mutex;
 
 lazy_static! {

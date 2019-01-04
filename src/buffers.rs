@@ -1,9 +1,9 @@
-use serenity::{builder::GetMessages, model::prelude::*, CACHE};
-use std::collections::{HashMap, VecDeque};
-use {
+use crate::{
     ffi::{update_bar_item, Buffer},
     printing, utils,
 };
+use serenity::{builder::GetMessages, model::prelude::*, CACHE};
+use std::collections::{HashMap, VecDeque};
 
 pub fn create_buffers(ready_data: &Ready) {
     let current_user = CACHE.read().user.clone();
@@ -12,7 +12,7 @@ pub fn create_buffers(ready_data: &Ready) {
         Ok(guilds) => guilds,
         _ => {
             on_main! {{
-                ::plugin_print("Error getting user guilds");
+                crate::plugin_print("Error getting user guilds");
             }};
             vec![]
         }
@@ -98,7 +98,7 @@ fn create_buffer_from_channel(channel: &GuildChannel, nick: &str, muted: bool) {
         let buffer = if let Some(buffer) = Buffer::search(&name_id) {
             buffer
         } else {
-            Buffer::new(&name_id, ::hook::buffer_input).unwrap()
+            Buffer::new(&name_id, crate::hook::buffer_input).unwrap()
         };
         buffer.set("short_name", &channel.name);
         buffer.set("localvar_set_channelid", &name_id[1..]);
@@ -136,7 +136,7 @@ pub fn create_buffer_from_dm(channel: Channel, nick: &str, switch_to: bool) {
     let buffer = if let Some(buffer) = Buffer::search(&name_id) {
         buffer
     } else {
-        Buffer::new(&name_id, ::hook::buffer_input).unwrap()
+        Buffer::new(&name_id, crate::hook::buffer_input).unwrap()
     };
 
     buffer.set("short_name", &channel.name());
@@ -172,7 +172,7 @@ pub fn create_buffer_from_group(channel: Channel, nick: &str) {
     let buffer = if let Some(buffer) = Buffer::search(&name_id) {
         buffer
     } else {
-        Buffer::new(&name_id, ::hook::buffer_input).unwrap()
+        Buffer::new(&name_id, crate::hook::buffer_input).unwrap()
     };
 
     buffer.set("short_name", &channel.name());

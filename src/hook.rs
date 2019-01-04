@@ -1,3 +1,9 @@
+use crate::{
+    buffers, discord,
+    discord::DISCORD,
+    ffi::{self, *},
+    plugin_print,
+};
 use dirs;
 use serenity::{
     model::{
@@ -8,12 +14,6 @@ use serenity::{
     CACHE,
 };
 use std::{fs, ptr, sync::Arc, thread, time::Duration};
-use {
-    buffers, discord,
-    discord::DISCORD,
-    ffi::{self, *},
-    plugin_print,
-};
 
 // *DO NOT* touch this outside of init/end
 static mut MAIN_COMMAND_HOOK: *mut HookCommand = ptr::null_mut();
@@ -74,8 +74,8 @@ fn handle_buffer_switch(data: SignalHookData) {
 }
 
 fn handle_timer(_remaining: i32) {
-    while let Ok(_) = ::synchronization::WEE_SYNC.try_recv() {
-        let _ = ::synchronization::WEE_SYNC.send();
+    while let Ok(_) = crate::synchronization::WEE_SYNC.try_recv() {
+        let _ = crate::synchronization::WEE_SYNC.send();
     }
 }
 
@@ -126,12 +126,8 @@ fn handle_query(_buffer: Buffer, command: &str) {
 // TODO: Handle command options
 fn handle_nick(buffer: Buffer, command: &str) {
     let mut substr = command["/nick".len()..].trim().to_owned();
-    let all;
-    // TODO: NLL
-    {
-        let mut split = substr.split(" ");
-        all = split.next() == Some("-all");
-    }
+    let mut split = substr.split(" ");
+    let all = split.next() == Some("-all");
     if all {
         substr = substr["-all".len()..].trim().to_owned();
     }

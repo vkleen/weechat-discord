@@ -1,11 +1,3 @@
-extern crate libc;
-extern crate serenity;
-#[macro_use]
-extern crate lazy_static;
-extern crate crossbeam_channel;
-extern crate dirs;
-extern crate parsing;
-
 #[macro_use]
 mod synchronization;
 mod buffers;
@@ -15,8 +7,8 @@ mod hook;
 mod printing;
 mod utils;
 
-use ffi::get_option;
-pub use ffi::{wdr_end, wdr_init, MAIN_BUFFER};
+use crate::ffi::get_option;
+pub use crate::ffi::{wdr_end, wdr_init, MAIN_BUFFER};
 
 // Called when plugin is loaded in Weechat
 pub fn init(args: &[&str]) -> Option<()> {

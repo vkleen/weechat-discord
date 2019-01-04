@@ -1,6 +1,6 @@
+use crate::{buffers, ffi::Buffer, printing, utils};
 use serenity::{model::prelude::*, prelude::*, CACHE};
 use std::sync::{mpsc::Sender, Arc};
-use {buffers, ffi::Buffer, printing, utils};
 
 pub enum WeecordEvent {
     Ready(::serenity::model::gateway::Ready),

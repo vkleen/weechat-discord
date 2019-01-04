@@ -1,6 +1,3 @@
-extern crate gcc;
-extern crate pkg_config;
-
 fn main() {
     let weechat = match pkg_config::probe_library("weechat") {
         Ok(weechat) => weechat,
@@ -11,12 +8,13 @@ fn main() {
             error
         )),
     };
-    let mut config = gcc::Build::new();
+    let mut config = cc::Build::new();
     for path in weechat.include_paths {
         config.include(path);
     }
-    config.file("src/ffi/weecord.c");
-    config.flag("-Wall");
-    config.flag("-Wextra");
-    config.compile("libweecord.a");
+    config
+        .file("src/ffi/weecord.c")
+        .flag("-Wall")
+        .flag("-Wextra")
+        .compile("libweecord.a");
 }

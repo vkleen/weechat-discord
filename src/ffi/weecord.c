@@ -158,9 +158,9 @@ int wdc_nicklist_group_exists(struct t_gui_buffer* buffer, const char* group) {
     return group_value != NULL;
 }
 
-void wdc_nicklist_add_group(struct t_gui_buffer* buffer, const char* name) {
-    (void)weechat_nicklist_add_group(buffer, NULL, name,
-                                     "weechat.color.nicklist_group", 1);
+void wdc_nicklist_add_group(struct t_gui_buffer* buffer, const char* name,
+                            const char* color) {
+    (void)weechat_nicklist_add_group(buffer, NULL, name, color, 1);
 }
 
 void wdc_nicklist_add_nick(struct t_gui_buffer* buffer, const char* nick) {

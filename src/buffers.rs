@@ -239,7 +239,7 @@ pub fn load_nicks(buffer: &Buffer) {
                     if let Some(role) = role.to_role_cached() {
                         let role_name = &format!("{}|{}", ::std::i64::MAX - pos, role.name);
                         if !buffer.group_exists(role_name) {
-                            buffer.add_nicklist_group(role_name);
+                            buffer.add_nicklist_group_with_color(role_name, &crate::utils::rgb_to_ansi(role.colour).to_string());
                         }
                         buffer.add_nick_to_group(member.display_name().as_ref(), &role.name)
                     } else {

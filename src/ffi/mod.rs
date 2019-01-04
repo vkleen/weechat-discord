@@ -375,12 +375,21 @@ impl Buffer {
     }
 
     pub fn add_nicklist_group(&self, name: &str) {
+        self.add_nicklist_group_with_color(name, "weechat.color.nicklist_group")
+    }
+
+    pub fn add_nicklist_group_with_color(&self, name: &str, color: &str) {
         extern "C" {
-            fn wdc_nicklist_add_group(buffer: *const c_void, name: *const c_char);
+            fn wdc_nicklist_add_group(
+                buffer: *const c_void,
+                name: *const c_char,
+                color: *const c_char,
+            );
         }
         unsafe {
             let name = CString::new(name).unwrap();
-            wdc_nicklist_add_group(self.ptr, name.as_ptr());
+            let color = CString::new(color).unwrap();
+            wdc_nicklist_add_group(self.ptr, name.as_ptr(), color.as_ptr());
         }
     }
 

@@ -124,6 +124,7 @@ fn create_buffer_from_channel(channel: &GuildChannel, nick: &str, muted: bool) {
 }
 
 // TODO: Reduce code duplication
+/// Must be called on main
 pub fn create_buffer_from_dm(channel: Channel, nick: &str, switch_to: bool) {
     let channel = match channel.private() {
         Some(chan) => chan,
@@ -132,24 +133,23 @@ pub fn create_buffer_from_dm(channel: Channel, nick: &str, switch_to: bool) {
     let channel = channel.read();
 
     let name_id = utils::buffer_id_from_channel(&channel.id);
-    on_main! {{
-        let buffer = if let Some(buffer) = Buffer::search(&name_id) {
-            buffer
-        } else {
-            Buffer::new(&name_id, ::hook::buffer_input).unwrap()
-        };
+    let buffer = if let Some(buffer) = Buffer::search(&name_id) {
+        buffer
+    } else {
+        Buffer::new(&name_id, ::hook::buffer_input).unwrap()
+    };
 
-        buffer.set("short_name", &channel.name());
-        buffer.set("localvar_set_channelid", &name_id[1..]);
-        buffer.set("localvar_set_nick", &nick);
-        if switch_to {
-            buffer.set("display", "1");
-        }
-        let title = format!("DM with {}", channel.recipient.read().name);
-        buffer.set("title", &title);
-    }};
+    buffer.set("short_name", &channel.name());
+    buffer.set("localvar_set_channelid", &name_id[1..]);
+    buffer.set("localvar_set_nick", &nick);
+    if switch_to {
+        buffer.set("display", "1");
+    }
+    let title = format!("DM with {}", channel.recipient.read().name);
+    buffer.set("title", &title);
 }
 
+/// Must be called on main
 pub fn create_buffer_from_group(channel: Channel, nick: &str) {
     let channel = match channel.group() {
         Some(chan) => chan,
@@ -169,18 +169,16 @@ pub fn create_buffer_from_group(channel: Channel, nick: &str) {
 
     let name_id = utils::buffer_id_from_channel(&channel.channel_id);
 
-    on_main! {{
-        let buffer = if let Some(buffer) = Buffer::search(&name_id) {
-            buffer
-        } else {
-            Buffer::new(&name_id, ::hook::buffer_input).unwrap()
-        };
+    let buffer = if let Some(buffer) = Buffer::search(&name_id) {
+        buffer
+    } else {
+        Buffer::new(&name_id, ::hook::buffer_input).unwrap()
+    };
 
-        buffer.set("short_name", &channel.name());
-        buffer.set("localvar_set_channelid", &name_id[1..]);
-        buffer.set("localvar_set_nick", &nick);
-        buffer.set("title", &title);
-    }};
+    buffer.set("short_name", &channel.name());
+    buffer.set("localvar_set_channelid", &name_id[1..]);
+    buffer.set("localvar_set_nick", &nick);
+    buffer.set("title", &title);
 }
 
 // TODO: Make this nicer somehow

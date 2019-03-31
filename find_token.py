@@ -1,45 +1,62 @@
 import subprocess
-import sqlite3
 import sys
+import string
+import platform
+
+
+def strings(filename, min=4):
+    with open(filename, errors="ignore") as f:
+        result = ""
+        for c in f.read():
+            if c in string.printable:
+                result += c
+                continue
+            if len(result) >= min:
+                yield result
+            result = ""
+        if len(result) >= min:
+            yield result
+
+
+def run_command(cmd):
+    output = subprocess.Popen(
+        [cmd], shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+    )
+    return output.communicate()[0].decode().splitlines()
 
 
 def main():
     print("Searching for Discord localstorage databases...")
-    try:
-        subprocess.check_output(["rg", "--version"])
-        command = "rg ~/ --hidden --files -g 'http*discordapp.com_0.localstorage'"
-    except FileNotFoundError:
-        command = "find ~/ -name 'http*discordapp.com_0.localstorage'"
+    rg = False
+    if platform.system() == "Darwin":
+        results = run_command("mdfind \"kMDItemDisplayName=='*.ldb'\"")
+    else:
+        try:
+            subprocess.check_output(["rg", "--version"])
+            results = run_command("rg ~/ --files -g '*.ldb'")
+            rg = True
+        except FileNotFoundError:
+            results = run_command("find ~/ -name '*.ldb'")
 
-    output = subprocess.Popen(
-        [command], shell=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-    )
-    results = output.communicate()[0].decode().splitlines()
+    if len(results) == 0 and rg:
+        results = run_command("rg ~/ --hidden  --files -g '*.ldb'")
 
     if len(results) == 0:
         print("No databases found.")
         sys.exit(1)
 
-    print("Found:")
-    for i, result in enumerate(results, start=1):
-        print("{} - {}".format(i, result))
+    discord_databases = list(filter(lambda x: "discord" in x, results))
 
-    choice = input("Select a discord storage location [1]: ")
-    if choice == "":
-        choice = 1
-    else:
-        try:
-            choice = int(choice)
-        except ValueError:
-            print("Invalid option.")
-            sys.exit(1)
-    target = results[choice - 1]
+    token_results = set()
+    for database in discord_databases:
+        for tok in strings(database):
+            if len(tok) == 61:
+                if tok.count(".") == 2:
+                    token_results.add(tok[1:-1])
 
-    conn = sqlite3.connect(target)
-    cursor = conn.cursor()
-    query = cursor.execute('SELECT value FROM  ItemTable WHERE key = "token"')
-    token = query.fetchone()[0].decode("utf-16-le")
-    print("Your discord token is:", token)
+    print("Likely Discord tokens are:\n")
+    for token in token_results:
+        print(token)
 
 
 if __name__ == "__main__":

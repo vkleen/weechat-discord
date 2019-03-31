@@ -183,6 +183,8 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 Some(t) => {
                     if DISCORD.lock().is_none() {
                         discord::init(&t);
+                    } else {
+                        plugin_print("Already connected");
                     }
                 }
                 None => {
@@ -198,8 +200,10 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 if let Some(discord) = discord.take() {
                     discord.shutdown();
                 };
+                plugin_print("Disconnected");
+            } else {
+                plugin_print("Already disconnected");
             }
-            plugin_print("Disconnected");
         }
         _ if command.starts_with("token ") => {
             let token = &command["token ".len()..];
@@ -255,6 +259,9 @@ fn run_command(_buffer: &Buffer, command: &str) {
                     _ => {}
                 },
             };
+        }
+        _ if command.contains("upload") => {
+            plugin_print("upload requires an argument");
         }
         _ => {
             plugin_print("Unknown command");

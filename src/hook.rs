@@ -234,22 +234,27 @@ fn run_command(_buffer: &Buffer, command: &str) {
             };
             let full = full.as_str();
             // TODO: Check perms and file size
-            let channel = on_main! {{
-                let buffer = match Buffer::current() {
-                    Some(buf) => buf,
-                    None => return,
-                };
-                let channel = match buffer.get("localvar_channelid") {
-                    Some(channel) => channel,
-                    None => return,
-                };
-                match channel.parse::<u64>() {
-                    Ok(v) => ChannelId(v),
-                    Err(_) => return,
-                }
-            }};
-            // TODO: Check result here
-            let _ = channel.send_files(vec![full], |m| m);
+            let buffer = match Buffer::current() {
+                Some(buf) => buf,
+                None => return,
+            };
+            let channel = match buffer.get("localvar_channelid") {
+                Some(channel) => channel,
+                None => return,
+            };
+            let channel = match channel.parse::<u64>() {
+                Ok(v) => ChannelId(v),
+                Err(_) => return,
+            };
+            match channel.send_files(vec![full], |m| m) {
+                Ok(_) => plugin_print("File uploaded successfully"),
+                Err(e) => match e {
+                    serenity::Error::Model(serenity::model::ModelError::MessageTooLong(_)) => {
+                        plugin_print("File too large to upload");
+                    }
+                    _ => {}
+                },
+            };
         }
         _ => {
             plugin_print("Unknown command");

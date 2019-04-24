@@ -1,4 +1,4 @@
-use crate::ffi::Buffer;
+use crate::ffi::{get_option, Buffer};
 use serenity::model::id::{ChannelId, GuildId};
 
 pub fn buffer_id_from_guild(id: &GuildId) -> String {
@@ -22,4 +22,8 @@ pub fn rgb_to_ansi(color: serenity::utils::Colour) -> u8 {
     let g = (u16::from(color.g()) * 5 / 255) as u8;
     let b = (u16::from(color.b()) * 5 / 255) as u8;
     16 + 36 * r + 6 * g + b
+}
+
+pub fn get_irc_mode() -> bool {
+    get_option("irc_mode").map(|x| x == "true").unwrap_or(false)
 }

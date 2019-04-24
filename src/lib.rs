@@ -18,7 +18,7 @@ pub fn init(args: &[&str]) -> Option<()> {
         if !args.contains(&"-a") {
             if autostart == "true" {
                 if let Some(t) = ffi::get_option("token") {
-                    discord::init(&t);
+                    discord::init(&t, utils::get_irc_mode());
                 }
             }
         }

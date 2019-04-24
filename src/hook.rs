@@ -182,7 +182,7 @@ fn run_command(_buffer: &Buffer, command: &str) {
             match ffi::get_option("token") {
                 Some(t) => {
                     if DISCORD.lock().is_none() {
-                        discord::init(&t);
+                        discord::init(&t, crate::utils::get_irc_mode());
                     } else {
                         plugin_print("Already connected");
                     }

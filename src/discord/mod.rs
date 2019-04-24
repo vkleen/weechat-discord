@@ -12,7 +12,7 @@ lazy_static! {
     pub(crate) static ref DISCORD: Arc<Mutex<Option<DiscordClient>>> = Arc::new(Mutex::new(None));
 }
 
-pub fn init(token: &str) {
+pub fn init(token: &str, irc_mode: bool) {
     MAIN_BUFFER.print("Connecting to Discord...");
     let (discord_client, events) = DiscordClient::start(token).unwrap();
 
@@ -20,7 +20,9 @@ pub fn init(token: &str) {
         if let Ok(event_handler::WeecordEvent::Ready(ready)) = events.recv() {
             MAIN_BUFFER.print("Connected to Discord!");
 
-            crate::buffers::create_buffers(&ready);
+            if !irc_mode {
+                crate::buffers::create_buffers(&ready);
+            }
         }
     });
 

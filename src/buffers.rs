@@ -2,17 +2,19 @@ use crate::{
     ffi::{update_bar_item, Buffer},
     printing, utils,
 };
-use serenity::{builder::GetMessages, model::prelude::*, CACHE};
+use serenity::cache::CacheRwLock;
+use serenity::model::prelude::*;
 use std::collections::{HashMap, VecDeque};
 
 pub fn create_buffers(ready_data: &Ready) {
-    let current_user = CACHE.read().user.clone();
+    let ctx = crate::discord::get_ctx();
+    let current_user = ctx.cache.read().user.clone();
 
-    let guilds = match current_user.guilds() {
+    let guilds = match current_user.guilds(&ctx.http) {
         Ok(guilds) => guilds,
-        _ => {
+        Err(e) => {
             on_main! {{
-                crate::plugin_print("Error getting user guilds");
+                crate::plugin_print(&format!("Error getting user guilds: {:?}", e));
             }};
             vec![]
         }
@@ -48,18 +50,21 @@ pub fn create_buffers(ready_data: &Ready) {
         create_buffer_from_guild(&guild);
 
         // TODO: Colors?
-        let nick = if let Ok(current_member) = guild.id.member(current_user.id) {
+        let nick = if let Ok(current_member) = guild.id.member(&ctx, current_user.id) {
             format!("@{}", current_member.display_name())
         } else {
             format!("@{}", current_user.name)
         };
-        let channels = guild.id.channels().expect("Unable to fetch channels");
+        let channels = guild
+            .id
+            .channels(&ctx.http)
+            .expect("Unable to fetch channels");
         let mut channels = channels.values().collect::<Vec<_>>();
         channels.sort_by_key(|g| g.position);
         for channel in channels {
             let is_muted =
                 guild_muted || channel_muted.get(&channel.id).cloned().unwrap_or_default();
-            create_buffer_from_channel(&channel, &nick, is_muted);
+            create_buffer_from_channel(&ctx.cache, &channel, &nick, is_muted);
         }
     }
 }
@@ -77,11 +82,16 @@ fn create_buffer_from_guild(guild: &GuildInfo) {
     }};
 }
 
-fn create_buffer_from_channel(channel: &GuildChannel, nick: &str, muted: bool) {
+fn create_buffer_from_channel(
+    cache: &CacheRwLock,
+    channel: &GuildChannel,
+    nick: &str,
+    muted: bool,
+) {
     let guild_name_id = utils::buffer_id_from_guild(&channel.guild_id);
 
-    let current_user = CACHE.read().user.clone();
-    if let Ok(perms) = channel.permissions_for(current_user.id) {
+    let current_user = cache.read().user.clone();
+    if let Ok(perms) = channel.permissions_for(cache, current_user.id) {
         if !perms.read_message_history() {
             return;
         }
@@ -90,7 +100,8 @@ fn create_buffer_from_channel(channel: &GuildChannel, nick: &str, muted: bool) {
     let channel_type = match channel.kind {
         ChannelType::Category | ChannelType::Voice => return,
         ChannelType::Private => "private",
-        ChannelType::Group | ChannelType::Text => "channel",
+        ChannelType::Group | ChannelType::Text | ChannelType::News => "channel",
+        _ => panic!("Unknown chanel type"),
     };
 
     let name_id = utils::buffer_id_from_channel(&channel.id);
@@ -214,15 +225,20 @@ pub fn load_nicks(buffer: &Buffer) {
 
         (guild_id, channel_id)
     }};
+    let ctx = crate::discord::get_ctx();
 
-    let guild = guild_id.to_guild_cached().expect("No guild cache item");
+    let guild = guild_id
+        .to_guild_cached(&ctx.cache)
+        .expect("No guild cache item");
 
     let guild_lock = guild.read();
 
     // Typeck not smart enough
     let none_user: Option<UserId> = None;
     // TODO: What to do with more than 1000 members?
-    let members = guild_lock.members(Some(1000), none_user).unwrap();
+    let members = guild_lock
+        .members(&ctx.http, Some(1000), none_user)
+        .unwrap();
     on_main! {{
         for member in members {
             let user_id = member.user.read().id;
@@ -233,8 +249,8 @@ pub fn load_nicks(buffer: &Buffer) {
             {
                 continue;
             } else {
-                if let Some((role, pos)) = member.highest_role_info() {
-                    if let Some(role) = role.to_role_cached() {
+                if let Some((role, pos)) = member.highest_role_info(&ctx.cache) {
+                    if let Some(role) = role.to_role_cached(&ctx.cache) {
                         let role_name = &format!("{}|{}", ::std::i64::MAX - pos, role.name);
                         if !buffer.group_exists(role_name) {
                             buffer.add_nicklist_group_with_color(role_name, &crate::utils::rgb_to_ansi(role.colour).to_string());
@@ -271,9 +287,10 @@ pub fn load_history(buffer: &Buffer) {
         channel
     }};
 
-    let retriever = GetMessages::default().limit(25);
+    let ctx = crate::discord::get_ctx();
+    let http = &ctx.http;
 
-    if let Ok(msgs) = channel.messages(|_| retriever) {
+    if let Ok(msgs) = channel.messages(http, |retriever| retriever.limit(25)) {
         on_main! {{
             for msg in msgs.iter().rev().cloned() {
                 printing::print_msg(&buffer, &msg, false);
@@ -283,17 +300,24 @@ pub fn load_history(buffer: &Buffer) {
 }
 
 pub fn update_nick() {
-    let current_user = CACHE.read().user.clone();
+    let ctx = crate::discord::get_ctx();
+    let current_user = ctx.cache.read().user.clone();
 
-    for guild in current_user.guilds().expect("Unable to fetch guilds") {
+    for guild in current_user
+        .guilds(&ctx.http)
+        .expect("Unable to fetch guilds")
+    {
         // TODO: Colors?
-        let nick = if let Ok(current_member) = guild.id.member(current_user.id) {
+        let nick = if let Ok(current_member) = guild.id.member(&ctx, current_user.id) {
             format!("@{}", current_member.display_name())
         } else {
             format!("@{}", current_user.name)
         };
 
-        let channels = guild.id.channels().expect("Unable to fetch channels");
+        let channels = guild
+            .id
+            .channels(&ctx.http)
+            .expect("Unable to fetch channels");
         for channel_id in channels.keys() {
             let string_channel = utils::buffer_id_from_channel(&channel_id);
             if let Some(buffer) = Buffer::search(&string_channel) {

@@ -5,13 +5,13 @@ use crate::{
     plugin_print,
 };
 use dirs;
+use serenity::model::guild::Member;
 use serenity::{
     model::{
         channel::Channel,
         id::{ChannelId, GuildId},
     },
     prelude::RwLock,
-    CACHE,
 };
 use std::{fs, ptr, sync::Arc, thread, time::Duration};
 
@@ -90,8 +90,10 @@ pub fn buffer_input(buffer: Buffer, message: &str) {
     let message = ffi::remove_color(message);
 
     if let Some(channel) = channel {
+        let ctx = crate::discord::get_ctx();
+        let http = &ctx.http;
         channel
-            .say(message)
+            .say(http, message)
             .unwrap_or_else(|_| panic!("Unable to send message to {}", channel.0));
     }
 }
@@ -99,12 +101,17 @@ pub fn buffer_input(buffer: Buffer, message: &str) {
 // TODO: Make this faster
 // TODO: Handle command options
 fn handle_query(_buffer: Buffer, command: &str) {
-    let current_user = &CACHE.read().user;
+    let ctx = crate::discord::get_ctx();
+    let http = &ctx.http;
+    let current_user = &ctx.cache.read().user;
     let substr = &command["/query ".len()..].trim();
 
-    let mut found_members = Vec::new();
-    for guild in current_user.guilds().expect("Unable to fetch guilds") {
-        if let Some(guild) = guild.id.to_guild_cached() {
+    let mut found_members: Vec<Member> = Vec::new();
+    for guild in current_user
+        .guilds(&ctx.http)
+        .expect("Unable to fetch guilds")
+    {
+        if let Some(guild) = guild.id.to_guild_cached(&ctx.cache) {
             let guild = guild.read().clone();
             for m in guild.members_containing(substr, false, true) {
                 found_members.push(m.clone());
@@ -112,8 +119,9 @@ fn handle_query(_buffer: Buffer, command: &str) {
         }
     }
     found_members.dedup_by_key(|mem| mem.user.read().id);
+
     if let Some(target) = found_members.get(0) {
-        if let Ok(chan) = target.user.read().create_dm_channel() {
+        if let Ok(chan) = target.user.read().create_dm_channel(http) {
             buffers::create_buffer_from_dm(
                 Channel::Private(Arc::new(RwLock::new(chan))),
                 &current_user.name,
@@ -125,46 +133,55 @@ fn handle_query(_buffer: Buffer, command: &str) {
 
 // TODO: Handle command options
 fn handle_nick(buffer: Buffer, command: &str) {
-    let mut substr = command["/nick".len()..].trim().to_owned();
-    let mut split = substr.split(" ");
-    let all = split.next() == Some("-all");
-    if all {
-        substr = substr["-all".len()..].trim().to_owned();
-    }
-    let guilds = if all {
-        let current_user = &CACHE.read().user;
+    let guilds;
+    let mut substr;
+    {
+        let ctx = crate::discord::get_ctx();
+        substr = command["/nick".len()..].trim().to_owned();
+        let mut split = substr.split(" ");
+        let all = split.next() == Some("-all");
+        if all {
+            substr = substr["-all".len()..].trim().to_owned();
+        }
+        guilds = if all {
+            let current_user = &ctx.cache.read().user;
 
-        // TODO: Error handling
-        current_user
-            .guilds()
-            .unwrap_or_default()
-            .iter()
-            .map(|g| g.id)
-            .collect()
-    } else {
-        let guild = on_main! {{
-            let guild = match buffer.get("localvar_guildid") {
-                Some(guild) => guild,
-                None => return,
-            };
-            match guild.parse::<u64>() {
-                Ok(v) => GuildId(v),
-                Err(_) => return,
-            }
-        }};
-        vec![guild]
-    };
+            // TODO: Error handling
+            current_user
+                .guilds(&ctx.http)
+                .unwrap_or_default()
+                .iter()
+                .map(|g| g.id)
+                .collect()
+        } else {
+            let guild = on_main! {{
+                let guild = match buffer.get("localvar_guildid") {
+                    Some(guild) => guild,
+                    None => return,
+                };
+                match guild.parse::<u64>() {
+                    Ok(v) => GuildId(v),
+                    Err(_) => return,
+                }
+            }};
+            vec![guild]
+        };
+    }
 
     thread::spawn(move || {
-        for guild in guilds {
-            let new_nick = if substr.is_empty() {
-                None
-            } else {
-                Some(substr.as_str())
-            };
-            let _ = guild.edit_nickname(new_nick);
-            // Make it less spammy
-            thread::sleep(Duration::from_secs(1));
+        {
+            let ctx = crate::discord::get_ctx();
+            let http = &ctx.http;
+            for guild in guilds {
+                let new_nick = if substr.is_empty() {
+                    None
+                } else {
+                    Some(substr.as_str())
+                };
+                let _ = guild.edit_nickname(&http, new_nick);
+                // Make it less spammy
+                thread::sleep(Duration::from_secs(1));
+            }
         }
 
         on_main! {{
@@ -250,7 +267,9 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 Ok(v) => ChannelId(v),
                 Err(_) => return,
             };
-            match channel.send_files(vec![full], |m| m) {
+            let ctx = crate::discord::get_ctx();
+            let http = &ctx.http;
+            match channel.send_files(http, vec![full], |m| m) {
                 Ok(_) => plugin_print("File uploaded successfully"),
                 Err(e) => match e {
                     serenity::Error::Model(serenity::model::ModelError::MessageTooLong(_)) => {

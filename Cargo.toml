@@ -21,7 +21,7 @@ crossbeam-channel = "0.3.8"
 
 [dependencies.serenity]
 git = "https://github.com/terminal-discord/serenity"
-branch = "current"
+branch = "v0.6.x"
 default_features = false
 features = [
     "builder",

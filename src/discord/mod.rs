@@ -5,8 +5,15 @@ pub mod format;
 use self::discord_client::DiscordClient;
 use crate::MAIN_BUFFER;
 use lazy_static::lazy_static;
+use serenity::client::Context;
 use serenity::prelude::Mutex;
 use std::{sync::Arc, thread};
+
+pub static mut CONTEXT: std::mem::MaybeUninit<Context> = std::mem::MaybeUninit::uninit();
+
+pub fn get_ctx() -> &'static Context {
+    unsafe { return std::mem::transmute(CONTEXT.get_ref()) }
+}
 
 lazy_static! {
     pub(crate) static ref DISCORD: Arc<Mutex<Option<DiscordClient>>> = Arc::new(Mutex::new(None));

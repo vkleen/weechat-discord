@@ -1,5 +1,5 @@
 use crate::{buffers, ffi::Buffer, printing, utils};
-use serenity::{model::prelude::*, prelude::*, CACHE};
+use serenity::{model::prelude::*, prelude::*};
 use std::sync::{mpsc::Sender, Arc};
 
 pub enum WeecordEvent {
@@ -9,30 +9,33 @@ pub enum WeecordEvent {
 pub struct Handler(pub Arc<Mutex<Sender<WeecordEvent>>>);
 
 impl EventHandler for Handler {
-    fn ready(&self, _: Context, ready: Ready) {
+    fn ready(&self, ctx: Context, ready: Ready) {
+        unsafe {
+            crate::discord::CONTEXT.write(ctx);
+        }
         let _ = self.0.lock().send(WeecordEvent::Ready(ready));
     }
 
     // Called when a message is received
-    fn message(&self, _: Context, msg: Message) {
+    fn message(&self, ctx: Context, msg: Message) {
         let string_channel = utils::buffer_id_from_channel(&msg.channel_id);
         on_main! {{
             if let Some(buffer) = Buffer::search(&string_channel) {
                 let muted = utils::buffer_is_muted(&buffer);
-                let notify = !msg.is_own() && !muted;
+                let notify = !msg.is_own(ctx.cache) && !muted;
                 printing::print_msg(&buffer, &msg, notify);
             } else {
-                match msg.channel_id.to_channel() {
+                match msg.channel_id.to_channel(&ctx) {
                     chan @ Ok(Channel::Private(_)) => {
                         if let Some(buffer) = Buffer::search(&string_channel) {
                             let muted = utils::buffer_is_muted(&buffer);
-                            let notify = !msg.is_own() && !muted;
+                            let notify = !msg.is_own(ctx.cache) && !muted;
                             printing::print_msg(&buffer, &msg, notify);
                         } else {
                             // TODO: Implement "switch_to"
                             buffers::create_buffer_from_dm(
                                 chan.unwrap(),
-                                &CACHE.read().user.name,
+                                &ctx.cache.read().user.name,
                                 false,
                             );
                         }
@@ -40,10 +43,10 @@ impl EventHandler for Handler {
                     chan @ Ok(Channel::Group(_)) => {
                         if let Some(buffer) = Buffer::search(&string_channel) {
                             let muted = utils::buffer_is_muted(&buffer);
-                            let notify = !msg.is_own() && !muted;
+                            let notify = !msg.is_own(ctx.cache) && !muted;
                             printing::print_msg(&buffer, &msg, notify);
                         } else {
-                            buffers::create_buffer_from_group(chan.unwrap(), &CACHE.read().user.name);
+                            buffers::create_buffer_from_group(chan.unwrap(), &ctx.cache.read().user.name);
                         }
                     }
                     _ => {}

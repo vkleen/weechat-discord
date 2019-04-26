@@ -101,34 +101,37 @@ pub fn buffer_input(buffer: Buffer, message: &str) {
 // TODO: Make this faster
 // TODO: Handle command options
 fn handle_query(_buffer: Buffer, command: &str) {
-    let ctx = crate::discord::get_ctx();
-    let http = &ctx.http;
-    let current_user = &ctx.cache.read().user;
-    let substr = &command["/query ".len()..].trim();
+    let owned_cmd = command.to_owned();
+    thread::spawn(move || {
+        let ctx = crate::discord::get_ctx();
+        let http = &ctx.http;
+        let current_user = &ctx.cache.read().user;
+        let substr = &owned_cmd["/query ".len()..].trim();
 
-    let mut found_members: Vec<Member> = Vec::new();
-    for guild in current_user
-        .guilds(&ctx.http)
-        .expect("Unable to fetch guilds")
-    {
-        if let Some(guild) = guild.id.to_guild_cached(&ctx.cache) {
-            let guild = guild.read().clone();
-            for m in guild.members_containing(substr, false, true) {
-                found_members.push(m.clone());
+        let mut found_members: Vec<Member> = Vec::new();
+        let guilds = current_user
+            .guilds(&ctx.http)
+            .expect("Unable to fetch guilds");
+        for guild in &guilds {
+            if let Some(guild) = guild.id.to_guild_cached(&ctx.cache) {
+                let guild = guild.read().clone();
+                for m in guild.members_containing(substr, false, true) {
+                    found_members.push(m.clone());
+                }
             }
         }
-    }
-    found_members.dedup_by_key(|mem| mem.user.read().id);
+        found_members.dedup_by_key(|mem| mem.user.read().id);
 
-    if let Some(target) = found_members.get(0) {
-        if let Ok(chan) = target.user.read().create_dm_channel(http) {
-            buffers::create_buffer_from_dm(
-                Channel::Private(Arc::new(RwLock::new(chan))),
-                &current_user.name,
-                true,
-            );
+        if let Some(target) = found_members.get(0) {
+            if let Ok(chan) = target.user.read().create_dm_channel(http) {
+                buffers::create_buffer_from_dm(
+                    Channel::Private(Arc::new(RwLock::new(chan))),
+                    &current_user.name,
+                    true,
+                );
+            }
         }
-    }
+    });
 }
 
 // TODO: Handle command options

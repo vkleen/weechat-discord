@@ -591,14 +591,14 @@ pub fn hook_command<F: FnMut(Buffer, &str) + 'static>(
 
 pub struct HookCommandRun {
     _hook: Hook,
-    _callback: Box<Box<FnMut(Buffer, &str)>>,
+    _callback: Box<Box<FnMut(Buffer, &str) -> i32>>,
 }
 
-pub fn hook_command_run<F: FnMut(Buffer, &str) + 'static>(
+pub fn hook_command_run<F: FnMut(Buffer, &str) -> i32 + 'static>(
     cmd: &str,
     func: F,
 ) -> Option<HookCommandRun> {
-    type CB = FnMut(Buffer, &str);
+    type CB = FnMut(Buffer, &str) -> i32;
     extern "C" {
         fn wdc_hook_command_run(
             command: *const c_char,
@@ -619,11 +619,11 @@ pub fn hook_command_run<F: FnMut(Buffer, &str) + 'static>(
             let command = unsafe { CStr::from_ptr(command).to_str() };
             let command = match command {
                 Ok(x) => x,
-                Err(_) => return,
+                Err(_) => return 0,
             };
-            (unsafe { &mut **pointer })(buffer, command);
-        });
-        0
+            (unsafe { &mut **pointer })(buffer, command)
+        })
+        .unwrap_or(0)
     }
     unsafe {
         let cmd = unwrap1!(CString::new(cmd));

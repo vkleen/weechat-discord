@@ -103,7 +103,7 @@ pub fn buffer_input(buffer: Buffer, message: &str) {
 
 // TODO: Make this faster
 // TODO: Handle command options
-fn handle_query(_buffer: Buffer, command: &str) {
+fn handle_query(_buffer: Buffer, command: &str) -> i32 {
     let owned_cmd = command.to_owned();
     thread::spawn(move || {
         let ctx = match crate::discord::get_ctx() {
@@ -148,19 +148,22 @@ fn handle_query(_buffer: Buffer, command: &str) {
                     &current_user.name,
                     true,
                 );
+                return;
             }
         }
+        plugin_print(&format!("Could not find user {:?}", substr));
     });
+    1
 }
 
 // TODO: Handle command options
-fn handle_nick(buffer: Buffer, command: &str) {
+fn handle_nick(buffer: Buffer, command: &str) -> i32 {
     let guilds;
     let mut substr;
     {
         let ctx = match crate::discord::get_ctx() {
             Some(ctx) => ctx,
-            _ => return,
+            _ => return 2,
         };
         substr = command["/nick".len()..].trim().to_owned();
         let mut split = substr.split(" ");
@@ -182,11 +185,11 @@ fn handle_nick(buffer: Buffer, command: &str) {
             let guild = on_main! {{
                 let guild = match buffer.get("localvar_guildid") {
                     Some(guild) => guild,
-                    None => return,
+                    None => return 1,
                 };
                 match guild.parse::<u64>() {
                     Ok(v) => GuildId(v),
-                    Err(_) => return,
+                    Err(_) => return 1,
                 }
             }};
             vec![guild]
@@ -216,6 +219,7 @@ fn handle_nick(buffer: Buffer, command: &str) {
             buffers::update_nick();
         }};
     });
+    1
 }
 
 fn run_command(_buffer: &Buffer, command: &str) {

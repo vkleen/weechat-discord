@@ -5,7 +5,6 @@ use crate::{
     plugin_print,
 };
 use dirs;
-use serenity::model::guild::Member;
 use serenity::model::prelude::User;
 use serenity::{
     model::{
@@ -116,12 +115,12 @@ fn handle_query(_buffer: Buffer, command: &str) {
         let substr = &owned_cmd["/query ".len()..].trim();
 
         let mut found_members: Vec<User> = Vec::new();
-        for (id, private_channel) in &ctx.cache.read().private_channels {
+        for (_, private_channel) in &ctx.cache.read().private_channels {
             if private_channel
                 .read()
                 .name()
                 .to_lowercase()
-                .contains(substr.to_lowercase())
+                .contains(&substr.to_lowercase())
             {
                 found_members.push(private_channel.read().recipient.read().clone())
             }

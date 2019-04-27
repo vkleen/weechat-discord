@@ -6,6 +6,7 @@ use crate::{
 };
 use dirs;
 use serenity::model::guild::Member;
+use serenity::model::prelude::User;
 use serenity::{
     model::{
         channel::Channel,
@@ -114,22 +115,35 @@ fn handle_query(_buffer: Buffer, command: &str) {
         let current_user = &ctx.cache.read().user;
         let substr = &owned_cmd["/query ".len()..].trim();
 
-        let mut found_members: Vec<Member> = Vec::new();
-        let guilds = current_user
-            .guilds(&ctx.http)
-            .expect("Unable to fetch guilds");
-        for guild in &guilds {
-            if let Some(guild) = guild.id.to_guild_cached(&ctx.cache) {
-                let guild = guild.read().clone();
-                for m in guild.members_containing(substr, false, true) {
-                    found_members.push(m.clone());
+        let mut found_members: Vec<User> = Vec::new();
+        for (id, private_channel) in &ctx.cache.read().private_channels {
+            if private_channel
+                .read()
+                .name()
+                .to_lowercase()
+                .contains(substr.to_lowercase())
+            {
+                found_members.push(private_channel.read().recipient.read().clone())
+            }
+        }
+
+        if found_members.is_empty() {
+            let guilds = current_user
+                .guilds(&ctx.http)
+                .expect("Unable to fetch guilds");
+            for guild in &guilds {
+                if let Some(guild) = guild.id.to_guild_cached(&ctx.cache) {
+                    let guild = guild.read().clone();
+                    for m in guild.members_containing(substr, false, true) {
+                        found_members.push(m.user.read().clone());
+                    }
                 }
             }
         }
-        found_members.dedup_by_key(|mem| mem.user.read().id);
+        found_members.dedup_by_key(|mem| mem.id);
 
         if let Some(target) = found_members.get(0) {
-            if let Ok(chan) = target.user.read().create_dm_channel(http) {
+            if let Ok(chan) = target.create_dm_channel(http) {
                 buffers::create_buffer_from_dm(
                     Channel::Private(Arc::new(RwLock::new(chan))),
                     &current_user.name,

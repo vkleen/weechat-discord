@@ -10,10 +10,19 @@ pub struct Handler(pub Arc<Mutex<Sender<WeecordEvent>>>);
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
+        // Cache seems not to have private channels properly populated
+        {
+            let mut ctx_lock = ctx.cache.write();
+            for (&id, channel) in &ready.private_channels {
+                if let Some(pc) = channel.clone().private() {
+                    ctx_lock.private_channels.insert(id, pc);
+                }
+            }
+        }
+        let _ = self.0.lock().send(WeecordEvent::Ready(ready));
         unsafe {
             crate::discord::CONTEXT = Some(ctx);
         }
-        let _ = self.0.lock().send(WeecordEvent::Ready(ready));
     }
 
     // Called when a message is received

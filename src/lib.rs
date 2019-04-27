@@ -1,6 +1,3 @@
-#![feature(maybe_uninit)]
-#![feature(maybe_uninit_ref)]
-
 #[macro_use]
 mod synchronization;
 mod buffers;

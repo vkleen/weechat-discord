@@ -9,10 +9,10 @@ use serenity::client::Context;
 use serenity::prelude::Mutex;
 use std::{sync::Arc, thread};
 
-pub static mut CONTEXT: std::mem::MaybeUninit<Context> = std::mem::MaybeUninit::uninit();
+pub static mut CONTEXT: Option<Context> = None;
 
-pub fn get_ctx() -> &'static Context {
-    unsafe { return std::mem::transmute(CONTEXT.get_ref()) }
+pub fn get_ctx() -> Option<&'static Context> {
+    unsafe { CONTEXT.as_ref() }
 }
 
 lazy_static! {

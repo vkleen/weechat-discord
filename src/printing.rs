@@ -4,7 +4,10 @@ use serenity::model::prelude::*;
 // TODO: Rework args
 // TODO: Color things
 pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
-    let ctx = crate::discord::get_ctx();
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
     let cache = &ctx.cache;
     let is_private = if let Some(channel) = msg.channel(cache) {
         if let Channel::Private(_) = channel {

@@ -11,7 +11,7 @@ pub struct Handler(pub Arc<Mutex<Sender<WeecordEvent>>>);
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
         unsafe {
-            crate::discord::CONTEXT.write(ctx);
+            crate::discord::CONTEXT = Some(ctx);
         }
         let _ = self.0.lock().send(WeecordEvent::Ready(ready));
     }

@@ -90,7 +90,10 @@ pub fn buffer_input(buffer: Buffer, message: &str) {
     let message = ffi::remove_color(message);
 
     if let Some(channel) = channel {
-        let ctx = crate::discord::get_ctx();
+        let ctx = match crate::discord::get_ctx() {
+            Some(ctx) => ctx,
+            _ => return,
+        };
         let http = &ctx.http;
         channel
             .say(http, message)
@@ -103,7 +106,10 @@ pub fn buffer_input(buffer: Buffer, message: &str) {
 fn handle_query(_buffer: Buffer, command: &str) {
     let owned_cmd = command.to_owned();
     thread::spawn(move || {
-        let ctx = crate::discord::get_ctx();
+        let ctx = match crate::discord::get_ctx() {
+            Some(ctx) => ctx,
+            _ => return,
+        };
         let http = &ctx.http;
         let current_user = &ctx.cache.read().user;
         let substr = &owned_cmd["/query ".len()..].trim();
@@ -139,7 +145,10 @@ fn handle_nick(buffer: Buffer, command: &str) {
     let guilds;
     let mut substr;
     {
-        let ctx = crate::discord::get_ctx();
+        let ctx = match crate::discord::get_ctx() {
+            Some(ctx) => ctx,
+            _ => return,
+        };
         substr = command["/nick".len()..].trim().to_owned();
         let mut split = substr.split(" ");
         let all = split.next() == Some("-all");
@@ -173,7 +182,10 @@ fn handle_nick(buffer: Buffer, command: &str) {
 
     thread::spawn(move || {
         {
-            let ctx = crate::discord::get_ctx();
+            let ctx = match crate::discord::get_ctx() {
+                Some(ctx) => ctx,
+                _ => return,
+            };
             let http = &ctx.http;
             for guild in guilds {
                 let new_nick = if substr.is_empty() {
@@ -270,7 +282,10 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 Ok(v) => ChannelId(v),
                 Err(_) => return,
             };
-            let ctx = crate::discord::get_ctx();
+            let ctx = match crate::discord::get_ctx() {
+                Some(ctx) => ctx,
+                _ => return,
+            };
             let http = &ctx.http;
             match channel.send_files(http, vec![full], |m| m) {
                 Ok(_) => plugin_print("File uploaded successfully"),

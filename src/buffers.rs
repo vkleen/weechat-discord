@@ -7,7 +7,10 @@ use serenity::model::prelude::*;
 use std::collections::{HashMap, VecDeque};
 
 pub fn create_buffers(ready_data: &Ready) {
-    let ctx = crate::discord::get_ctx();
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
     let current_user = ctx.cache.read().user.clone();
 
     let guilds = match current_user.guilds(&ctx.http) {
@@ -225,7 +228,10 @@ pub fn load_nicks(buffer: &Buffer) {
 
         (guild_id, channel_id)
     }};
-    let ctx = crate::discord::get_ctx();
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
 
     let guild = guild_id
         .to_guild_cached(&ctx.cache)
@@ -287,7 +293,10 @@ pub fn load_history(buffer: &Buffer) {
         channel
     }};
 
-    let ctx = crate::discord::get_ctx();
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
     let http = &ctx.http;
 
     if let Ok(msgs) = channel.messages(http, |retriever| retriever.limit(25)) {
@@ -300,7 +309,10 @@ pub fn load_history(buffer: &Buffer) {
 }
 
 pub fn update_nick() {
-    let ctx = crate::discord::get_ctx();
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
     let current_user = ctx.cache.read().user.clone();
 
     for guild in current_user

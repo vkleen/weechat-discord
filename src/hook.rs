@@ -483,12 +483,11 @@ Example:
   /discord disconnect
   /discord upload file.txt
 ";
-    pub const COMPLETIONS: &str = "
-       connect || \
-       disconnect || \
-       token || \
-       autostart || \
-       noautostart || \
-       upload %(filename) || \
-       join %(weecord_guild_completion) %(weecord_channel_completion)";
+    pub const COMPLETIONS: &str = "connect || \
+                                   disconnect || \
+                                   token || \
+                                   autostart || \
+                                   noautostart || \
+                                   upload %(filename) || \
+                                   join %(weecord_guild_completion) %(weecord_channel_completion)";
 }

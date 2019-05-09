@@ -91,8 +91,6 @@ pub fn create_buffer_from_channel(
     nick: &str,
     muted: bool,
 ) {
-    let guild_name_id = utils::buffer_id_for_guild(channel.guild_id);
-
     let current_user = cache.read().user.clone();
     if let Ok(perms) = channel.permissions_for(cache, current_user.id) {
         if !perms.read_message_history() {
@@ -116,8 +114,8 @@ pub fn create_buffer_from_channel(
             Buffer::new(&name_id, crate::hook::buffer_input).unwrap()
         };
         buffer.set("short_name", &channel.name);
-        buffer.set("localvar_set_channelid", &name_id[1..]);
-        buffer.set("localvar_set_guildid", &guild_name_id[1..]);
+        buffer.set("localvar_set_channelid", &channel.id.0.to_string());
+        buffer.set("localvar_set_guildid", &channel.guild_id.0.to_string());
         buffer.set("localvar_set_type", channel_type);
         buffer.set("localvar_set_nick", &nick);
         let mut title = if let Some(ref topic) = channel.topic {
@@ -155,7 +153,7 @@ pub fn create_buffer_from_dm(channel: Channel, nick: &str, switch_to: bool) {
     };
 
     buffer.set("short_name", &channel.name());
-    buffer.set("localvar_set_channelid", &name_id[1..]);
+    buffer.set("localvar_set_channelid", &channel.id.0.to_string());
     buffer.set("localvar_set_nick", &nick);
     if switch_to {
         buffer.set("display", "1");
@@ -191,7 +189,7 @@ pub fn create_buffer_from_group(channel: Channel, nick: &str) {
     };
 
     buffer.set("short_name", &channel.name());
-    buffer.set("localvar_set_channelid", &name_id[1..]);
+    buffer.set("localvar_set_channelid", &channel.channel_id.0.to_string());
     buffer.set("localvar_set_nick", &nick);
     buffer.set("title", &title);
 }

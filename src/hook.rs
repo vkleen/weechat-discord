@@ -335,6 +335,22 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 plugin_print("Already disconnected");
             }
         }
+        "irc-mode" => {
+            if crate::utils::get_irc_mode() {
+                plugin_print("irc-mode already enabled")
+            } else {
+                user_set_option("irc_mode", "true");
+                plugin_print("irc-mode enabled")
+            }
+        }
+        "discord-mode" => {
+            if !crate::utils::get_irc_mode() {
+                plugin_print("discord-mode already enabled")
+            } else {
+                user_set_option("irc_mode", "false");
+                plugin_print("discord-mode enabled")
+            }
+        }
         _ if command.starts_with("token ") => {
             let token = &command["token ".len()..];
             user_set_option("token", token.trim_matches('"'));
@@ -465,6 +481,9 @@ plugins.var.weecord.autostart = <bool>
     pub const ARGS: &str = "\
                      connect
                      disconnect
+                     join
+                     irc-mode
+                     discord-mode
                      autostart
                      noautostart
                      token <token>
@@ -472,6 +491,9 @@ plugins.var.weecord.autostart = <bool>
     pub const ARGDESC: &'static str = "\
 connect: sign in to discord and open chat buffers
 disconnect: sign out of Discord
+join: join a channel in irc mode by providing guild name and channel name
+irc-mode: enable irc-mode, meaning that weecord will not load all channels like the official client
+discord-mode: enable discord-mode, meaning all available channels and guilds will be added to the buflist
 autostart: automatically sign into discord on start
 noautostart: disable autostart
 token: set Discord login token
@@ -485,6 +507,8 @@ Example:
 ";
     pub const COMPLETIONS: &str = "connect || \
                                    disconnect || \
+                                   irc-mode || \
+                                   discord-mode || \
                                    token || \
                                    autostart || \
                                    noautostart || \

@@ -12,6 +12,10 @@ use std::{
 #[macro_use]
 mod macros;
 
+const WEECHAT_RC_ERROR: i32 = -1;
+const WEECHAT_RC_OK: i32 = 0;
+const WEECHAT_RC_OK_EAT: i32 = 1;
+
 #[derive(PartialEq, Eq, Hash, Debug)]
 pub struct Buffer {
     ptr: *mut c_void,
@@ -600,14 +604,20 @@ pub fn hook_command_run<F: FnMut(Buffer, &str) -> i32 + 'static>(
         wrap_panic(|| {
             let pointer = pointer as *mut Box<CB>;
             let buffer = Buffer { ptr: buffer };
+            // TODO: Improve ignore ability
+            // If it is not a weecord buffer, let the command pass through
+            if buffer.get("localvar_guildid").is_none() {
+                return WEECHAT_RC_OK;
+            };
+
             let command = unsafe { CStr::from_ptr(command).to_str() };
             let command = match command {
                 Ok(x) => x,
-                Err(_) => return 0,
+                Err(_) => return WEECHAT_RC_ERROR,
             };
             (unsafe { &mut **pointer })(buffer, command)
         })
-        .unwrap_or(0)
+        .unwrap_or(WEECHAT_RC_ERROR)
     }
     unsafe {
         let cmd = unwrap1!(CString::new(cmd));

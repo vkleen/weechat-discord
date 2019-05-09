@@ -81,6 +81,7 @@ pub fn create_guild_buffer(id: GuildId, name: &str) {
             Buffer::new(&guild_name_id, |_, _| {}).unwrap()
         };
         buffer.set("short_name", name);
+        buffer.set("localval_set_guildid", &id.0.to_string());
         buffer.set("localvar_set_type", "server");
     }};
 }

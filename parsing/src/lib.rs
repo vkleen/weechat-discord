@@ -101,6 +101,10 @@ pub fn parse_msg(msg: &str) -> Option<Vec<Style>> {
     }
 }
 
+pub fn weechat_arg_strip(str: &str) -> String {
+    str.trim().replace(' ', "_")
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

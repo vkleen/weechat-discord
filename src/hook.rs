@@ -21,6 +21,8 @@ static mut BUFFER_SWITCH_CB: *mut SignalHook = ptr::null_mut();
 static mut QUERY_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
 static mut NICK_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
 static mut TIMER_HOOK: *mut TimerHook = ptr::null_mut();
+static mut GUILD_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
+static mut CHANNEL_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
 
 pub fn init() -> Option<()> {
     let main_cmd_hook = ffi::hook_command(
@@ -32,11 +34,27 @@ pub fn init() -> Option<()> {
         move |buffer, input| run_command(&buffer, input),
     )?;
 
+    unsafe {
+        crate::synchronization::MAIN_THREAD_ID = Some(std::thread::current().id());
+    }
+
     let query_hook = ffi::hook_command_run("/query", handle_query)?;
     let nick_hook = ffi::hook_command_run("/nick", handle_nick)?;
     let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
     // TODO: Dynamic timer delay like weeslack?
     let timer_hook = ffi::hook_timer(50, 0, 0, handle_timer)?;
+
+    let guild_completion_hook = ffi::hook_completion(
+        "weecord_guild_completion",
+        "Completion for discord guilds",
+        handle_guild_completion,
+    )?;
+
+    let channel_completion_hook = ffi::hook_completion(
+        "weecord_channel_completion",
+        "Completion for discord channels",
+        handle_channel_completion,
+    )?;
 
     unsafe {
         MAIN_COMMAND_HOOK = Box::into_raw(Box::new(main_cmd_hook));
@@ -44,6 +62,8 @@ pub fn init() -> Option<()> {
         TIMER_HOOK = Box::into_raw(Box::new(timer_hook));
         QUERY_CMD_HOOK = Box::into_raw(Box::new(query_hook));
         NICK_CMD_HOOK = Box::into_raw(Box::new(nick_hook));
+        GUILD_COMPLETION_HOOK = Box::into_raw(Box::new(guild_completion_hook));
+        CHANNEL_COMPLETION_HOOK = Box::into_raw(Box::new(channel_completion_hook));
     };
     Some(())
 }
@@ -60,6 +80,8 @@ pub fn destroy() {
         QUERY_CMD_HOOK = ptr::null_mut();
         let _ = Box::from_raw(NICK_CMD_HOOK);
         NICK_CMD_HOOK = ptr::null_mut();
+        let _ = Box::from_raw(CHANNEL_COMPLETION_HOOK);
+        CHANNEL_COMPLETION_HOOK = ptr::null_mut();
     };
 }
 
@@ -98,6 +120,65 @@ pub fn buffer_input(buffer: Buffer, message: &str) {
         channel
             .say(http, message)
             .unwrap_or_else(|_| panic!("Unable to send message to {}", channel.0));
+    }
+}
+
+fn handle_channel_completion(
+    buffer: Buffer,
+    _completion_item: &str,
+    mut completion: ffi::Completion,
+) {
+    // Get the previous argument with should be the guild name
+    // TODO: Generalize this?
+    let input = buffer.get("input").and_then(|i| {
+        let x = i.split(' ').collect::<Vec<_>>();
+        if x.len() < 2 {
+            None
+        } else {
+            Some(x[x.len() - 2].to_owned())
+        }
+    });
+    let input = match input {
+        Some(i) => i,
+        None => return,
+    };
+
+    // Match mangled name to the real name
+    let ctx = match discord::get_ctx() {
+        Some(s) => s,
+        None => return,
+    };
+
+    for guild in ctx.cache.read().guilds.values() {
+        let guild = guild.read();
+        if parsing::weechat_arg_strip(&guild.name) == input {
+            for channel in guild.channels.values() {
+                let channel = channel.read();
+                // Skip non text channels
+                use serenity::model::channel::ChannelType::*;
+                match channel.kind {
+                    Text | Private | Group | News => {}
+                    _ => continue,
+                }
+                completion.add(&parsing::weechat_arg_strip(&channel.name))
+            }
+            return;
+        }
+    }
+}
+
+fn handle_guild_completion(
+    _buffer: Buffer,
+    _completion_item: &str,
+    mut completion: ffi::Completion,
+) {
+    let ctx = match discord::get_ctx() {
+        Some(s) => s,
+        None => return,
+    };
+    for guild in ctx.cache.read().guilds.values() {
+        let name = parsing::weechat_arg_strip(&guild.read().name);
+        completion.add(&name);
     }
 }
 
@@ -267,6 +348,49 @@ fn run_command(_buffer: &Buffer, command: &str) {
             set_option("autostart", "false");
             plugin_print("Discord will not load on startup");
         }
+        _ if command.starts_with("join ") => {
+            let mut args = command["join ".len()..].split(' ');
+            let guild_name = match args.next() {
+                Some(g) => g,
+                None => return,
+            };
+            let channel_name = match args.next() {
+                Some(c) => c,
+                None => return,
+            };
+
+            let ctx = match discord::get_ctx() {
+                Some(ctx) => ctx,
+                _ => return,
+            };
+
+            for guild in ctx.cache.read().guilds.values() {
+                let guild = guild.read();
+                if parsing::weechat_arg_strip(&guild.name) == guild_name {
+                    for channel in guild.channels.values() {
+                        let channel = channel.read();
+                        // Skip non text channels
+                        use serenity::model::channel::ChannelType::*;
+                        match channel.kind {
+                            Text | Private | Group | News => {}
+                            _ => continue,
+                        }
+                        if parsing::weechat_arg_strip(&channel.name) == channel_name {
+                            buffers::create_guild_buffer(guild.id, &guild.name);
+                            // TODO: Add correct nick handling
+                            buffers::create_buffer_from_channel(
+                                &ctx.cache,
+                                &channel,
+                                &ctx.cache.read().user.name,
+                                false,
+                            );
+                            return;
+                        }
+                    }
+                }
+            }
+            plugin_print("Couldn't find channel")
+        }
         _ if command.starts_with("upload ") => {
             let mut file = command["upload ".len()..].to_owned();
             // TODO: Find a better way to expand paths
@@ -359,7 +483,12 @@ Example:
   /discord disconnect
   /discord upload file.txt
 ";
-    pub const COMPLETIONS: &str =
-        "\
-         connect || disconnect || token || autostart || noautostart || upload %(filename)";
+    pub const COMPLETIONS: &str = "
+       connect || \
+       disconnect || \
+       token || \
+       autostart || \
+       noautostart || \
+       upload %(filename) || \
+       join %(weecord_guild_completion) %(weecord_channel_completion)";
 }

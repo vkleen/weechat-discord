@@ -18,7 +18,7 @@ run: install
 	weechat -a
 
 test: install_test
-	weechat -a -d $(testdir)
+	weechat -d $(testdir)
 
 $(installdir):
 	mkdir $@

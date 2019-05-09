@@ -3,12 +3,10 @@ use serenity::prelude::Mutex;
 
 lazy_static! {
     pub static ref MAIN_ENTRY_MUTEX: Mutex<()> = Mutex::new(());
-    // pub static ref CHAN: (
-    //     crossbeam_channel::Sender<()>,
-    //     crossbeam_channel::Receiver<()>
-    // ) = crossbeam_channel::bounded(0);
     pub static ref WEE_SYNC: WeechatSync = WeechatSync::new();
 }
+
+pub static mut MAIN_THREAD_ID: Option<std::thread::ThreadId> = None;
 
 pub struct WeechatSync(
     crossbeam_channel::Sender<()>,
@@ -60,15 +58,21 @@ impl<'a> Drop for WeechatSyncGuard<'a> {
 /// TODO: Make this work at the type level
 macro_rules! on_main {
     ($block:block) => {{
-        let __lock = $crate::synchronization::MAIN_ENTRY_MUTEX.lock();
+        if std::thread::current().id()
+            != unsafe { $crate::synchronization::MAIN_THREAD_ID.unwrap() }
+        {
+            let __lock = $crate::synchronization::MAIN_ENTRY_MUTEX.lock();
 
-        let __weechat_sync_guard = $crate::synchronization::WEE_SYNC.lock();
+            let __weechat_sync_guard = $crate::synchronization::WEE_SYNC.lock();
 
-        let val = { $block };
+            let val = { $block };
 
-        drop(__weechat_sync_guard);
-        drop(__lock);
+            drop(__weechat_sync_guard);
+            drop(__lock);
 
-        val
+            val
+        } else {
+            $block
+        }
     }};
 }

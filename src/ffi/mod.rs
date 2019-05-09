@@ -23,11 +23,9 @@ pub const MAIN_BUFFER: Buffer = Buffer {
     ptr: ptr::null_mut(),
 };
 
-/*
 pub struct Completion {
     ptr: *mut c_void,
 }
-*/
 
 pub struct Hook {
     ptr: *mut c_void,
@@ -418,20 +416,6 @@ impl Buffer {
         }
     }
 }
-
-/*
-impl Completion {
-    pub fn add(&mut self, word: &str) {
-        extern "C" {
-            fn wdc_hook_completion_add(gui_completion: *const c_void, word: *const c_char);
-        }
-        unsafe {
-            let word_c = CString::new(word).unwrap();
-            wdc_hook_completion_add(self.ptr, word_c.as_ptr());
-        }
-    }
-}
-*/
 
 impl WeechatObject for Buffer {
     fn from_ptr_hdata(ptr: *mut c_void, hdata: *mut c_void) -> Self {
@@ -992,38 +976,59 @@ pub fn hook_timer<F: FnMut(i32) + 'static>(
     }
 }
 
-/*
-pub fn hook_completion<F: Fn(Buffer, Completion) + 'static>(name: &str,
-                                                            description: &str,
-                                                            callback: F)
-                                                            -> Option<Hook> {
-    type CB = Fn(Buffer, Completion);
-    extern "C" {
-        fn wdc_hook_completion(completion_item: *const c_char,
-                               description: *const c_char,
-                               callback_pointer: *const c_void,
-                               callback: extern "C" fn(*const c_void,
-                                                       *mut c_void,
-                                                       *const c_char,
-                                                       *mut c_void,
-                                                       *mut c_void)
-                                                       -> c_int)
-                               -> *mut c_void;
+// TODO: Rework this binding?
+impl Completion {
+    pub fn add(&mut self, word: &str) {
+        extern "C" {
+            fn wdc_hook_completion_add(gui_completion: *const c_void, word: *const c_char);
+        }
+        unsafe {
+            let word_c = CString::new(word).unwrap();
+            wdc_hook_completion_add(self.ptr, word_c.as_ptr());
+        }
     }
-    extern "C" fn callback_func(pointer: *const c_void,
-                                data: *mut c_void,
-                                completion_item: *const c_char,
-                                buffer: *mut c_void,
-                                completion: *mut c_void)
-                                -> c_int {
+}
+
+pub fn hook_completion<F: Fn(Buffer, &str, Completion) + 'static>(
+    name: &str,
+    description: &str,
+    callback: F,
+) -> Option<Hook> {
+    type CB = Fn(Buffer, &str, Completion);
+    extern "C" {
+        fn wdc_hook_completion(
+            completion_item: *const c_char,
+            description: *const c_char,
+            callback_pointer: *const c_void,
+            callback: extern "C" fn(
+                *const c_void,
+                *mut c_void,
+                *const c_char,
+                *mut c_void,
+                *mut c_void,
+            ) -> c_int,
+        ) -> *mut c_void;
+    }
+    extern "C" fn callback_func(
+        pointer: *const c_void,
+        data: *mut c_void,
+        completion_item: *const c_char,
+        buffer: *mut c_void,
+        completion: *mut c_void,
+    ) -> c_int {
         let _ = data;
-        let _ = completion_item;
         wrap_panic(|| {
-                       let buffer = Buffer { ptr: buffer };
-                       let completion = Completion { ptr: completion };
-                       let pointer = pointer as *const Box<CB>;
-                       (unsafe { &**pointer })(buffer, completion);
-                   });
+            let buffer = Buffer { ptr: buffer };
+            let completion = Completion { ptr: completion };
+            let pointer = pointer as *const Box<CB>;
+
+            let completion_item = unsafe { CStr::from_ptr(completion_item) };
+            let completion_item = match completion_item.to_str() {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            (unsafe { &**pointer })(buffer, completion_item, completion);
+        });
         0
     }
     let callback: Box<Box<CB>> = Box::new(Box::new(callback));
@@ -1031,10 +1036,12 @@ pub fn hook_completion<F: Fn(Buffer, Completion) + 'static>(name: &str,
         let name_c = unwrap1!(CString::new(name));
         let description_c = unwrap1!(CString::new(description));
         let callback = Box::into_raw(callback) as *const _ as *const c_void; // TODO: Memory leak
-        let result = wdc_hook_completion(name_c.as_ptr(),
-                                         description_c.as_ptr(),
-                                         callback,
-                                         callback_func);
+        let result = wdc_hook_completion(
+            name_c.as_ptr(),
+            description_c.as_ptr(),
+            callback,
+            callback_func,
+        );
         if result.is_null() {
             None
         } else {
@@ -1042,4 +1049,3 @@ pub fn hook_completion<F: Fn(Buffer, Completion) + 'static>(name: &str,
         }
     }
 }
-*/

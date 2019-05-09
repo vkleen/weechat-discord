@@ -29,7 +29,8 @@ features = [
     "client",
     "gateway",
     "model",
-    "utils"
+    "utils",
+    "rustls_backend",
 ]
 
 [dependencies.parsing]

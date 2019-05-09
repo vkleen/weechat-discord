@@ -50,7 +50,7 @@ pub fn create_buffers(ready_data: &Ready) {
         } else {
             guild_muted = false;
         }
-        create_buffer_from_guild(&guild);
+        create_guild_buffer(guild.id, &guild.name);
 
         // TODO: Colors?
         let nick = if let Ok(current_member) = guild.id.member(&ctx, current_user.id) {
@@ -72,20 +72,20 @@ pub fn create_buffers(ready_data: &Ready) {
     }
 }
 
-fn create_buffer_from_guild(guild: &GuildInfo) {
-    let guild_name_id = utils::buffer_id_from_guild(&guild.id);
+pub fn create_guild_buffer(id: GuildId, name: &str) {
+    let guild_name_id = utils::buffer_id_from_guild(&id);
     on_main! {{
         let buffer = if let Some(buffer) = Buffer::search(&guild_name_id) {
             buffer
         } else {
             Buffer::new(&guild_name_id, |_, _| {}).unwrap()
         };
-        buffer.set("short_name", &guild.name);
+        buffer.set("short_name", name);
         buffer.set("localvar_set_type", "server");
     }};
 }
 
-fn create_buffer_from_channel(
+pub fn create_buffer_from_channel(
     cache: &CacheRwLock,
     channel: &GuildChannel,
     nick: &str,

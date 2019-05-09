@@ -27,7 +27,7 @@ impl EventHandler for Handler {
 
     // Called when a message is received
     fn message(&self, ctx: Context, msg: Message) {
-        let string_channel = utils::buffer_id_from_channel(&msg.channel_id);
+        let string_channel = utils::buffer_id_for_channel(msg.guild_id, msg.channel_id);
         on_main! {{
             if let Some(buffer) = Buffer::search(&string_channel) {
                 let muted = utils::buffer_is_muted(&buffer);

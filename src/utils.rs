@@ -1,12 +1,15 @@
 use crate::ffi::{get_option, Buffer};
 use serenity::model::id::{ChannelId, GuildId};
 
-pub fn buffer_id_from_guild(id: &GuildId) -> String {
-    format!("G{}", id)
+pub fn buffer_id_for_guild(id: GuildId) -> String {
+    format!("G{}", id.0)
 }
 
-pub fn buffer_id_from_channel(id: &ChannelId) -> String {
-    format!("C{}", id)
+pub fn buffer_id_for_channel(guild_id: Option<GuildId>, channel_id: ChannelId) -> String {
+    let guild = guild_id
+        .map(|g| g.0.to_string())
+        .unwrap_or_else(|| "None".to_string());
+    format!("G{}.#C{}", guild, channel_id.0)
 }
 
 pub fn buffer_is_muted(buffer: &Buffer) -> bool {

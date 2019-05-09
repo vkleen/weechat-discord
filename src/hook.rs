@@ -356,6 +356,9 @@ fn run_command(_buffer: &Buffer, command: &str) {
             user_set_option("token", token.trim_matches('"'));
             plugin_print("Set Discord token");
         }
+        "token" => {
+            plugin_print("token requires an argument");
+        }
         "autostart" => {
             set_option("autostart", "true");
             plugin_print("Discord will now load on startup");
@@ -406,6 +409,9 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 }
             }
             plugin_print("Couldn't find channel")
+        }
+        "join" => {
+            plugin_print("join requires an guild name and channel name");
         }
         _ if command.starts_with("upload ") => {
             let mut file = command["upload ".len()..].to_owned();
@@ -471,12 +477,13 @@ mod weechat_cmd {
     pub const COMMAND: &str = "discord";
     pub const DESCRIPTION: &str = "\
 Discord from the comfort of your favorite command-line IRC client!
-Source code available at https://github.com/Noskcaj19/weechat-discord
+Source code available at https://github.com/terminal-discord/weechat-discord
 Originally by https://github.com/khyperia/weechat-discord
 Options used:
 plugins.var.weecord.token = <discord_token>
 plugins.var.weecord.rename.<id> = <string>
 plugins.var.weecord.autostart = <bool>
+plugins.var.weecord.irc_mode = <bool>
 ";
     pub const ARGS: &str = "\
                      connect

@@ -1,4 +1,5 @@
 use crate::{buffers, ffi::Buffer, printing, utils};
+use serenity::client::bridge::gateway::Message as WsMessage;
 use serenity::{model::prelude::*, prelude::*};
 use std::sync::{mpsc::Sender, Arc};
 
@@ -10,6 +11,13 @@ pub struct Handler(pub Arc<Mutex<Sender<WeecordEvent>>>);
 
 impl EventHandler for Handler {
     fn ready(&self, ctx: Context, ready: Ready) {
+        // Opcode 12 is undocumented "guild sync"
+        let data = serde_json::json!({
+            "op": 12,
+            "d": ready.guilds.iter().map(|g| g.id().0.to_string()).collect::<Vec<_>>()
+        });
+        ctx.shard
+            .websocket_message(WsMessage::text(data.to_string()));
         // Cache seems not to have private channels properly populated
         {
             let mut ctx_lock = ctx.cache.write();
@@ -64,14 +72,19 @@ impl EventHandler for Handler {
         }};
     }
 
-    // fn message_delete(&self, _: Context, channel: ChannelId, message: MessageId) {}
-
-    // fn message_delete_bulk(&self, _: Context, channel: ChannelId, messages: Vec<MessageId>) {}
-
-    // fn message_update(&self, _: Context, update: event::MessageUpdateEvent) {}
-
-    // fn channel_update(&self, _: Context, _: Option<Channel>, _: Channel) {}
-
-    // TODO Why are we not getting these events
-    // fn typing_start(&self, _: Context, event: TypingStartEvent) {}
+    fn typing_start(&self, ctx: Context, event: TypingStartEvent) {
+        if event.user_id == ctx.cache.read().user.id {
+            return;
+        }
+        let buffer_id = crate::utils::buffer_id_for_channel(event.guild_id, event.channel_id);
+        if let Some(buffer) = crate::ffi::Buffer::search(&buffer_id) {
+            let prefix = crate::ffi::get_prefix("network").unwrap_or_else(|| "".to_string());
+            let user = event
+                .user_id
+                .to_user_cached(ctx.cache)
+                .map(|user| user.read().name.clone())
+                .unwrap_or_else(|| "Someone".to_string());
+            buffer.print(&format!("{}\t{} is typing", prefix, user));
+        }
+    }
 }

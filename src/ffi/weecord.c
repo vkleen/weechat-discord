@@ -89,6 +89,8 @@ struct t_gui_buffer* wdc_buffer_search(const char* name) {
     return weechat_buffer_search("weecord", name);
 }
 
+const char* wdc_prefix(const char* prefix) { return weechat_prefix(prefix); }
+
 struct t_gui_buffer* wdc_current_buffer() {
     return weechat_current_buffer();
 }

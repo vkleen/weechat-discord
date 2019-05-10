@@ -456,6 +456,21 @@ fn wrap_panic<R, F: FnOnce() -> R + UnwindSafe>(f: F) -> Option<R> {
     }
 }
 
+pub fn get_prefix(prefix: &str) -> Option<String> {
+    extern "C" {
+        fn wdc_prefix(prefix: *const c_char) -> *const c_char;
+    }
+    unsafe {
+        let prefix = unwrap1!(CString::new(prefix));
+        let value = wdc_prefix(prefix.as_ptr());
+        if value.is_null() {
+            None
+        } else {
+            Some(CStr::from_ptr(value).to_string_lossy().into_owned())
+        }
+    }
+}
+
 #[no_mangle]
 #[allow(unused)]
 pub extern "C" fn wdr_init(argc: c_int, arg_ptr: *const *const c_char) -> c_int {

@@ -257,11 +257,19 @@ pub fn load_nicks(buffer: &Buffer) {
             } else {
                 if let Some((role, pos)) = member.highest_role_info(&ctx.cache) {
                     if let Some(role) = role.to_role_cached(&ctx.cache) {
-                        let role_name = &format!("{}|{}", ::std::i64::MAX - pos, role.name);
-                        if !buffer.group_exists(role_name) {
-                            buffer.add_nicklist_group_with_color(role_name, &crate::utils::rgb_to_ansi(role.colour).to_string());
+                        let role_name;
+                        let color;
+                        if member.user.read().bot {
+                            role_name = format!("{}|{}", ::std::i64::MAX, "Bot");
+                            color = "gray".to_string();
+                        } else {
+                            role_name = format!("{}|{}", ::std::i64::MAX - pos, role.name);
+                            color = crate::utils::rgb_to_ansi(role.colour).to_string();
+                        };
+                        if !buffer.group_exists(&role_name) {
+                            buffer.add_nicklist_group_with_color(&role_name, &color);
                         }
-                        buffer.add_nick_to_group(member.display_name().as_ref(), &role.name)
+                        buffer.add_nick_to_group(member.display_name().as_ref(), &role_name);
                     } else {
                         buffer.add_nick(member.display_name().as_ref());
                     }

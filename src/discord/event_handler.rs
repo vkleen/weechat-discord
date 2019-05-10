@@ -10,27 +10,24 @@ pub enum WeecordEvent {
 pub struct Handler(pub Arc<Mutex<Sender<WeecordEvent>>>);
 
 impl EventHandler for Handler {
-    fn ready(&self, ctx: Context, ready: Ready) {
-        // Opcode 12 is undocumented "guild sync"
-        let data = serde_json::json!({
-            "op": 12,
-            "d": ready.guilds.iter().map(|g| g.id().0.to_string()).collect::<Vec<_>>()
-        });
-        ctx.shard
-            .websocket_message(WsMessage::text(data.to_string()));
-        // Cache seems not to have private channels properly populated
-        {
-            let mut ctx_lock = ctx.cache.write();
-            for (&id, channel) in &ready.private_channels {
-                if let Some(pc) = channel.clone().private() {
-                    ctx_lock.private_channels.insert(id, pc);
-                }
-            }
-        }
-        let _ = self.0.lock().send(WeecordEvent::Ready(ready));
-        unsafe {
-            crate::discord::CONTEXT = Some(ctx);
-        }
+    fn channel_create(&self, _ctx: Context, channel: Arc<RwLock<GuildChannel>>) {
+        let channel = channel.read();
+        print_guild_status_message(
+            channel.guild_id,
+            &format!(
+                "New {} channel {} created",
+                channel.kind.name(),
+                channel.name()
+            ),
+        );
+    }
+
+    fn channel_delete(&self, _ctx: Context, channel: Arc<RwLock<GuildChannel>>) {
+        let channel = channel.read();
+        print_guild_status_message(
+            channel.guild_id,
+            &format!("Channel {} deleted", channel.name()),
+        );
     }
 
     // Called when a message is received
@@ -72,6 +69,29 @@ impl EventHandler for Handler {
         }};
     }
 
+    fn ready(&self, ctx: Context, ready: Ready) {
+        // Opcode 12 is undocumented "guild sync"
+        let data = serde_json::json!({
+            "op": 12,
+            "d": ready.guilds.iter().map(|g| g.id().0.to_string()).collect::<Vec<_>>()
+        });
+        ctx.shard
+            .websocket_message(WsMessage::text(data.to_string()));
+        // Cache seems not to have private channels properly populated
+        {
+            let mut ctx_lock = ctx.cache.write();
+            for (&id, channel) in &ready.private_channels {
+                if let Some(pc) = channel.clone().private() {
+                    ctx_lock.private_channels.insert(id, pc);
+                }
+            }
+        }
+        let _ = self.0.lock().send(WeecordEvent::Ready(ready));
+        unsafe {
+            crate::discord::CONTEXT = Some(ctx);
+        }
+    }
+
     fn typing_start(&self, ctx: Context, event: TypingStartEvent) {
         if event.user_id == ctx.cache.read().user.id {
             return;
@@ -86,5 +106,14 @@ impl EventHandler for Handler {
                 .unwrap_or_else(|| "Someone".to_string());
             buffer.print(&format!("{}\t{} is typing", prefix, user));
         }
+    }
+}
+
+fn print_guild_status_message(guild_id: GuildId, msg: &str) {
+    let buffer_id = utils::buffer_id_for_guild(guild_id);
+
+    if let Some(buffer) = Buffer::search(&buffer_id) {
+        let prefix = crate::ffi::get_prefix("network").unwrap_or_else(|| " ".to_string());
+        buffer.print(&(prefix + "\t" + msg));
     }
 }

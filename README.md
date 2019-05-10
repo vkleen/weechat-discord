@@ -69,6 +69,8 @@ First, you either need to load the plugin, I have it set to autoload.
 Then, set that token:
 
     /discord token 123456789ABCDEF
+   
+This saves the discord token in `<weechatdir>/plugins.conf`, **so make sure not to commit this file or share it with anyone.**
 
 Then, connect:
 

@@ -87,7 +87,6 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
         }
     }
 
-    // let maybe_guild = ::synchronization::on_main(|| buffer.get("localvar_guildid"));
     let maybe_guild = buffer.get("localvar_guildid");
     let display_name = maybe_guild.and_then(|id| {
         id.parse::<u64>().ok().map(GuildId).and_then(|id| {
@@ -100,11 +99,9 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
 
     let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
 
-    // ::synchronization::on_main(||{
     buffer.print_tags_dated(
         msg.timestamp.timestamp() as i32,
         &tags,
         &format!("{}\t{}", author, format::discord_to_weechat(&msg_content)),
     );
-    // });
 }

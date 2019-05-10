@@ -23,6 +23,7 @@ static mut NICK_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
 static mut TIMER_HOOK: *mut TimerHook = ptr::null_mut();
 static mut GUILD_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
 static mut CHANNEL_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
+static mut DM_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
 
 pub fn init() -> Option<()> {
     let main_cmd_hook = ffi::hook_command(
@@ -56,6 +57,12 @@ pub fn init() -> Option<()> {
         handle_channel_completion,
     )?;
 
+    let dm_completion_hook = ffi::hook_completion(
+        "weecord_dm_completion",
+        "Completion for Discord private channels",
+        handle_dm_completion,
+    )?;
+
     unsafe {
         MAIN_COMMAND_HOOK = Box::into_raw(Box::new(main_cmd_hook));
         BUFFER_SWITCH_CB = Box::into_raw(Box::new(buffer_switch_hook));
@@ -64,6 +71,7 @@ pub fn init() -> Option<()> {
         NICK_CMD_HOOK = Box::into_raw(Box::new(nick_hook));
         GUILD_COMPLETION_HOOK = Box::into_raw(Box::new(guild_completion_hook));
         CHANNEL_COMPLETION_HOOK = Box::into_raw(Box::new(channel_completion_hook));
+        DM_COMPLETION_HOOK = Box::into_raw(Box::new(dm_completion_hook))
     };
     Some(())
 }
@@ -179,6 +187,16 @@ fn handle_guild_completion(
     for guild in ctx.cache.read().guilds.values() {
         let name = parsing::weechat_arg_strip(&guild.read().name);
         completion.add(&name);
+    }
+}
+
+fn handle_dm_completion(_buffer: Buffer, _completion_time: &str, mut completion: ffi::Completion) {
+    let ctx = match discord::get_ctx() {
+        Some(s) => s,
+        None => return,
+    };
+    for dm in ctx.cache.read().private_channels.values() {
+        completion.add(&dm.read().recipient.read().name);
     }
 }
 
@@ -373,6 +391,9 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 &format!("/{}", command),
             );
         }
+        "query" => {
+            plugin_print("query requires a username");
+        }
         _ if command.starts_with("join ") => {
             let mut args = command["join ".len()..].split(' ');
             let guild_name = match args.next() {
@@ -522,7 +543,7 @@ Example:
 ";
     pub const COMPLETIONS: &str = "connect || \
                                    disconnect || \
-                                   query || \
+                                   query %(weecord_dm_completion) || \
                                    irc-mode || \
                                    discord-mode || \
                                    token || \

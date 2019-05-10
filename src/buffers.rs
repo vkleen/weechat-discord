@@ -255,27 +255,29 @@ pub fn load_nicks(buffer: &Buffer) {
             {
                 continue;
             } else {
+                // TODO: Make hoist correctly affect position
                 if let Some((role, pos)) = member.highest_role_info(&ctx.cache) {
                     if let Some(role) = role.to_role_cached(&ctx.cache) {
-                        let role_name;
-                        let color;
-                        if member.user.read().bot {
-                            role_name = format!("{}|{}", ::std::i64::MAX, "Bot");
-                            color = "gray".to_string();
-                        } else {
-                            role_name = format!("{}|{}", ::std::i64::MAX - pos, role.name);
-                            color = crate::utils::rgb_to_ansi(role.colour).to_string();
-                        };
-                        if !buffer.group_exists(&role_name) {
-                            buffer.add_nicklist_group_with_color(&role_name, &color);
+                        let user = member.user.read();
+                        if role.hoist || user.bot {
+                            let role_name;
+                            let color;
+                            if user.bot {
+                                role_name = format!("{}|{}", ::std::i64::MAX, "Bot");
+                                color = "gray".to_string();
+                            } else {
+                                role_name = format!("{}|{}", ::std::i64::MAX - pos, role.name);
+                                color = crate::utils::rgb_to_ansi(role.colour).to_string();
+                            };
+                            if !buffer.group_exists(&role_name) {
+                                buffer.add_nicklist_group_with_color(&role_name, &color);
+                            }
+                            buffer.add_nick_to_group(member.display_name().as_ref(), &role_name);
+                            continue
                         }
-                        buffer.add_nick_to_group(member.display_name().as_ref(), &role_name);
-                    } else {
-                        buffer.add_nick(member.display_name().as_ref());
                     }
-                } else {
-                    buffer.add_nick(member.display_name().as_ref());
                 }
+                buffer.add_nick(member.display_name().as_ref());
             }
         }
     }};

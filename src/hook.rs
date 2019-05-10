@@ -367,6 +367,12 @@ fn run_command(_buffer: &Buffer, command: &str) {
             set_option("autostart", "false");
             plugin_print("Discord will not load on startup");
         }
+        _ if command.starts_with("query ") => {
+            handle_query(
+                Buffer::current().expect("there should always be a buffer"),
+                &format!("/{}", command),
+            );
+        }
         _ if command.starts_with("join ") => {
             let mut args = command["join ".len()..].split(' ');
             let guild_name = match args.next() {
@@ -489,6 +495,7 @@ plugins.var.weecord.irc_mode = <bool>
                      connect
                      disconnect
                      join
+                     query
                      irc-mode
                      discord-mode
                      autostart
@@ -499,6 +506,7 @@ plugins.var.weecord.irc_mode = <bool>
 connect: sign in to discord and open chat buffers
 disconnect: sign out of Discord
 join: join a channel in irc mode by providing guild name and channel name
+query: open a dm with a user (for when there are no discord buffers open)
 irc-mode: enable irc-mode, meaning that weecord will not load all channels like the official client
 discord-mode: enable discord-mode, meaning all available channels and guilds will be added to the buflist
 autostart: automatically sign into discord on start
@@ -514,6 +522,7 @@ Example:
 ";
     pub const COMPLETIONS: &str = "connect || \
                                    disconnect || \
+                                   query || \
                                    irc-mode || \
                                    discord-mode || \
                                    token || \

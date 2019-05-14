@@ -58,6 +58,15 @@ pub fn rgb_to_ansi(color: serenity::utils::Colour) -> u8 {
     16 + 36 * r + 6 * g + b
 }
 
+pub fn status_is_online(status: OnlineStatus) -> bool {
+    use OnlineStatus::*;
+    match status {
+        Online | Idle | DoNotDisturb => true,
+        Offline | Invisible => false,
+        _ => unreachable!(),
+    }
+}
+
 /// Find the highest hoisted role (used for the user group) and the highest role (used for user coloring)
 pub fn find_highest_roles(cache: &CacheRwLock, member: &Member) -> Option<(Role, Role)> {
     let mut roles = member.roles(cache)?;

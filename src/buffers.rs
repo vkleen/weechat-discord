@@ -3,9 +3,16 @@ use crate::{
     ffi::{update_bar_item, Buffer},
     plugin_print, printing, utils,
 };
+use lazy_static::lazy_static;
 use serenity::cache::CacheRwLock;
 use serenity::model::prelude::*;
 use std::collections::{HashMap, VecDeque};
+
+lazy_static! {
+    static ref OFFLINE_GROUP_NAME: String = format!("{}|Offline", ::std::i64::MAX);
+    static ref ONLINE_GROUP_NAME: String = format!("{}|Online", ::std::i64::MAX - 1);
+    static ref BOT_GROUP_NAME: String = format!("{}|{}", ::std::i64::MAX, "Bot");
+}
 
 pub fn create_buffers(ready_data: &Ready) {
     let ctx = match crate::discord::get_ctx() {
@@ -313,6 +320,9 @@ pub fn load_nicks(buffer: &Buffer) {
         .to_guild_cached(&ctx.cache)
         .expect("No guild cache item");
 
+    let cache = ctx.cache.read();
+    let current_user = cache.user.id;
+
     let guild_lock = guild.read();
 
     // Typeck not smart enough
@@ -323,41 +333,59 @@ pub fn load_nicks(buffer: &Buffer) {
         .unwrap();
     on_main! {{
         for member in members {
-            let user_id = member.user.read().id;
-            let member_perms = guild_lock.permissions_in(channel_id, user_id);
+            let user = member.user.read();
+            // the current user does not seem to usually have a presence, assume they are online
+            let online = if user.id == current_user {
+                true
+            } else {
+                let presence = cache.presences.get(&member.user_id());
+                presence
+                    .map(|p| utils::status_is_online(p.status))
+                    .unwrap_or(false)
+            };
+
+            let member_perms = guild_lock.permissions_in(channel_id, user.id);
+            // A pretty accurate method of checking if a user is "in" a channel
             if !member_perms.send_messages()
                 || !member_perms.read_message_history()
                 || !member_perms.read_messages()
             {
                 continue;
-            } else {
-                let user = member.user.read();
-                let role_name;
-                let role_color;
-                if user.bot {
-                    role_name = format!("{}|{}", ::std::i64::MAX, "Bot");
-                    role_color = "gray".to_string();
-                } else {
-                    if let Some((highest_hoisted, highest)) =
-                        utils::find_highest_roles(&ctx.cache, &member)
-                    {
-                        role_name = format!(
-                            "{}|{}",
-                            ::std::i64::MAX - highest_hoisted.position,
-                            highest_hoisted.name
-                        );
-                        role_color = crate::utils::rgb_to_ansi(highest.colour).to_string();
-                    } else {
-                        // Can't find a role, abort early
-                        buffer.add_nick(member.display_name().as_ref());
-                        continue;
-                    }
-                }
-                if !buffer.group_exists(&role_name) {
-                    buffer.add_nicklist_group_with_color(&role_name, &role_color);
-                }
-                buffer.add_nick_to_group(member.display_name().as_ref(), &role_name);
             }
+
+            let role_name;
+            let role_color;
+
+            // TODO: Change offline/online color somehow?
+            if user.bot {
+                role_name = BOT_GROUP_NAME.clone();
+                role_color = "gray".to_string();
+            } else if !online {
+                role_name = OFFLINE_GROUP_NAME.clone();
+                role_color = "grey".to_string();
+            } else {
+                if let Some((highest_hoisted, highest)) = utils::find_highest_roles(&ctx.cache, &member)
+                {
+                    role_name = format!(
+                        "{}|{}",
+                        ::std::i64::MAX - highest_hoisted.position,
+                        highest_hoisted.name
+                    );
+                    role_color = crate::utils::rgb_to_ansi(highest.colour).to_string();
+                } else {
+                    // Can't find a role, add user to generic bucket
+                    if online {
+                        role_name = ONLINE_GROUP_NAME.clone();
+                    } else {
+                        role_name = OFFLINE_GROUP_NAME.clone();
+                    }
+                    role_color = "grey".to_string();
+                }
+            }
+            if !buffer.group_exists(&role_name) {
+                buffer.add_nicklist_group_with_color(&role_name, &role_color);
+            }
+            buffer.add_nick_to_group(member.display_name().as_ref(), &role_name);
         }
     }};
 }

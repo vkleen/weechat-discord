@@ -43,7 +43,7 @@ The Makefile has some automation that helps with development:
 
 Maybe important note: The previous version of this project, written in Go, used to get **really upset** when the .so was modified during the same weechat session, even if unloaded. When developing, make sure to completely quit weechat when updating the .so, just to be sure (otherwise you might get a SIGSEGV and hard crash).
 
-### Using
+### Usage
 
 Due to some idiocracy on Discord's part, [you will need to obtain a login token](https://github.com/hammerandchisel/discord-api-docs/issues/69#issuecomment-223886862). 
 You can either use a python script to find the tokens, or try and grab them manually.
@@ -85,6 +85,21 @@ Note you may also have to adjust a few settings for best use:
     ## doesn't work currently: weechat.completion.default_template -> append "|%(weecord_completion)"
     weechat.bar.status.items -> replace buffer_name with buffer_short_name
     plugins.var.python.go.short_name -> on (if you use go.py)
+
+If you want a more irc-style interface, you can enable irc-mode:
+
+    /discord irc-mode
+
+In irc-mode, weecord will not automatically "join" every Discord channel.  You must join a channel using the
+`/discord join <guild-name> <channel-name>` command.
+
+Watched channels:  
+You can use `/discord watch <guild-name> [<channel-name>]` to start watching a channel or entire guild.
+This means that if a message is received in a watched channel, that channel will be joined and added to the nicklist.
+
+Autojoin channels:  
+You can use `/discord autojoin <guild-name> [<channel-name>]` to start watching a channel or entire guild.
+Any channel or guild marked as autojoin will be automatically joined when weecord connects.
 
 ---
 

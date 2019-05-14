@@ -410,35 +410,121 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 _ => return,
             };
 
-            for guild in ctx.cache.read().guilds.values() {
+            if let Some((guild, channel)) =
+                crate::utils::search_channel(&ctx.cache, guild_name, channel_name)
+            {
                 let guild = guild.read();
-                if parsing::weechat_arg_strip(&guild.name) == guild_name {
-                    for channel in guild.channels.values() {
-                        let channel = channel.read();
-                        // Skip non text channels
-                        use serenity::model::channel::ChannelType::*;
-                        match channel.kind {
-                            Text | Private | Group | News => {}
-                            _ => continue,
-                        }
-                        if parsing::weechat_arg_strip(&channel.name) == channel_name {
-                            buffers::create_guild_buffer(guild.id, &guild.name);
-                            // TODO: Add correct nick handling
-                            buffers::create_buffer_from_channel(
-                                &ctx.cache,
-                                &channel,
-                                &ctx.cache.read().user.name,
-                                false,
-                            );
-                            return;
-                        }
-                    }
-                }
+                buffers::create_guild_buffer(guild.id, &guild.name);
+                // TODO: Add correct nick handling
+                buffers::create_buffer_from_channel(
+                    &ctx.cache,
+                    &channel.read(),
+                    &ctx.cache.read().user.name,
+                    false,
+                );
+                return;
             }
             plugin_print("Couldn't find channel")
         }
         "join" => {
             plugin_print("join requires an guild name and channel name");
+        }
+        _ if command.starts_with("watch ") => {
+            let mut args = command["watch ".len()..]
+                .split(' ')
+                .filter(|i| !i.is_empty());
+            let guild_name = match args.next() {
+                Some(g) => g,
+                None => return,
+            };
+            let channel_name = args.next();
+
+            let ctx = match discord::get_ctx() {
+                Some(ctx) => ctx,
+                _ => return,
+            };
+
+            let new_channel_id = if let Some(channel_name) = channel_name {
+                if let Some((guild, channel)) =
+                    crate::utils::search_channel(&ctx.cache, guild_name, channel_name)
+                {
+                    crate::utils::unique_id(Some(guild.read().id), channel.read().id)
+                } else {
+                    return;
+                }
+            } else {
+                if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
+                    crate::utils::unique_guild_id(guild.read().id)
+                } else {
+                    return;
+                }
+            };
+            let new_watched = if let Some(watched_channels) = ffi::get_option("watched_channels") {
+                // dedup items
+                let mut channels: Vec<_> = watched_channels
+                    .split(',')
+                    .filter(|i| !i.is_empty())
+                    .collect();
+                channels.push(&new_channel_id);
+
+                channels.dedup();
+                channels.join(",")
+            } else {
+                new_channel_id
+            };
+            ffi::set_option("watched_channels", &new_watched);
+        }
+        "watch" => {
+            plugin_print("watch requires a guild name and channel name");
+        }
+        _ if command.starts_with("autojoin ") => {
+            let mut args = command["autojoin ".len()..]
+                .split(' ')
+                .filter(|i| !i.is_empty());
+            let guild_name = match args.next() {
+                Some(g) => g,
+                None => return,
+            };
+            let channel_name = args.next();
+
+            let ctx = match discord::get_ctx() {
+                Some(ctx) => ctx,
+                _ => return,
+            };
+
+            let new_channel_id = if let Some(channel_name) = channel_name {
+                if let Some((guild, channel)) =
+                    crate::utils::search_channel(&ctx.cache, guild_name, channel_name)
+                {
+                    crate::utils::unique_id(Some(guild.read().id), channel.read().id)
+                } else {
+                    return;
+                }
+            } else {
+                if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
+                    crate::utils::unique_guild_id(guild.read().id)
+                } else {
+                    return;
+                }
+            };
+            let new_autojoined =
+                if let Some(autojoined_channels) = ffi::get_option("autojoin_channels") {
+                    // dedup items
+                    let mut channels: Vec<_> = autojoined_channels
+                        .split(',')
+                        .filter(|i| !i.is_empty())
+                        .collect();
+                    channels.push(&new_channel_id);
+
+                    channels.dedup();
+                    channels.join(",")
+                } else {
+                    new_channel_id
+                };
+            ffi::set_option("autojoin_channels", &new_autojoined);
+        }
+        "autojoin" => {
+            plugin_print("autojoin requires a guild name and channel name");
         }
         _ if command.starts_with("upload ") => {
             let mut file = command["upload ".len()..].to_owned();
@@ -517,6 +603,8 @@ plugins.var.weecord.irc_mode = <bool>
                      disconnect
                      join
                      query
+                     watch
+                     autojoin
                      irc-mode
                      discord-mode
                      autostart
@@ -541,14 +629,17 @@ Example:
   /discord disconnect
   /discord upload file.txt
 ";
-    pub const COMPLETIONS: &str = "connect || \
-                                   disconnect || \
-                                   query %(weecord_dm_completion) || \
-                                   irc-mode || \
-                                   discord-mode || \
-                                   token || \
-                                   autostart || \
-                                   noautostart || \
-                                   upload %(filename) || \
-                                   join %(weecord_guild_completion) %(weecord_channel_completion)";
+    pub const COMPLETIONS: &str =
+        "connect || \
+         disconnect || \
+         query %(weecord_dm_completion) || \
+         watch %(weecord_guild_completion) %(weecord_channel_completion) || \
+         autojoin %(weecord_guild_completion) %(weecord_channel_completion) || \
+         irc-mode || \
+         discord-mode || \
+         token || \
+         autostart || \
+         noautostart || \
+         upload %(filename) || \
+         join %(weecord_guild_completion) %(weecord_channel_completion)";
 }

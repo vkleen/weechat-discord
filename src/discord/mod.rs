@@ -27,7 +27,9 @@ pub fn init(token: &str, irc_mode: bool) {
         if let Ok(event_handler::WeecordEvent::Ready(ready)) = events.recv() {
             MAIN_BUFFER.print("Connected to Discord!");
 
-            if !irc_mode {
+            if irc_mode {
+                crate::buffers::create_autojoin_buffers(&ready);
+            } else {
                 crate::buffers::create_buffers(&ready);
             }
         }

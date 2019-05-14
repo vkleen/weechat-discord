@@ -12,7 +12,7 @@ pub struct DiscordClient {
 impl DiscordClient {
     pub fn start(token: &str) -> Result<(DiscordClient, mpsc::Receiver<WeecordEvent>), ()> {
         let (tx, rx) = mpsc::channel();
-        let handler = Handler(Arc::new(Mutex::new(tx)));
+        let handler = Handler::new(Arc::new(Mutex::new(tx)));
 
         let mut client = match Client::new(token, handler) {
             Ok(client) => client,

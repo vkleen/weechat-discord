@@ -1,5 +1,35 @@
 use crate::ffi::{get_option, Buffer};
-use serenity::model::id::{ChannelId, GuildId};
+use serenity::{
+    cache::CacheRwLock,
+    model::id::{ChannelId, GuildId},
+    model::prelude::*,
+    prelude::*,
+};
+use std::sync::Arc;
+
+#[derive(Debug, Clone, Copy)]
+pub enum GuildOrChannel {
+    Guild(GuildId),
+    Channel(Option<GuildId>, ChannelId),
+}
+
+impl PartialEq<GuildId> for GuildOrChannel {
+    fn eq(&self, other: &GuildId) -> bool {
+        match self {
+            GuildOrChannel::Guild(this_id) => this_id == other,
+            GuildOrChannel::Channel(_, _) => false,
+        }
+    }
+}
+
+impl PartialEq<ChannelId> for GuildOrChannel {
+    fn eq(&self, other: &ChannelId) -> bool {
+        match self {
+            GuildOrChannel::Guild(_) => false,
+            GuildOrChannel::Channel(_, this_id) => this_id == other,
+        }
+    }
+}
 
 pub fn buffer_id_for_guild(id: GuildId) -> String {
     format!("{}", id.0)
@@ -30,4 +60,62 @@ pub fn rgb_to_ansi(color: serenity::utils::Colour) -> u8 {
 
 pub fn get_irc_mode() -> bool {
     get_option("irc_mode").map(|x| x == "true").unwrap_or(false)
+}
+
+pub fn unique_id(guild: Option<GuildId>, channel: ChannelId) -> String {
+    if let Some(guild) = guild {
+        format!("G{:?}C{}", guild.0, channel.0)
+    } else {
+        format!("C{}", channel.0)
+    }
+}
+
+pub fn unique_guild_id(guild: GuildId) -> String {
+    format!("G{}", guild)
+}
+
+pub fn parse_id(id: &str) -> Option<GuildOrChannel> {
+    // id has channel part
+    if let Some(c_start) = id.find('C') {
+        let guild_id = id[1..c_start].parse().ok()?;
+        let channel_id = id[c_start + 1..].parse().ok()?;
+
+        Some(GuildOrChannel::Channel(Some(GuildId(guild_id)), channel_id))
+    } else {
+        // id is only a guild
+        let guild_id = id[1..].parse().ok()?;
+        Some(GuildOrChannel::Guild(GuildId(guild_id)))
+    }
+}
+
+pub fn search_channel(
+    cache: &CacheRwLock,
+    guild_name: &str,
+    channel_name: &str,
+) -> Option<(Arc<RwLock<Guild>>, Arc<RwLock<GuildChannel>>)> {
+    if let Some(raw_guild) = search_guild(cache, guild_name) {
+        let guild = raw_guild.read();
+        for channel in guild.channels.values() {
+            let channel_lock = channel.read();
+            if parsing::weechat_arg_strip(&channel_lock.name) == channel_name {
+                // Skip non text channels
+                use serenity::model::channel::ChannelType::*;
+                match channel_lock.kind {
+                    Text | Private | Group | News => {}
+                    _ => continue,
+                }
+                return Some((raw_guild.clone(), channel.clone()));
+            }
+        }
+    }
+    None
+}
+
+pub fn search_guild(cache: &CacheRwLock, guild_name: &str) -> Option<Arc<RwLock<Guild>>> {
+    for guild in cache.read().guilds.values() {
+        if parsing::weechat_arg_strip(&guild.read().name) == guild_name {
+            return Some(guild.clone());
+        }
+    }
+    None
 }

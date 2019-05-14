@@ -1,6 +1,7 @@
+use crate::ffi::get_option;
 use crate::{
     ffi::{update_bar_item, Buffer},
-    printing, utils,
+    plugin_print, printing, utils,
 };
 use serenity::cache::CacheRwLock;
 use serenity::model::prelude::*;
@@ -68,6 +69,81 @@ pub fn create_buffers(ready_data: &Ready) {
             let is_muted =
                 guild_muted || channel_muted.get(&channel.id).cloned().unwrap_or_default();
             create_buffer_from_channel(&ctx.cache, &channel, &nick, is_muted);
+        }
+    }
+}
+
+// TODO: Merge these functions
+// Flesh this out
+pub fn create_autojoin_buffers(_ready: &Ready) {
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
+
+    let current_user = ctx.cache.read().user.clone();
+
+    let user_guilds = match current_user.guilds(&ctx.http) {
+        Ok(guilds) => guilds,
+        Err(e) => {
+            on_main! {{
+                crate::plugin_print(&format!("Error getting user guilds: {:?}", e));
+            }};
+            vec![]
+        }
+    };
+
+    let autojoin_items = match get_option("autojoin_channels") {
+        Some(items) => items,
+        None => return,
+    };
+
+    let autojoin_items = autojoin_items
+        .split(',')
+        .filter(|i| !i.is_empty())
+        .filter_map(utils::parse_id);
+
+    let mut channels = Vec::new();
+    // flatten guilds into channels
+    for item in autojoin_items {
+        match item {
+            utils::GuildOrChannel::Guild(guild_id) => {
+                let guild_channels = guild_id
+                    .channels(&ctx.http)
+                    .expect("Unable to fetch channels");
+                let mut guild_channels = guild_channels.values().collect::<Vec<_>>();
+                guild_channels.sort_by_key(|g| g.position);
+                channels.extend(guild_channels.iter().map(|ch| (Some(guild_id), ch.id)));
+            }
+            utils::GuildOrChannel::Channel(guild, channel) => channels.push((guild, channel)),
+        }
+    }
+
+    // TODO: Flatten and iterate by guild, then channel
+    for (guild_id, channel_id) in &channels {
+        if let Some(guild_id) = guild_id {
+            let guild = match guild_id.to_guild_cached(&ctx.cache) {
+                Some(guild) => guild,
+                None => continue,
+            };
+            let guild = guild.read();
+
+            let channel = match guild.channels.get(channel_id) {
+                Some(channel) => channel,
+                None => continue,
+            };
+            let channel = channel.read();
+
+            // TODO: Colors?
+            let nick = if let Ok(current_member) = guild.id.member(&ctx, current_user.id) {
+                format!("@{}", current_member.display_name())
+            } else {
+                format!("@{}", current_user.name)
+            };
+
+            create_guild_buffer(guild.id, &guild.name);
+            // TODO: Muting
+            create_buffer_from_channel(&ctx.cache, &channel, &nick, false)
         }
     }
 }

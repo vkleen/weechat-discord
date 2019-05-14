@@ -7,7 +7,28 @@ pub enum WeecordEvent {
     Ready(::serenity::model::gateway::Ready),
 }
 
-pub struct Handler(pub Arc<Mutex<Sender<WeecordEvent>>>);
+pub struct Handler {
+    sender: Arc<Mutex<Sender<WeecordEvent>>>,
+    watched_channels: Vec<utils::GuildOrChannel>,
+}
+
+impl Handler {
+    pub fn new(sender: Arc<Mutex<Sender<WeecordEvent>>>) -> Handler {
+        let watched_channels =
+            crate::ffi::get_option("watched_channels").unwrap_or_else(|| "".to_string());
+
+        let watched_channels = watched_channels
+            .split(',')
+            .filter(|i| !i.is_empty())
+            .filter_map(utils::parse_id)
+            .collect();
+
+        Handler {
+            sender,
+            watched_channels,
+        }
+    }
+}
 
 impl EventHandler for Handler {
     fn channel_create(&self, _ctx: Context, channel: Arc<RwLock<GuildChannel>>) {
@@ -60,7 +81,45 @@ impl EventHandler for Handler {
                             let notify = !msg.is_own(ctx.cache) && !muted;
                             printing::print_msg(&buffer, &msg, notify);
                         } else {
-                            buffers::create_buffer_from_group(chan.unwrap(), &ctx.cache.read().user.name);
+                            buffers::create_buffer_from_group(
+                                chan.unwrap(),
+                                &ctx.cache.read().user.name,
+                            );
+                        }
+                    }
+                    Ok(Channel::Guild(channel)) => {
+                        // Check that the channel is on the watch list
+                        let channel = channel.read();
+
+                        for watched in &self.watched_channels {
+                            use utils::GuildOrChannel::*;
+                            let add = match watched {
+                                Channel(_, channel_id) => *channel_id == channel.id,
+                                Guild(guild_id) => *guild_id == channel.guild_id,
+                            };
+                            if add {
+                                let guild = match channel.guild_id.to_guild_cached(&ctx.cache) {
+                                    Some(guild) => guild,
+                                    None => return,
+                                };
+
+                                let current_user = ctx.cache.read().user.clone();
+                                let guild = guild.read();
+
+                                // TODO: Colors?
+                                let nick = if let Ok(current_member) =
+                                    guild.id.member(&ctx, current_user.id)
+                                {
+                                    format!("@{}", current_member.display_name())
+                                } else {
+                                    format!("@{}", current_user.name)
+                                };
+
+                                buffers::create_guild_buffer(guild.id, &guild.name);
+                                // TODO: Muting
+                                buffers::create_buffer_from_channel(&ctx.cache, &channel, &nick, false);
+                                break;
+                            }
                         }
                     }
                     _ => {}
@@ -86,10 +145,10 @@ impl EventHandler for Handler {
                 }
             }
         }
-        let _ = self.0.lock().send(WeecordEvent::Ready(ready));
         unsafe {
             crate::discord::CONTEXT = Some(ctx);
         }
+        let _ = self.sender.lock().send(WeecordEvent::Ready(ready));
     }
 
     fn typing_start(&self, ctx: Context, event: TypingStartEvent) {

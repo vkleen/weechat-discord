@@ -320,24 +320,24 @@ pub fn load_nicks(buffer: &Buffer) {
         .to_guild_cached(&ctx.cache)
         .expect("No guild cache item");
 
-    let cache = ctx.cache.read();
-    let current_user = cache.user.id;
-
-    let guild_lock = guild.read();
+    let current_user = ctx.cache.read().user.id;
 
     // Typeck not smart enough
     let none_user: Option<UserId> = None;
     // TODO: What to do with more than 1000 members?
-    let members = guild_lock
+    let members = guild
+        .read()
         .members(&ctx.http, Some(1000), none_user)
         .unwrap();
     on_main! {{
+        let guild_lock = guild.read();
         for member in members {
             let user = member.user.read();
             // the current user does not seem to usually have a presence, assume they are online
             let online = if user.id == current_user {
                 true
             } else {
+                let cache = ctx.cache.read();
                 let presence = cache.presences.get(&member.user_id());
                 presence
                     .map(|p| utils::status_is_online(p.status))
@@ -346,9 +346,7 @@ pub fn load_nicks(buffer: &Buffer) {
 
             let member_perms = guild_lock.permissions_in(channel_id, user.id);
             // A pretty accurate method of checking if a user is "in" a channel
-            if !member_perms.send_messages()
-                || !member_perms.read_message_history()
-                || !member_perms.read_messages()
+            if !member_perms.read_message_history() || !member_perms.read_messages()
             {
                 continue;
             }

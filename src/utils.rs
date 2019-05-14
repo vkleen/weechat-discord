@@ -58,6 +58,17 @@ pub fn rgb_to_ansi(color: serenity::utils::Colour) -> u8 {
     16 + 36 * r + 6 * g + b
 }
 
+/// Find the highest hoisted role (used for the user group) and the highest role (used for user coloring)
+pub fn find_highest_roles(cache: &CacheRwLock, member: &Member) -> Option<(Role, Role)> {
+    let mut roles = member.roles(cache)?;
+    roles.sort();
+    let highest = roles.last();
+
+    let highest_hoisted = roles.iter().filter(|role| role.hoist).collect::<Vec<_>>();
+    let highest_hoisted = highest_hoisted.last().cloned();
+    Some((highest_hoisted?.clone(), highest?.clone()))
+}
+
 pub fn get_irc_mode() -> bool {
     get_option("irc_mode").map(|x| x == "true").unwrap_or(false)
 }

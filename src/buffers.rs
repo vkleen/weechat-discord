@@ -331,29 +331,32 @@ pub fn load_nicks(buffer: &Buffer) {
             {
                 continue;
             } else {
-                // TODO: Make hoist correctly affect position
-                if let Some((role, pos)) = member.highest_role_info(&ctx.cache) {
-                    if let Some(role) = role.to_role_cached(&ctx.cache) {
-                        let user = member.user.read();
-                        if role.hoist || user.bot {
-                            let role_name;
-                            let color;
-                            if user.bot {
-                                role_name = format!("{}|{}", ::std::i64::MAX, "Bot");
-                                color = "gray".to_string();
-                            } else {
-                                role_name = format!("{}|{}", ::std::i64::MAX - pos, role.name);
-                                color = crate::utils::rgb_to_ansi(role.colour).to_string();
-                            };
-                            if !buffer.group_exists(&role_name) {
-                                buffer.add_nicklist_group_with_color(&role_name, &color);
-                            }
-                            buffer.add_nick_to_group(member.display_name().as_ref(), &role_name);
-                            continue
-                        }
+                let user = member.user.read();
+                let role_name;
+                let role_color;
+                if user.bot {
+                    role_name = format!("{}|{}", ::std::i64::MAX, "Bot");
+                    role_color = "gray".to_string();
+                } else {
+                    if let Some((highest_hoisted, highest)) =
+                        utils::find_highest_roles(&ctx.cache, &member)
+                    {
+                        role_name = format!(
+                            "{}|{}",
+                            ::std::i64::MAX - highest_hoisted.position,
+                            highest_hoisted.name
+                        );
+                        role_color = crate::utils::rgb_to_ansi(highest.colour).to_string();
+                    } else {
+                        // Can't find a role, abort early
+                        buffer.add_nick(member.display_name().as_ref());
+                        continue;
                     }
                 }
-                buffer.add_nick(member.display_name().as_ref());
+                if !buffer.group_exists(&role_name) {
+                    buffer.add_nicklist_group_with_color(&role_name, &role_color);
+                }
+                buffer.add_nick_to_group(member.display_name().as_ref(), &role_name);
             }
         }
     }};

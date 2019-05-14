@@ -136,12 +136,19 @@ impl EventHandler for Handler {
         });
         ctx.shard
             .websocket_message(WsMessage::text(data.to_string()));
-        // Cache seems not to have private channels properly populated
+        // Cache seems not to have all fields properly populated
         {
             let mut ctx_lock = ctx.cache.write();
             for (&id, channel) in &ready.private_channels {
                 if let Some(pc) = channel.clone().private() {
                     ctx_lock.private_channels.insert(id, pc);
+                }
+            }
+            for guild in ready.guilds.iter() {
+                if let GuildStatus::OnlineGuild(guild) = guild {
+                    for (id, pres) in guild.presences.clone() {
+                        ctx_lock.presences.insert(id, pres);
+                    }
                 }
             }
         }

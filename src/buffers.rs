@@ -281,7 +281,7 @@ pub fn create_buffer_from_group(channel: Channel, nick: &str) {
 // TODO: Make this nicer somehow
 // TODO: Refactor this to use `?`
 pub fn load_nicks(buffer: &Buffer) {
-    let (guild_id, channel_id) = on_main! {{
+    let (guild_id, channel_id, use_presence) = on_main! {{
         if buffer.get("localvar_loaded_nicks").is_some() {
             return;
         }
@@ -309,7 +309,9 @@ pub fn load_nicks(buffer: &Buffer) {
         buffer.set("localvar_set_loaded_nicks", "true");
         buffer.set("nicklist", "1");
 
-        (guild_id, channel_id)
+        let use_presence = get_option("use_presence").map(|o| o == "true").unwrap_or(false);
+
+        (guild_id, channel_id, use_presence)
     }};
     let ctx = match crate::discord::get_ctx() {
         Some(ctx) => ctx,
@@ -334,8 +336,11 @@ pub fn load_nicks(buffer: &Buffer) {
         for member in members {
             let user = member.user.read();
             // the current user does not seem to usually have a presence, assume they are online
-            let online = if user.id == current_user {
-                true
+            let online = if !use_presence {
+                // Dont do the lookup
+                false
+            } else if user.id == current_user {
+                    true
             } else {
                 let cache = ctx.cache.read();
                 let presence = cache.presences.get(&member.user_id());
@@ -358,7 +363,7 @@ pub fn load_nicks(buffer: &Buffer) {
             if user.bot {
                 role_name = BOT_GROUP_NAME.clone();
                 role_color = "gray".to_string();
-            } else if !online {
+            } else if !online && use_presence {
                 role_name = OFFLINE_GROUP_NAME.clone();
                 role_color = "grey".to_string();
             } else {
@@ -372,12 +377,17 @@ pub fn load_nicks(buffer: &Buffer) {
                     role_color = crate::utils::rgb_to_ansi(highest.colour).to_string();
                 } else {
                     // Can't find a role, add user to generic bucket
-                    if online {
-                        role_name = ONLINE_GROUP_NAME.clone();
+                    if use_presence {
+                        if online {
+                            role_name = ONLINE_GROUP_NAME.clone();
+                        } else {
+                            role_name = OFFLINE_GROUP_NAME.clone();
+                        }
+                        role_color = "grey".to_string();
                     } else {
-                        role_name = OFFLINE_GROUP_NAME.clone();
+                        buffer.add_nick(member.display_name().as_ref());
+                        continue
                     }
-                    role_color = "grey".to_string();
                 }
             }
             if !buffer.group_exists(&role_name) {

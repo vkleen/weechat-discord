@@ -1,13 +1,12 @@
-mod discord_client;
-mod event_handler;
-pub mod format;
-
 use self::discord_client::DiscordClient;
 use crate::MAIN_BUFFER;
 use lazy_static::lazy_static;
-use serenity::client::Context;
-use serenity::prelude::Mutex;
+use serenity::{client::Context, prelude::Mutex};
 use std::{sync::Arc, thread};
+
+mod discord_client;
+mod event_handler;
+pub mod format;
 
 pub static mut CONTEXT: Option<Context> = None;
 

@@ -5,8 +5,8 @@ use crate::{
     plugin_print,
 };
 use dirs;
-use serenity::model::prelude::User;
 use serenity::{
+    model::prelude::User,
     model::{
         channel::Channel,
         id::{ChannelId, GuildId},

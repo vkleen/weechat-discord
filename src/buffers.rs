@@ -1,11 +1,9 @@
-use crate::ffi::get_option;
 use crate::{
-    ffi::{update_bar_item, Buffer},
-    plugin_print, printing, utils,
+    ffi::{get_option, update_bar_item, Buffer},
+    printing, utils,
 };
 use lazy_static::lazy_static;
-use serenity::cache::CacheRwLock;
-use serenity::model::prelude::*;
+use serenity::{cache::CacheRwLock, model::prelude::*};
 use std::collections::{HashMap, VecDeque};
 
 lazy_static! {
@@ -89,16 +87,6 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
     };
 
     let current_user = ctx.cache.read().user.clone();
-
-    let user_guilds = match current_user.guilds(&ctx.http) {
-        Ok(guilds) => guilds,
-        Err(e) => {
-            on_main! {{
-                crate::plugin_print(&format!("Error getting user guilds: {:?}", e));
-            }};
-            vec![]
-        }
-    };
 
     let autojoin_items = match get_option("autojoin_channels") {
         Some(items) => items,

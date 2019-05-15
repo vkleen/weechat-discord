@@ -1,6 +1,5 @@
 use crate::{buffers, ffi::Buffer, printing, utils};
-use serenity::client::bridge::gateway::Message as WsMessage;
-use serenity::{model::prelude::*, prelude::*};
+use serenity::{client::bridge::gateway::Message as WsMessage, model::prelude::*, prelude::*};
 use std::sync::{mpsc::Sender, Arc};
 
 pub enum WeecordEvent {

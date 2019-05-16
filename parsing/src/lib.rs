@@ -1,104 +1,129 @@
-#[macro_use]
-extern crate nom;
+use pest::Parser;
 
-/*
-Italics         	    *italics* or _italics_
-Bold	                **bold**
-Underline italics	    __*underline italics*__
-Underline bold  	    __**underline bold**__
-Bold Italics	        ***bold italics***
-underline bold italics	__***underline bold italics***__
-Underline	            __underline__
-Strikethrough	         ~~Strikethrough~~
-*/
+#[derive(pest_derive::Parser)]
+#[grammar = "discord_grammar.pest"]
+pub struct MarkdownParser;
 
-use nom::anychar;
-use nom::types::CompleteStr;
+#[derive(Debug, PartialEq, Clone)]
+pub struct Styled(pub Vec<Style>);
 
-// TODO: Support nested styles
-#[derive(Debug, PartialEq)]
-pub enum Style {
-    Text(String),
-    Code(String),
-    Bold(String),
-    Italic(String),
-    BoldItalics(String),
-    Underline(String),
-    UnderlineBold(String),
-    UnderlineItalics(String),
-    UnderlineBoldItalics(String),
-    Strikethrough(String),
+impl Styled {
+    pub fn as_markdown(&self) -> String {
+        self.0
+            .iter()
+            .map(Style::as_markdown)
+            .collect::<Vec<_>>()
+            .join("")
+    }
 }
 
-use self::Style::*;
+#[derive(Debug, PartialEq, Clone)]
+pub enum Style {
+    Bold(Vec<Style>),
+    Italic(Vec<Style>),
+    Underline(Vec<Style>),
+    Strikethrough(Vec<Style>),
+    Plain(String),
+}
 
-named!(code<CompleteStr, Style>,
-    map!(
-        delimited!(tag!("`"), take_until!("`"), tag!("`")),
-        |text| Code(text.0.to_owned())
-    )
-);
-
-named!(star_italic<CompleteStr, Style>,
-    map!(
-        delimited!(tag!("*"), take_until!("*"), tag!("*")),
-        |text| Italic(text.0.to_owned())
-    )
-);
-
-named!(underscore_italic<CompleteStr, Style>,
-    map!(
-        delimited!(tag!("_"), take_until!("_"), tag!("_")),
-        |text| Italic(text.0.to_owned())
-    )
-);
-
-named!(italic<CompleteStr, Style>,
-    alt_complete!(star_italic | underscore_italic)
-);
-
-named!(bold<CompleteStr, Style>,
-    map!(
-        delimited!(tag!("**"), take_until!("**"), tag!("**")),
-        |text| Bold(text.0.to_owned())
-    )
-);
-
-named!(underline<CompleteStr, Style>,
-    map!(
-        delimited!(tag!("__"), take_until!("__"), tag!("__")),
-        |text| Underline(text.0.to_owned())
-    )
-);
-
-named!(strikethrough<CompleteStr, Style>,
-    map!(
-        delimited!(tag!("~~"), take_until!("~~"), tag!("~~")),
-        |text| Strikethrough(text.0.to_owned())
-    )
-);
-
-named!(styled<CompleteStr, Style>, alt!(bold | underline | italic | strikethrough | code));
-
-named!(maybe_style<CompleteStr, Style>,
-    alt!(
-        styled |
-        map!(
-            many_till!(call!(anychar), alt!(recognize!(peek!(styled)) | eof!())),
-            |chars| Text(chars.0.iter().collect())
-        )
-    )
-);
-
-named!(text<CompleteStr, Vec<Style>>,
-    many0!(maybe_style)
-);
-
-pub fn parse_msg(msg: &str) -> Option<Vec<Style>> {
-    match text(CompleteStr(msg)) {
-        Ok((_, msg)) => Some(msg),
-        _ => None,
+impl Style {
+    // TODO: take into account _/* italic syntax
+    pub fn as_markdown(&self) -> String {
+        use Style::*;
+        match self {
+            Bold(style) => format!(
+                "**{}**",
+                style
+                    .iter()
+                    .map(Style::as_markdown)
+                    .collect::<Vec<_>>()
+                    .join("")
+            ),
+            Italic(style) => format!(
+                "_{}_",
+                style
+                    .iter()
+                    .map(Style::as_markdown)
+                    .collect::<Vec<_>>()
+                    .join("")
+            ),
+            Underline(style) => format!(
+                "__{}__",
+                style
+                    .iter()
+                    .map(Style::as_markdown)
+                    .collect::<Vec<_>>()
+                    .join("")
+            ),
+            Strikethrough(style) => format!(
+                "~~{}~~",
+                style
+                    .iter()
+                    .map(Style::as_markdown)
+                    .collect::<Vec<_>>()
+                    .join("")
+            ),
+            Plain(string) => string.to_owned(),
+        }
     }
+}
+
+fn lower(pair: pest::iterators::Pair<Rule>) -> Vec<Style> {
+    let rule = pair.as_rule();
+    match rule {
+        Rule::all => {
+            let mut result = Vec::new();
+            for pair in pair.into_inner() {
+                result.extend(lower(pair))
+            }
+            result
+        }
+        Rule::italic => {
+            let mut result = Vec::new();
+            for pair in pair.into_inner() {
+                result.extend(lower(pair))
+            }
+            vec![Style::Italic(result)]
+        }
+        Rule::underline_inner | Rule::strike_inner | Rule::bold_inner | Rule::italic_inner => {
+            let content = pair.as_str();
+            match pair.into_inner().next() {
+                Some(inner) => lower(inner),
+                None => vec![Style::Plain(content.to_owned())],
+            }
+        }
+        Rule::bold => {
+            let mut result = Vec::new();
+            for pair in pair.into_inner() {
+                result.extend(lower(pair))
+            }
+            vec![Style::Bold(result)]
+        }
+        Rule::underline => {
+            let mut result = Vec::new();
+            for pair in pair.into_inner() {
+                result.extend(lower(pair))
+            }
+            vec![Style::Underline(result)]
+        }
+        Rule::strike => {
+            let mut result = Vec::new();
+            for pair in pair.into_inner() {
+                result.extend(lower(pair))
+            }
+            vec![Style::Strikethrough(result)]
+        }
+        Rule::plain | Rule::WS => vec![Style::Plain(pair.as_str().to_owned())],
+
+        _ => unimplemented!(),
+    }
+}
+
+pub fn parse_markdown(str: &str) -> Styled {
+    // Should be infallible
+    let mut rules = MarkdownParser::parse(Rule::all, str).unwrap();
+
+    Styled(lower(rules.next().unwrap()))
 }
 
 pub fn weechat_arg_strip(str: &str) -> String {
@@ -107,68 +132,15 @@ pub fn weechat_arg_strip(str: &str) -> String {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
-    macro_rules! style {
-        ($style:ident($text:tt)) => {
-            $style($text.to_owned())
-        };
-    }
-
-    macro_rules! parse {
-        ($parser:ident($str:tt)) => {
-            $parser(CompleteStr($str)).unwrap().1
-        };
-    }
-
     #[test]
-    fn italic_underline() {
-        assert_eq!(parse!(italic("_italic_")), style!(Italic("italic")));
-    }
+    fn test() {
+        use super::{Style::*, Styled};
+        let target = Styled(vec![Bold(vec![
+            Italic(vec![Plain("Hi".to_string())]),
+            Plain(" ".to_string()),
+            Underline(vec![Plain("there".to_string())]),
+        ])]);
 
-    #[test]
-    fn italic_star() {
-        assert_eq!(parse!(italic("*italic*")), style!(Italic("italic")));
-    }
-
-    #[test]
-    fn bold_test() {
-        assert_eq!(parse!(bold("**bold**")), style!(Bold("bold")));
-    }
-
-    #[test]
-    fn underline_test() {
-        assert_eq!(
-            parse!(underline("__underline__")),
-            style!(Underline("underline")),
-        );
-    }
-
-    #[test]
-    fn strikethrough_test() {
-        assert_eq!(
-            parse!(strikethrough("~~strikethrough~~")),
-            style!(Strikethrough("strikethrough")),
-        );
-    }
-
-    #[test]
-    fn variety() {
-        assert_eq!(
-            parse!(text(
-                "_italic_ **bold** *italic* __underline__ ~~strikethrough~~"
-            )),
-            [
-                style!(Italic("italic")),
-                style!(Text(" ")),
-                style!(Bold("bold")),
-                style!(Text(" ")),
-                style!(Italic("italic")),
-                style!(Text(" ")),
-                style!(Underline("underline")),
-                style!(Text(" ")),
-                style!(Strikethrough("strikethrough")),
-            ]
-        );
+        assert_eq!(target, super::parse_markdown("**_Hi_ __there__**"));
     }
 }

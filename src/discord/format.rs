@@ -8,7 +8,6 @@ pub fn discord_to_weechat(msg: &str) -> String {
 
     let mut out = String::new();
     for node in &ast.0 {
-        eprintln!("{:#?}", node.read().unwrap());
         out.push_str(&discord_to_weechat_reducer(&*node.read().unwrap()))
     }
     out

@@ -328,7 +328,7 @@ pub fn load_nicks(buffer: &Buffer) {
                 // Dont do the lookup
                 false
             } else if user.id == current_user {
-                    true
+                true
             } else {
                 let cache = ctx.cache.read();
                 let presence = cache.presences.get(&member.user_id());
@@ -339,8 +339,7 @@ pub fn load_nicks(buffer: &Buffer) {
 
             let member_perms = guild_lock.permissions_in(channel_id, user.id);
             // A pretty accurate method of checking if a user is "in" a channel
-            if !member_perms.read_message_history() || !member_perms.read_messages()
-            {
+            if !member_perms.read_message_history() || !member_perms.read_messages() {
                 continue;
             }
 
@@ -374,7 +373,7 @@ pub fn load_nicks(buffer: &Buffer) {
                         role_color = "grey".to_string();
                     } else {
                         buffer.add_nick(member.display_name().as_ref());
-                        continue
+                        continue;
                     }
                 }
             }

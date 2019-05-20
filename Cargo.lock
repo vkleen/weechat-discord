@@ -749,7 +749,7 @@ name = "parsing"
 version = "0.1.0"
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "simple_ast 0.1.0 (git+https://github.com/Noskcaj19/simple-ast?rev=dcbfca9)",
+ "simple_ast 0.1.0 (git+https://github.com/Noskcaj19/simple-ast)",
 ]
 
 [[package]]
@@ -1168,7 +1168,7 @@ dependencies = [
 [[package]]
 name = "simple_ast"
 version = "0.1.0"
-source = "git+https://github.com/Noskcaj19/simple-ast?rev=dcbfca9#dcbfca9c8c5939c8c5a8045f7d966ab870a23987"
+source = "git+https://github.com/Noskcaj19/simple-ast#a2d6817204cc414905422bc5e8e545386aa10418"
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "onig 4.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1732,7 +1732,7 @@ dependencies = [
 "checksum serde_urlencoded 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)" = "642dd69105886af2efd227f75a520ec9b44a820d65bc133a9131f7d229fd165a"
 "checksum serenity 0.5.11 (git+https://github.com/terminal-discord/serenity?branch=v0.6.x)" = "<none>"
 "checksum sha-1 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "23962131a91661d643c98940b20fcaffe62d776a823247be80a48fcb8b6fce68"
-"checksum simple_ast 0.1.0 (git+https://github.com/Noskcaj19/simple-ast?rev=dcbfca9)" = "<none>"
+"checksum simple_ast 0.1.0 (git+https://github.com/Noskcaj19/simple-ast)" = "<none>"
 "checksum siphasher 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "0b8de496cf83d4ed58b6be86c3a275b8602f6ffe98d3024a869e124147a9a3ac"
 "checksum slab 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 "checksum smallvec 0.6.9 (registry+https://github.com/rust-lang/crates.io-index)" = "c4488ae950c49d403731982257768f48fada354a5203fe81f9bb6f43ca9002be"

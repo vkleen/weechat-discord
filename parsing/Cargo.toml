@@ -9,4 +9,4 @@ lazy_static = "1.3.0"
 
 [dependencies.simple_ast]
 git = "https://github.com/Noskcaj19/simple-ast"
-rev = "dcbfca9"
+version = "0.1.0"

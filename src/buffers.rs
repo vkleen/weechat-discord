@@ -413,7 +413,7 @@ pub fn load_history(buffer: &Buffer) {
 
     if let Ok(msgs) = channel.messages(http, |retriever| retriever.limit(25)) {
         on_main! {{
-            for msg in msgs.iter().rev().cloned() {
+            for msg in msgs.into_iter().rev() {
                 printing::print_msg(&buffer, &msg, false);
             }
         }};

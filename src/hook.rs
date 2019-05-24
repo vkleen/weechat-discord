@@ -2,7 +2,7 @@ use crate::{
     buffers, discord,
     discord::DISCORD,
     ffi::{self, *},
-    plugin_print,
+    plugin_print, utils,
 };
 use dirs;
 use serenity::{
@@ -477,6 +477,60 @@ fn run_command(_buffer: &Buffer, command: &str) {
         "watch" => {
             plugin_print("watch requires a guild name and channel name");
         }
+        "watched" => {
+            MAIN_BUFFER.print("");
+            let mut channels = Vec::new();
+            let mut guilds = Vec::new();
+
+            let ctx = match discord::get_ctx() {
+                Some(ctx) => ctx,
+                _ => return,
+            };
+
+            match ffi::get_option("watched_channels") {
+                Some(watched) => {
+                    let items = watched.split(',').filter_map(utils::parse_id);
+                    for i in items {
+                        match i {
+                            utils::GuildOrChannel::Guild(guild) => guilds.push(guild),
+                            utils::GuildOrChannel::Channel(guild, channel) => {
+                                channels.push((guild, channel))
+                            }
+                        }
+                    }
+                }
+                None => {
+                    plugin_print("Unable to get watched channels");
+                    return;
+                }
+            };
+
+            MAIN_BUFFER.print(&format!("Watched Servers: ({})", guilds.len()));
+            for guild in guilds {
+                if let Some(guild) = guild.to_guild_cached(&ctx.cache) {
+                    MAIN_BUFFER.print(&format!("  {}", guild.read().name));
+                }
+            }
+
+            MAIN_BUFFER.print(&format!("Watched Channels: ({})", channels.len()));
+            for (guild, channel) in channels {
+                if let Ok(channel) = channel.to_channel(&ctx) {
+                    let channel_name = utils::channel_name(&channel);
+                    if let Some(guild) = guild {
+                        let guild_name = if let Some(guild) = guild.to_guild_cached(&ctx) {
+                            guild.read().name.to_owned()
+                        } else {
+                            guild.0.to_string()
+                        };
+                        MAIN_BUFFER.print(&format!("  {}: {}", guild_name, channel_name));
+                    } else {
+                        MAIN_BUFFER.print(&format!("  {}", channel_name));
+                    }
+                } else {
+                    MAIN_BUFFER.print(&format!("  {:?} {:?}", guild, channel));
+                }
+            }
+        }
         _ if command.starts_with("autojoin ") => {
             let mut args = command["autojoin ".len()..]
                 .split(' ')
@@ -525,6 +579,60 @@ fn run_command(_buffer: &Buffer, command: &str) {
         }
         "autojoin" => {
             plugin_print("autojoin requires a guild name and channel name");
+        }
+        "autojoined" => {
+            MAIN_BUFFER.print("");
+            let mut channels = Vec::new();
+            let mut guilds = Vec::new();
+
+            let ctx = match discord::get_ctx() {
+                Some(ctx) => ctx,
+                _ => return,
+            };
+
+            match ffi::get_option("autojoin_channels") {
+                Some(watched) => {
+                    let items = watched.split(',').filter_map(utils::parse_id);
+                    for i in items {
+                        match i {
+                            utils::GuildOrChannel::Guild(guild) => guilds.push(guild),
+                            utils::GuildOrChannel::Channel(guild, channel) => {
+                                channels.push((guild, channel))
+                            }
+                        }
+                    }
+                }
+                None => {
+                    plugin_print("Unable to get autojoin channels");
+                    return;
+                }
+            };
+
+            MAIN_BUFFER.print(&format!("Autojoin Servers: ({})", guilds.len()));
+            for guild in guilds {
+                if let Some(guild) = guild.to_guild_cached(&ctx.cache) {
+                    MAIN_BUFFER.print(&format!("  {}", guild.read().name));
+                }
+            }
+
+            MAIN_BUFFER.print(&format!("Autojoin Channels: ({})", channels.len()));
+            for (guild, channel) in channels {
+                if let Ok(channel) = channel.to_channel(&ctx) {
+                    let channel_name = utils::channel_name(&channel);
+                    if let Some(guild) = guild {
+                        let guild_name = if let Some(guild) = guild.to_guild_cached(&ctx) {
+                            guild.read().name.to_owned()
+                        } else {
+                            guild.0.to_string()
+                        };
+                        MAIN_BUFFER.print(&format!("  {}: {}", guild_name, channel_name));
+                    } else {
+                        MAIN_BUFFER.print(&format!("  {}", channel_name));
+                    }
+                } else {
+                    MAIN_BUFFER.print(&format!("  {:?} {:?}", guild, channel));
+                }
+            }
         }
         _ if command.starts_with("upload ") => {
             let mut file = command["upload ".len()..].to_owned();
@@ -605,6 +713,8 @@ plugins.var.weecord.irc_mode = <bool>
                      query
                      watch
                      autojoin
+                     watched
+                     autojoined
                      irc-mode
                      discord-mode
                      autostart
@@ -618,6 +728,10 @@ join: join a channel in irc mode by providing guild name and channel name
 query: open a dm with a user (for when there are no discord buffers open)
 irc-mode: enable irc-mode, meaning that weecord will not load all channels like the official client
 discord-mode: enable discord-mode, meaning all available channels and guilds will be added to the buflist
+watch: Automatically open a buffer when a message is received in a guild or channel
+autojoin: Automatically open a channel or entire guild when discord connects
+watched: List watched guilds and channels
+autojoined: List autojoined guilds and channels
 autostart: automatically sign into discord on start
 noautostart: disable autostart
 token: set Discord login token
@@ -634,6 +748,8 @@ Example:
          disconnect || \
          query %(weecord_dm_completion) || \
          watch %(weecord_guild_completion) %(weecord_channel_completion) || \
+         watched || \
+         autojoined || \
          autojoin %(weecord_guild_completion) %(weecord_channel_completion) || \
          irc-mode || \
          discord-mode || \

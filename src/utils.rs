@@ -67,6 +67,21 @@ pub fn status_is_online(status: OnlineStatus) -> bool {
     }
 }
 
+pub fn channel_name(channel: &Channel) -> String {
+    use std::borrow::Cow;
+    use Channel::*;
+    match channel {
+        Guild(channel) => channel.read().name().to_string(),
+        Group(channel) => match channel.read().name() {
+            Cow::Borrowed(name) => name.to_string(),
+            Cow::Owned(name) => name,
+        },
+        Category(category) => category.read().name().to_string(),
+        Private(channel) => channel.read().name(),
+        __Nonexhaustive => unreachable!(),
+    }
+}
+
 /// Find the highest hoisted role (used for the user group) and the highest role (used for user coloring)
 pub fn find_highest_roles(cache: &CacheRwLock, member: &Member) -> Option<(Role, Role)> {
     let mut roles = member.roles(cache)?;

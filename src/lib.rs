@@ -19,6 +19,9 @@ pub fn init(args: &[&str]) -> Option<()> {
             if autostart == "true" {
                 if let Some(t) = ffi::get_option("token") {
                     discord::init(&t, utils::get_irc_mode());
+                } else {
+                    plugin_print("Error: plugins.var.weecord.token unset. Run:");
+                    plugin_print("/discord token 123456789ABCDEF");
                 }
             }
         }

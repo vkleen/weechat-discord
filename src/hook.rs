@@ -450,12 +450,14 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 {
                     crate::utils::unique_id(Some(guild.read().id), channel.read().id)
                 } else {
+                    plugin_print("Unable to find server and channel");
                     return;
                 }
             } else {
                 if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
                     crate::utils::unique_guild_id(guild.read().id)
                 } else {
+                    plugin_print("Unable to find server");
                     return;
                 }
             };
@@ -473,6 +475,11 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 new_channel_id
             };
             ffi::set_option("watched_channels", &new_watched);
+            if let Some(channel_name) = channel_name {
+                plugin_print(&format!("Now watching {} in {}", guild_name, channel_name))
+            } else {
+                plugin_print(&format!("Now watching all of {}", guild_name))
+            }
         }
         "watch" => {
             plugin_print("watch requires a guild name and channel name");
@@ -552,12 +559,14 @@ fn run_command(_buffer: &Buffer, command: &str) {
                 {
                     crate::utils::unique_id(Some(guild.read().id), channel.read().id)
                 } else {
+                    plugin_print("Unable to find server and channel");
                     return;
                 }
             } else {
                 if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
                     crate::utils::unique_guild_id(guild.read().id)
                 } else {
+                    plugin_print("Unable to find server");
                     return;
                 }
             };
@@ -576,6 +585,17 @@ fn run_command(_buffer: &Buffer, command: &str) {
                     new_channel_id
                 };
             ffi::set_option("autojoin_channels", &new_autojoined);
+
+            if let Some(channel_name) = channel_name {
+                plugin_print(&format!(
+                    "Now autojoining {} in {}",
+                    guild_name, channel_name
+                ));
+                plugin_print(&format!("join {}", &command["autojoin ".len()..]));
+                run_command(_buffer, &format!("join {}", &command["autojoin ".len()..]));
+            } else {
+                plugin_print(&format!("Now autojoining all channels in {}", guild_name))
+            }
         }
         "autojoin" => {
             plugin_print("autojoin requires a guild name and channel name");

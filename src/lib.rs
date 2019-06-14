@@ -17,46 +17,43 @@ use weechat::{ArgsWeechat, Weechat, WeechatPlugin, WeechatResult};
 
 struct Weecord {
     weechat: Weechat,
+    _handles: hook::HookHandles,
 }
 
 impl Weecord {
-    pub fn init(&mut self, args: ArgsWeechat) {
-        let args: Vec<_> = args.collect();
-
-        // Hack to bridge the two ffi modules
-        ffi::set_plugin(self.weechat.as_ptr() as *mut std::ffi::c_void);
-
-        hook::init();
-
-        if let Some(autostart) = get_option("autostart") {
-            if !args.contains(&"-a".to_owned()) {
-                if autostart == "true" {
-                    if let Some(t) = ffi::get_option("token") {
-                        let t = if t.starts_with("${sec.data") {
-                            self.weechat.eval_string_expression(&t)
-                        } else {
-                            &t
-                        };
-                        discord::init(&t, utils::get_irc_mode());
-                    } else {
-                        self.plugin_print("Error: plugins.var.weecord.token unset. Run:");
-                        self.plugin_print("/discord token 123456789ABCDEF");
-                    }
-                }
-            }
-        }
-    }
-
     pub fn plugin_print(&self, message: &str) {
         self.weechat.print(&format!("weecord: {}", message))
     }
 }
 
 impl WeechatPlugin for Weecord {
-    fn init(weechat: Weechat, args: ArgsWeechat) -> WeechatResult<Self> {
-        let mut weecord = Weecord { weechat };
-        weecord.init(args);
-        Ok(weecord)
+    fn init(mut weechat: Weechat, args: ArgsWeechat) -> WeechatResult<Self> {
+        let args: Vec<_> = args.collect();
+
+        // Hack to bridge the two ffi modules
+        ffi::set_plugin(weechat.as_ptr() as *mut std::ffi::c_void);
+
+        let _handles = hook::init(&weechat).expect("Failed to create signal hooks");
+
+        if let Some(autostart) = get_option("autostart") {
+            if !args.contains(&"-a".to_owned()) {
+                if autostart == "true" {
+                    if let Some(t) = ffi::get_option("token") {
+                        let t = if t.starts_with("${sec.data") {
+                            weechat.eval_string_expression(&t)
+                        } else {
+                            &t
+                        };
+                        discord::init(&t, utils::get_irc_mode());
+                    } else {
+                        plugin_print("Error: plugins.var.weecord.token unset. Run:");
+                        plugin_print("/discord token 123456789ABCDEF");
+                    }
+                }
+            }
+        }
+
+        Ok(Weecord { weechat, _handles })
     }
 }
 

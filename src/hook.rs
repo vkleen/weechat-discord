@@ -16,7 +16,6 @@ use serenity::{
 use std::{fs, ptr, sync::Arc, thread, time::Duration};
 
 // *DO NOT* touch this outside of init/end
-static mut MAIN_COMMAND_HOOK: *mut HookCommand = ptr::null_mut();
 static mut BUFFER_SWITCH_CB: *mut SignalHook = ptr::null_mut();
 static mut QUERY_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
 static mut NICK_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
@@ -25,20 +24,30 @@ static mut GUILD_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
 static mut CHANNEL_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
 static mut DM_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
 
-pub fn init() -> Option<()> {
-    let main_cmd_hook = ffi::hook_command(
-        weechat_cmd::COMMAND,
-        weechat_cmd::DESCRIPTION,
-        weechat_cmd::ARGS,
-        weechat_cmd::ARGDESC,
-        weechat_cmd::COMPLETIONS,
-        move |buffer, input| run_command(&buffer, input),
-    )?;
+pub struct HookHandles {
+    _cmd_handle: weechat::CommandHook<String>,
+}
 
+pub fn init(weechat: &weechat::Weechat) -> Option<HookHandles> {
     unsafe {
         crate::synchronization::MAIN_THREAD_ID = Some(std::thread::current().id());
     }
 
+    let cmd_description = weechat::CommandDescription {
+        name: weechat_cmd::COMMAND,
+        description: weechat_cmd::DESCRIPTION,
+        args: weechat_cmd::ARGS,
+        args_description: weechat_cmd::ARGDESC,
+        completion: weechat_cmd::COMPLETIONS,
+    };
+
+    let _cmd_handle = weechat.hook_command(
+        cmd_description,
+        |_, buffer, args| run_command(&buffer, &args.collect::<Vec<_>>().join(" ")),
+        None,
+    );
+
+    // old api
     let query_hook = ffi::hook_command_run("/query", handle_query)?;
     let nick_hook = ffi::hook_command_run("/nick", handle_nick)?;
     let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
@@ -64,7 +73,7 @@ pub fn init() -> Option<()> {
     )?;
 
     unsafe {
-        MAIN_COMMAND_HOOK = Box::into_raw(Box::new(main_cmd_hook));
+        //        MAIN_COMMAND_HOOK = Box::into_raw(Box::new(main_cmd_hook));
         BUFFER_SWITCH_CB = Box::into_raw(Box::new(buffer_switch_hook));
         TIMER_HOOK = Box::into_raw(Box::new(timer_hook));
         QUERY_CMD_HOOK = Box::into_raw(Box::new(query_hook));
@@ -73,13 +82,12 @@ pub fn init() -> Option<()> {
         CHANNEL_COMPLETION_HOOK = Box::into_raw(Box::new(channel_completion_hook));
         DM_COMPLETION_HOOK = Box::into_raw(Box::new(dm_completion_hook))
     };
-    Some(())
+
+    Some(HookHandles { _cmd_handle })
 }
 
 pub fn destroy() {
     unsafe {
-        let _ = Box::from_raw(MAIN_COMMAND_HOOK);
-        MAIN_COMMAND_HOOK = ptr::null_mut();
         let _ = Box::from_raw(BUFFER_SWITCH_CB);
         BUFFER_SWITCH_CB = ptr::null_mut();
         let _ = Box::from_raw(TIMER_HOOK);
@@ -321,7 +329,7 @@ fn handle_nick(buffer: Buffer, command: &str) -> i32 {
     1
 }
 
-fn run_command(_buffer: &Buffer, command: &str) {
+fn run_command(_buffer: &weechat::Buffer, command: &str) {
     // TODO: Add rename command
     // TODO: Get a proper parser
     match command {

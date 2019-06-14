@@ -16,17 +16,6 @@ void set_plugin(struct t_weechat_plugin* plugin) {
 }
 
 
-struct t_hook* wdc_hook_command(const char* command, const char* description,
-                                const char* args, const char* args_description,
-                                const char* completion, const void* pointer,
-                                int (*callback)(const void* pointer, void* data,
-                                                struct t_gui_buffer* buffer,
-                                                int argc, char** argv,
-                                                char** argv_eol)) {
-    return weechat_hook_command(command, description, args, args_description,
-                                completion, callback, pointer, NULL);
-}
-
 struct t_hook* wdc_hook_command_run(const char* command, const void* pointer,
                                     int (*callback)(const void* pointer,
                                                     void* data,

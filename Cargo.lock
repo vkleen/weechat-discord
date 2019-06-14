@@ -1739,7 +1739,7 @@ dependencies = [
 [[package]]
 name = "weechat"
 version = "0.1.0"
-source = "git+https://github.com/terminal-discord/rust-weechat#eead0055b23535e786bf9e6048342c53b7648663"
+source = "git+https://github.com/terminal-discord/rust-weechat#8b93e0b4ce14381dd6734e6916c5d3f1746033b5"
 dependencies = [
  "libc 0.2.54 (registry+https://github.com/rust-lang/crates.io-index)",
  "weechat-sys 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",

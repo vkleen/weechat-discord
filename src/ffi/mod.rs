@@ -3,7 +3,6 @@ use libc::*;
 use std::fs::File;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::{
-    convert::AsRef,
     ffi::{CStr, CString},
     panic::{catch_unwind, UnwindSafe},
     ptr,
@@ -171,6 +170,13 @@ pub fn get_plugin() -> *mut c_void {
         fn get_plugin() -> *mut c_void;
     }
     unsafe { get_plugin() }
+}
+
+pub fn set_plugin(plugin: *mut c_void) {
+    extern "C" {
+        fn set_plugin(plugin: *mut c_void);
+    }
+    unsafe { set_plugin(plugin) }
 }
 
 impl Buffer {
@@ -475,40 +481,6 @@ pub fn get_prefix(prefix: &str) -> Option<String> {
         } else {
             Some(CStr::from_ptr(value).to_string_lossy().into_owned())
         }
-    }
-}
-
-#[no_mangle]
-#[allow(unused)]
-pub extern "C" fn wdr_init(argc: c_int, arg_ptr: *const *const c_char) -> c_int {
-    let args;
-    if argc == 0 || arg_ptr.is_null() {
-        args = Vec::with_capacity(0);
-    } else {
-        unsafe {
-            let argv = ::std::slice::from_raw_parts(arg_ptr, argc as usize);
-
-            args = argv
-                .iter()
-                .map(|v| CStr::from_ptr(*v).to_string_lossy())
-                .collect();
-        }
-    }
-
-    let x: Vec<_> = args.iter().map(AsRef::as_ref).collect();
-
-    match wrap_panic(|| crate::init(&x)) {
-        Some(Some(())) => 0,
-        _ => 1,
-    }
-}
-
-#[no_mangle]
-#[allow(unused)]
-pub extern "C" fn wdr_end() -> c_int {
-    match wrap_panic(crate::end) {
-        Some(Some(())) => 0,
-        _ => 1,
     }
 }
 

@@ -5,39 +5,16 @@
 #define NULL ((void*)0)
 #endif
 
-int wdr_init(int argc, char* argv[]);
-int wdr_end(void);
-
-WEECHAT_PLUGIN_NAME("weecord");
-WEECHAT_PLUGIN_DESCRIPTION("Discord support for weechat");
-WEECHAT_PLUGIN_AUTHOR("khyperia <khyperia@live.com>");
-WEECHAT_PLUGIN_VERSION("0.1");
-WEECHAT_PLUGIN_LICENSE("MIT");
-
 static struct t_weechat_plugin* weechat_plugin;
 
 struct t_weechat_plugin* get_plugin() {
     return weechat_plugin;
 }
 
-int weechat_plugin_init(struct t_weechat_plugin* plugin, int argc,
-                        char* argv[]) {
+void set_plugin(struct t_weechat_plugin* plugin) {
     weechat_plugin = plugin;
-    if (wdr_init(argc, argv)) {
-        return WEECHAT_RC_ERROR;
-    } else {
-        return WEECHAT_RC_OK;
-    }
 }
 
-int weechat_plugin_end(struct t_weechat_plugin* plugin) {
-    (void)plugin;
-    if (wdr_end()) {
-        return WEECHAT_RC_ERROR;
-    } else {
-        return WEECHAT_RC_OK;
-    }
-}
 
 struct t_hook* wdc_hook_command(const char* command, const char* description,
                                 const char* args, const char* args_description,

@@ -32,22 +32,26 @@ impl Handler {
 impl EventHandler for Handler {
     fn channel_create(&self, _ctx: Context, channel: Arc<RwLock<GuildChannel>>) {
         let channel = channel.read();
-        print_guild_status_message(
-            channel.guild_id,
-            &format!(
-                "New {} channel {} created",
-                channel.kind.name(),
-                channel.name()
-            ),
-        );
+        on_main! {{
+            print_guild_status_message(
+                channel.guild_id,
+                &format!(
+                    "New {} channel {} created",
+                    channel.kind.name(),
+                    channel.name()
+                ),
+            );
+        }};
     }
 
     fn channel_delete(&self, _ctx: Context, channel: Arc<RwLock<GuildChannel>>) {
         let channel = channel.read();
-        print_guild_status_message(
-            channel.guild_id,
-            &format!("Channel {} deleted", channel.name()),
-        );
+        on_main! {{
+            print_guild_status_message(
+                channel.guild_id,
+                &format!("Channel {} deleted", channel.name()),
+            );
+        }};
     }
 
     // Called when a message is received
@@ -169,7 +173,9 @@ impl EventHandler for Handler {
                 .to_user_cached(ctx.cache)
                 .map(|user| user.read().name.clone())
                 .unwrap_or_else(|| "Someone".to_string());
-            buffer.print(&format!("{}\t{} is typing", prefix, user));
+            on_main! {{
+                buffer.print(&format!("{}\t{} is typing", prefix, user));
+            }}
         }
     }
 }

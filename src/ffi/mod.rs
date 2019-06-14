@@ -507,7 +507,7 @@ pub extern "C" fn wdr_end() -> c_int {
 
 pub struct HookCommand {
     _hook: Hook,
-    _callback: Box<Box<FnMut(Buffer, &str)>>,
+    _callback: Box<Box<dyn FnMut(Buffer, &str)>>,
 }
 
 pub fn hook_command<F: FnMut(Buffer, &str) + 'static>(
@@ -518,7 +518,7 @@ pub fn hook_command<F: FnMut(Buffer, &str) + 'static>(
     compl: &str,
     func: F,
 ) -> Option<HookCommand> {
-    type CB = FnMut(Buffer, &str);
+    type CB = dyn FnMut(Buffer, &str);
     extern "C" {
         fn wdc_hook_command(
             command: *const c_char,
@@ -594,14 +594,14 @@ pub fn hook_command<F: FnMut(Buffer, &str) + 'static>(
 
 pub struct HookCommandRun {
     _hook: Hook,
-    _callback: Box<Box<FnMut(Buffer, &str) -> i32>>,
+    _callback: Box<Box<dyn FnMut(Buffer, &str) -> i32>>,
 }
 
 pub fn hook_command_run<F: FnMut(Buffer, &str) -> i32 + 'static>(
     cmd: &str,
     func: F,
 ) -> Option<HookCommandRun> {
-    type CB = FnMut(Buffer, &str) -> i32;
+    type CB = dyn FnMut(Buffer, &str) -> i32;
     extern "C" {
         fn wdc_hook_command_run(
             command: *const c_char,
@@ -865,7 +865,7 @@ impl SignalHookData {
 }
 
 pub struct SignalHook {
-    _custom_callback: Box<Box<FnMut(SignalHookData)>>,
+    _custom_callback: Box<Box<dyn FnMut(SignalHookData)>>,
     _hook: *mut c_void,
 }
 
@@ -873,7 +873,7 @@ pub fn hook_signal<F: FnMut(SignalHookData) + 'static>(
     signal: &str,
     func: F,
 ) -> Option<SignalHook> {
-    type CB = FnMut(SignalHookData);
+    type CB = dyn FnMut(SignalHookData);
     extern "C" {
         fn wdc_hook_signal(
             signal: *const c_char,
@@ -924,12 +924,12 @@ pub fn hook_signal<F: FnMut(SignalHookData) + 'static>(
 
 pub struct FdHook {
     file: File,
-    _callback: Box<Box<FnMut(RawFd)>>,
+    _callback: Box<Box<dyn FnMut(RawFd)>>,
     _hook: *mut c_void,
 }
 
 pub fn hook_fd<F: FnMut(RawFd) + 'static>(file: File, func: F) -> Option<FdHook> {
-    type CB = FnMut(RawFd);
+    type CB = dyn FnMut(RawFd);
     extern "C" {
         fn wdc_hook_fd(
             fd: c_int,
@@ -960,7 +960,7 @@ pub fn hook_fd<F: FnMut(RawFd) + 'static>(file: File, func: F) -> Option<FdHook>
 }
 
 pub struct TimerHook {
-    _callback: Box<Box<FnMut(i32)>>,
+    _callback: Box<Box<dyn FnMut(i32)>>,
     _hook: *mut c_void,
 }
 
@@ -970,7 +970,7 @@ pub fn hook_timer<F: FnMut(i32) + 'static>(
     max_calls: i32,
     func: F,
 ) -> Option<TimerHook> {
-    type CB = FnMut(i32);
+    type CB = dyn FnMut(i32);
     extern "C" {
         fn wdc_hook_timer(
             interval: c_int,
@@ -1019,7 +1019,7 @@ pub fn hook_completion<F: Fn(Buffer, &str, Completion) + 'static>(
     description: &str,
     callback: F,
 ) -> Option<Hook> {
-    type CB = Fn(Buffer, &str, Completion);
+    type CB = dyn Fn(Buffer, &str, Completion);
     extern "C" {
         fn wdc_hook_completion(
             completion_item: *const c_char,

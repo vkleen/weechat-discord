@@ -14,10 +14,19 @@ pub use crate::ffi::{wdr_end, wdr_init, MAIN_BUFFER};
 pub fn init(args: &[&str]) -> Option<()> {
     hook::init();
 
+    let plugin = weechat::Weechat::from_ptr(
+        ffi::get_plugin() as *mut weechat::weechat_sys::t_weechat_plugin
+    );
+
     if let Some(autostart) = get_option("autostart") {
         if !args.contains(&"-a") {
             if autostart == "true" {
                 if let Some(t) = ffi::get_option("token") {
+                    let t = if t.starts_with("${sec.data") {
+                        plugin.eval_string_expression(&t)
+                    } else {
+                        &t
+                    };
                     discord::init(&t, utils::get_irc_mode());
                 } else {
                     plugin_print("Error: plugins.var.weecord.token unset. Run:");

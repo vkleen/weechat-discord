@@ -9,12 +9,17 @@ pub enum WeecordEvent {
 pub struct Handler {
     sender: Arc<Mutex<Sender<WeecordEvent>>>,
     watched_channels: Vec<utils::GuildOrChannel>,
+    typing_messages: bool,
 }
 
 impl Handler {
     pub fn new(sender: Arc<Mutex<Sender<WeecordEvent>>>) -> Handler {
         let watched_channels =
             crate::ffi::get_option("watched_channels").unwrap_or_else(|| "".to_string());
+
+        let typing_messages = crate::ffi::get_option("typing_messages")
+            .map(|v| v == "true")
+            .unwrap_or(false);
 
         let watched_channels = watched_channels
             .split(',')
@@ -25,6 +30,7 @@ impl Handler {
         Handler {
             sender,
             watched_channels,
+            typing_messages,
         }
     }
 }
@@ -162,20 +168,22 @@ impl EventHandler for Handler {
     }
 
     fn typing_start(&self, ctx: Context, event: TypingStartEvent) {
-        if event.user_id == ctx.cache.read().user.id {
-            return;
-        }
-        let buffer_id = crate::utils::buffer_id_for_channel(event.guild_id, event.channel_id);
-        if let Some(buffer) = crate::ffi::Buffer::search(&buffer_id) {
-            let prefix = crate::ffi::get_prefix("network").unwrap_or_else(|| "".to_string());
-            let user = event
-                .user_id
-                .to_user_cached(ctx.cache)
-                .map(|user| user.read().name.clone())
-                .unwrap_or_else(|| "Someone".to_string());
-            on_main! {{
-                buffer.print(&format!("{}\t{} is typing", prefix, user));
-            }}
+        if self.typing_messages {
+            if event.user_id == ctx.cache.read().user.id {
+                return;
+            }
+            let buffer_id = crate::utils::buffer_id_for_channel(event.guild_id, event.channel_id);
+            if let Some(buffer) = crate::ffi::Buffer::search(&buffer_id) {
+                let prefix = crate::ffi::get_prefix("network").unwrap_or_else(|| "".to_string());
+                let user = event
+                    .user_id
+                    .to_user_cached(ctx.cache)
+                    .map(|user| user.read().name.clone())
+                    .unwrap_or_else(|| "Someone".to_string());
+                on_main! {{
+                    buffer.print(&format!("{}\t{} is typing", prefix, user));
+                }}
+            }
         }
     }
 }

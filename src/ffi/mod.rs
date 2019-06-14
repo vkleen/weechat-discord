@@ -166,6 +166,13 @@ pub fn really_bad(message: String) -> ! {
     panic!(message); // hopefully we hit a catch_unwind
 }
 
+pub fn get_plugin() -> *mut c_void {
+    extern "C" {
+        fn get_plugin() -> *mut c_void;
+    }
+    unsafe { get_plugin() }
+}
+
 impl Buffer {
     pub fn from_ptr(ptr: *mut c_void) -> Buffer {
         Buffer { ptr }

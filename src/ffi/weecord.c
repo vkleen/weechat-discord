@@ -99,20 +99,6 @@ void wdc_hook_signal_notify(void* buffer, const char* signal) {
     wdc_hook_signal_send(signal, WEECHAT_HOOK_SIGNAL_POINTER, buffer);
 }
 
-struct t_hook* wdc_hook_fd(int fd, const void* pointer,
-                           int (*callback)(const void* pointer, void* data,
-                                           int fd)) {
-    return weechat_hook_fd(fd, 1, 0, 0, callback, pointer, NULL);
-}
-
-struct t_hook* wdc_hook_timer(long interval, int align_second, int max_calls,
-                              const void* callback_pointer,
-                              int (*callback)(const void* pointer, void* data,
-                                              int remaining_calls)) {
-    return weechat_hook_timer(interval, align_second, max_calls, callback,
-                              callback_pointer, NULL);
-}
-
 void wdc_unhook(struct t_hook* hook) { weechat_unhook(hook); }
 
 int wdc_nicklist_nick_exists(struct t_gui_buffer* buffer, const char* nick) {
@@ -173,29 +159,6 @@ void* wdc_hdata_pointer(void* hdata, void* obj, const char* name) {
 
 const char* wdc_hdata_string(void* hdata, void* data, const char* name) {
     return weechat_hdata_string(hdata, data, name);
-}
-
-void* wdc_hook_completion(const char* completion_item, const char* description,
-                          const void* callback_pointer,
-                          int (*callback)(const void*, void*, const char*,
-                                          struct t_gui_buffer*,
-                                          struct t_gui_completion*)) {
-    return weechat_hook_completion(completion_item, description, callback,
-                                   callback_pointer, NULL);
-}
-
-void wdc_hook_completion_add(void* t_gui_completion, const char* word) {
-    weechat_hook_completion_list_add((struct t_gui_completion*)t_gui_completion,
-                                     word, 0, WEECHAT_LIST_POS_SORT);
-}
-
-struct t_hook* wdc_hook_signal(const char* signal,
-                               int (*callback)(const void* pointer, void* data,
-                                               const char* signal,
-                                               const char* type_data,
-                                               void* signal_data),
-                               const void* callback_pointer) {
-    return weechat_hook_signal(signal, callback, callback_pointer, NULL);
 }
 
 char* wdc_string_remove_color(const char* str) {

@@ -1,9 +1,12 @@
 use crate::{
     buffers, discord,
     discord::DISCORD,
-    ffi::{self, *},
+    ffi::{self, set_option, MAIN_BUFFER},
     plugin_print, utils,
 };
+
+use weechat::{Buffer, ReturnCode};
+
 use dirs;
 use serenity::{
     model::prelude::User,
@@ -100,7 +103,7 @@ pub fn init(weechat: &weechat::Weechat) -> Option<HookHandles> {
 }
 
 #[allow(clippy::needless_pass_by_value)]
-fn handle_buffer_switch(data: weechat::SignalHookValue) -> weechat::ReturnCode {
+fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
     if let weechat::SignalHookValue::Pointer(buffer_ptr) = data {
         let buffer = ffi::Buffer::from_ptr(buffer_ptr);
         thread::spawn(move || {
@@ -108,7 +111,7 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> weechat::ReturnCode {
             buffers::load_nicks(&buffer);
         });
     }
-    weechat::ReturnCode::Ok
+    ReturnCode::Ok
 }
 
 fn handle_timer(_remaining: i32) {
@@ -119,7 +122,7 @@ fn handle_timer(_remaining: i32) {
 
 // TODO: Transform irc/weechat style to discord style
 #[allow(clippy::needless_pass_by_value)]
-pub fn buffer_input(buffer: Buffer, message: &str) {
+pub fn buffer_input(buffer: ffi::Buffer, message: &str) {
     let channel = buffer
         .get("localvar_channelid")
         .and_then(|id| id.parse().ok())
@@ -140,10 +143,10 @@ pub fn buffer_input(buffer: Buffer, message: &str) {
 }
 
 fn handle_channel_completion(
-    buffer: &weechat::Buffer,
+    buffer: &Buffer,
     _completion_item: &str,
     completion: weechat::Completion,
-) -> weechat::ReturnCode {
+) -> ReturnCode {
     // Get the previous argument with should be the guild name
     // TODO: Generalize this?
     let x = buffer.input().split(' ').collect::<Vec<_>>();
@@ -155,13 +158,13 @@ fn handle_channel_completion(
 
     let input = match input {
         Some(i) => i,
-        None => return weechat::ReturnCode::Ok,
+        None => return ReturnCode::Ok,
     };
 
     // Match mangled name to the real name
     let ctx = match discord::get_ctx() {
         Some(s) => s,
-        None => return weechat::ReturnCode::Ok,
+        None => return ReturnCode::Ok,
     };
 
     for guild in ctx.cache.read().guilds.values() {
@@ -177,53 +180,53 @@ fn handle_channel_completion(
                 }
                 completion.add(&parsing::weechat_arg_strip(&channel.name))
             }
-            return weechat::ReturnCode::Ok;
+            return ReturnCode::Ok;
         }
     }
-    weechat::ReturnCode::Ok
+    ReturnCode::Ok
 }
 
 fn handle_guild_completion(
-    _buffer: &weechat::Buffer,
+    _buffer: &Buffer,
     _completion_item: &str,
     completion: weechat::Completion,
-) -> weechat::ReturnCode {
+) -> ReturnCode {
     let ctx = match discord::get_ctx() {
         Some(s) => s,
-        None => return weechat::ReturnCode::Ok,
+        None => return ReturnCode::Ok,
     };
     for guild in ctx.cache.read().guilds.values() {
         let name = parsing::weechat_arg_strip(&guild.read().name);
         completion.add(&name);
     }
-    weechat::ReturnCode::Ok
+    ReturnCode::Ok
 }
 
 fn handle_dm_completion(
-    _buffer: &weechat::Buffer,
+    _buffer: &Buffer,
     _completion_time: &str,
     completion: weechat::Completion,
-) -> weechat::ReturnCode {
+) -> ReturnCode {
     let ctx = match discord::get_ctx() {
         Some(s) => s,
-        None => return weechat::ReturnCode::Ok,
+        None => return ReturnCode::Ok,
     };
     for dm in ctx.cache.read().private_channels.values() {
         completion.add(&dm.read().recipient.read().name);
     }
-    weechat::ReturnCode::Ok
+    ReturnCode::Ok
 }
 
 // TODO: Make this faster
 // TODO: Handle command options
-fn handle_query(buffer: &weechat::Buffer, command: &str) -> weechat::ReturnCode {
+fn handle_query(buffer: &Buffer, command: &str) -> ReturnCode {
     if command.len() <= "/query ".len() {
         plugin_print("query requires a username");
-        return weechat::ReturnCode::Ok;
+        return ReturnCode::Ok;
     }
 
     if buffer.get_localvar("guildid").is_empty() {
-        return weechat::ReturnCode::Ok;
+        return ReturnCode::Ok;
     };
 
     let owned_cmd = command.to_owned();
@@ -275,13 +278,13 @@ fn handle_query(buffer: &weechat::Buffer, command: &str) -> weechat::ReturnCode 
         }
         plugin_print(&format!("Could not find user {:?}", substr));
     });
-    weechat::ReturnCode::OkEat
+    ReturnCode::OkEat
 }
 
 // TODO: Handle command options
-fn handle_nick(buffer: &weechat::Buffer, command: &str) -> weechat::ReturnCode {
+fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
     if buffer.get_localvar("guildid").is_empty() {
-        return weechat::ReturnCode::Ok;
+        return ReturnCode::Ok;
     };
 
     let guilds;
@@ -289,7 +292,7 @@ fn handle_nick(buffer: &weechat::Buffer, command: &str) -> weechat::ReturnCode {
     {
         let ctx = match crate::discord::get_ctx() {
             Some(ctx) => ctx,
-            _ => return weechat::ReturnCode::Error,
+            _ => return ReturnCode::Error,
         };
         substr = command["/nick".len()..].trim().to_owned();
         let mut split = substr.split(" ");
@@ -312,7 +315,7 @@ fn handle_nick(buffer: &weechat::Buffer, command: &str) -> weechat::ReturnCode {
                 let guild = buffer.get_localvar("guildid");
                 match guild.parse::<u64>() {
                     Ok(v) => GuildId(v),
-                    Err(_) => return weechat::ReturnCode::OkEat,
+                    Err(_) => return ReturnCode::OkEat,
                 }
             }};
             vec![guild]
@@ -342,10 +345,10 @@ fn handle_nick(buffer: &weechat::Buffer, command: &str) -> weechat::ReturnCode {
             buffers::update_nick();
         }};
     });
-    weechat::ReturnCode::OkEat
+    ReturnCode::OkEat
 }
 
-fn run_command(buffer: &weechat::Buffer, command: &str) {
+fn run_command(buffer: &Buffer, command: &str) {
     // TODO: Add rename command
     // TODO: Get a proper parser
     let command = command["/discord".len()..].trim();
@@ -697,7 +700,7 @@ fn run_command(buffer: &weechat::Buffer, command: &str) {
             };
             let full = full.as_str();
             // TODO: Check perms and file size
-            let buffer = match Buffer::current() {
+            let buffer = match ffi::Buffer::current() {
                 Some(buf) => buf,
                 None => return,
             };

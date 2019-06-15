@@ -57,12 +57,6 @@ impl WeechatPlugin for Weecord {
     }
 }
 
-impl Drop for Weecord {
-    fn drop(&mut self) {
-        hook::destroy();
-    }
-}
-
 weechat_plugin!(
     Weecord,
     name: b"weecord\0"; 8,

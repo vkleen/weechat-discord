@@ -13,19 +13,17 @@ use serenity::{
     },
     prelude::RwLock,
 };
-use std::{fs, ptr, sync::Arc, thread, time::Duration};
-
-// *DO NOT* touch this outside of init/end
-static mut BUFFER_SWITCH_CB: *mut SignalHook = ptr::null_mut();
-static mut GUILD_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
-static mut CHANNEL_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
-static mut DM_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
+use std::{fs, sync::Arc, thread, time::Duration};
 
 pub struct HookHandles {
     _cmd_handle: weechat::CommandHook<()>,
     _timer_handle: weechat::TimerHook<()>,
     _query_handle: weechat::CommandRunHook<()>,
     _nick_handle: weechat::CommandRunHook<()>,
+    _buffer_switch_handle: weechat::SignalHook<()>,
+    _guild_completion_handle: weechat::CompletionHook<()>,
+    _channel_completion_handle: weechat::CompletionHook<()>,
+    _dm_completion_handle: weechat::CompletionHook<()>,
 }
 
 pub fn init(weechat: &weechat::Weechat) -> Option<HookHandles> {
@@ -62,59 +60,55 @@ pub fn init(weechat: &weechat::Weechat) -> Option<HookHandles> {
         None,
     );
 
-    // old api
-    let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
+    let _buffer_switch_handle = weechat.hook_signal(
+        "buffer_switch",
+        |_, value| handle_buffer_switch(value),
+        None,
+    );
 
-    let guild_completion_hook = ffi::hook_completion(
+    let _guild_completion_handle = weechat.hook_completion(
         "weecord_guild_completion",
         "Completion for discord guilds",
-        handle_guild_completion,
-    )?;
+        |_, ref buffer, item, completions| handle_guild_completion(buffer, item, completions),
+        None,
+    );
 
-    let channel_completion_hook = ffi::hook_completion(
+    let _channel_completion_handle = weechat.hook_completion(
         "weecord_channel_completion",
         "Completion for discord channels",
-        handle_channel_completion,
-    )?;
+        |_, ref buffer, item, completions| handle_channel_completion(buffer, item, completions),
+        None,
+    );
 
-    let dm_completion_hook = ffi::hook_completion(
+    let _dm_completion_handle = weechat.hook_completion(
         "weecord_dm_completion",
         "Completion for Discord private channels",
-        handle_dm_completion,
-    )?;
-
-    unsafe {
-        BUFFER_SWITCH_CB = Box::into_raw(Box::new(buffer_switch_hook));
-        GUILD_COMPLETION_HOOK = Box::into_raw(Box::new(guild_completion_hook));
-        CHANNEL_COMPLETION_HOOK = Box::into_raw(Box::new(channel_completion_hook));
-        DM_COMPLETION_HOOK = Box::into_raw(Box::new(dm_completion_hook))
-    };
+        |_, ref buffer, item, completions| handle_dm_completion(buffer, item, completions),
+        None,
+    );
 
     Some(HookHandles {
         _cmd_handle,
         _timer_handle,
         _query_handle,
         _nick_handle,
+        _buffer_switch_handle,
+        _guild_completion_handle,
+        _channel_completion_handle,
+        _dm_completion_handle,
     })
 }
 
-pub fn destroy() {
-    unsafe {
-        let _ = Box::from_raw(BUFFER_SWITCH_CB);
-        BUFFER_SWITCH_CB = ptr::null_mut();
-        let _ = Box::from_raw(CHANNEL_COMPLETION_HOOK);
-        CHANNEL_COMPLETION_HOOK = ptr::null_mut();
-    };
-}
-
 #[allow(clippy::needless_pass_by_value)]
-fn handle_buffer_switch(data: SignalHookData) {
-    if let SignalHookData::Pointer(buffer) = data {
+fn handle_buffer_switch(data: weechat::SignalHookValue) -> weechat::ReturnCode {
+    if let weechat::SignalHookValue::Pointer(buffer_ptr) = data {
+        let buffer = ffi::Buffer::from_ptr(buffer_ptr);
         thread::spawn(move || {
             buffers::load_history(&buffer);
             buffers::load_nicks(&buffer);
         });
     }
+    weechat::ReturnCode::Ok
 }
 
 fn handle_timer(_remaining: i32) {
@@ -146,29 +140,28 @@ pub fn buffer_input(buffer: Buffer, message: &str) {
 }
 
 fn handle_channel_completion(
-    buffer: Buffer,
+    buffer: &weechat::Buffer,
     _completion_item: &str,
-    mut completion: ffi::Completion,
-) {
+    completion: weechat::Completion,
+) -> weechat::ReturnCode {
     // Get the previous argument with should be the guild name
     // TODO: Generalize this?
-    let input = buffer.get("input").and_then(|i| {
-        let x = i.split(' ').collect::<Vec<_>>();
-        if x.len() < 2 {
-            None
-        } else {
-            Some(x[x.len() - 2].to_owned())
-        }
-    });
+    let x = buffer.input().split(' ').collect::<Vec<_>>();
+    let input = if x.len() < 2 {
+        None
+    } else {
+        Some(x[x.len() - 2].to_owned())
+    };
+
     let input = match input {
         Some(i) => i,
-        None => return,
+        None => return weechat::ReturnCode::Ok,
     };
 
     // Match mangled name to the real name
     let ctx = match discord::get_ctx() {
         Some(s) => s,
-        None => return,
+        None => return weechat::ReturnCode::Ok,
     };
 
     for guild in ctx.cache.read().guilds.values() {
@@ -184,34 +177,41 @@ fn handle_channel_completion(
                 }
                 completion.add(&parsing::weechat_arg_strip(&channel.name))
             }
-            return;
+            return weechat::ReturnCode::Ok;
         }
     }
+    weechat::ReturnCode::Ok
 }
 
 fn handle_guild_completion(
-    _buffer: Buffer,
+    _buffer: &weechat::Buffer,
     _completion_item: &str,
-    mut completion: ffi::Completion,
-) {
+    completion: weechat::Completion,
+) -> weechat::ReturnCode {
     let ctx = match discord::get_ctx() {
         Some(s) => s,
-        None => return,
+        None => return weechat::ReturnCode::Ok,
     };
     for guild in ctx.cache.read().guilds.values() {
         let name = parsing::weechat_arg_strip(&guild.read().name);
         completion.add(&name);
     }
+    weechat::ReturnCode::Ok
 }
 
-fn handle_dm_completion(_buffer: Buffer, _completion_time: &str, mut completion: ffi::Completion) {
+fn handle_dm_completion(
+    _buffer: &weechat::Buffer,
+    _completion_time: &str,
+    completion: weechat::Completion,
+) -> weechat::ReturnCode {
     let ctx = match discord::get_ctx() {
         Some(s) => s,
-        None => return,
+        None => return weechat::ReturnCode::Ok,
     };
     for dm in ctx.cache.read().private_channels.values() {
         completion.add(&dm.read().recipient.read().name);
     }
+    weechat::ReturnCode::Ok
 }
 
 // TODO: Make this faster

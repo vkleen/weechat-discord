@@ -169,7 +169,7 @@ fn handle_channel_completion(
 
     for guild in ctx.cache.read().guilds.values() {
         let guild = guild.read();
-        if parsing::weechat_arg_strip(&guild.name) == input {
+        if parsing::weechat_arg_strip(&guild.name).to_lowercase() == input.to_lowercase() {
             for channel in guild.channels.values() {
                 let channel = channel.read();
                 // Skip non text channels

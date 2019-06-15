@@ -132,7 +132,9 @@ pub fn search_channel(
         let guild = raw_guild.read();
         for channel in guild.channels.values() {
             let channel_lock = channel.read();
-            if parsing::weechat_arg_strip(&channel_lock.name) == channel_name {
+            if parsing::weechat_arg_strip(&channel_lock.name).to_lowercase()
+                == channel_name.to_lowercase()
+            {
                 // Skip non text channels
                 use serenity::model::channel::ChannelType::*;
                 match channel_lock.kind {
@@ -148,7 +150,9 @@ pub fn search_channel(
 
 pub fn search_guild(cache: &CacheRwLock, guild_name: &str) -> Option<Arc<RwLock<Guild>>> {
     for guild in cache.read().guilds.values() {
-        if parsing::weechat_arg_strip(&guild.read().name) == guild_name {
+        if parsing::weechat_arg_strip(&guild.read().name).to_lowercase()
+            == guild_name.to_lowercase()
+        {
             return Some(guild.clone());
         }
     }

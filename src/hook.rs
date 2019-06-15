@@ -17,15 +17,15 @@ use std::{fs, ptr, sync::Arc, thread, time::Duration};
 
 // *DO NOT* touch this outside of init/end
 static mut BUFFER_SWITCH_CB: *mut SignalHook = ptr::null_mut();
-static mut QUERY_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
-static mut NICK_CMD_HOOK: *mut HookCommandRun = ptr::null_mut();
-static mut TIMER_HOOK: *mut TimerHook = ptr::null_mut();
 static mut GUILD_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
 static mut CHANNEL_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
 static mut DM_COMPLETION_HOOK: *mut Hook = ptr::null_mut();
 
 pub struct HookHandles {
-    _cmd_handle: weechat::CommandHook<String>,
+    _cmd_handle: weechat::CommandHook<()>,
+    _timer_handle: weechat::TimerHook<()>,
+    _query_handle: weechat::CommandRunHook<()>,
+    _nick_handle: weechat::CommandRunHook<()>,
 }
 
 pub fn init(weechat: &weechat::Weechat) -> Option<HookHandles> {
@@ -47,12 +47,23 @@ pub fn init(weechat: &weechat::Weechat) -> Option<HookHandles> {
         None,
     );
 
-    // old api
-    let query_hook = ffi::hook_command_run("/query", handle_query)?;
-    let nick_hook = ffi::hook_command_run("/nick", handle_nick)?;
-    let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
     // TODO: Dynamic timer delay like weeslack?
-    let timer_hook = ffi::hook_timer(50, 0, 0, handle_timer)?;
+    let _timer_handle = weechat.hook_timer(50, 0, 0, |_, remaining| handle_timer(remaining), None);
+
+    let _query_handle = weechat.hook_command_run(
+        "/query",
+        |_, ref buffer, command| handle_query(buffer, command),
+        None,
+    );
+
+    let _nick_handle = weechat.hook_command_run(
+        "/nick",
+        |_, ref buffer, command| handle_nick(buffer, command),
+        None,
+    );
+
+    // old api
+    let buffer_switch_hook = ffi::hook_signal("buffer_switch", handle_buffer_switch)?;
 
     let guild_completion_hook = ffi::hook_completion(
         "weecord_guild_completion",
@@ -73,29 +84,24 @@ pub fn init(weechat: &weechat::Weechat) -> Option<HookHandles> {
     )?;
 
     unsafe {
-        //        MAIN_COMMAND_HOOK = Box::into_raw(Box::new(main_cmd_hook));
         BUFFER_SWITCH_CB = Box::into_raw(Box::new(buffer_switch_hook));
-        TIMER_HOOK = Box::into_raw(Box::new(timer_hook));
-        QUERY_CMD_HOOK = Box::into_raw(Box::new(query_hook));
-        NICK_CMD_HOOK = Box::into_raw(Box::new(nick_hook));
         GUILD_COMPLETION_HOOK = Box::into_raw(Box::new(guild_completion_hook));
         CHANNEL_COMPLETION_HOOK = Box::into_raw(Box::new(channel_completion_hook));
         DM_COMPLETION_HOOK = Box::into_raw(Box::new(dm_completion_hook))
     };
 
-    Some(HookHandles { _cmd_handle })
+    Some(HookHandles {
+        _cmd_handle,
+        _timer_handle,
+        _query_handle,
+        _nick_handle,
+    })
 }
 
 pub fn destroy() {
     unsafe {
         let _ = Box::from_raw(BUFFER_SWITCH_CB);
         BUFFER_SWITCH_CB = ptr::null_mut();
-        let _ = Box::from_raw(TIMER_HOOK);
-        TIMER_HOOK = ptr::null_mut();
-        let _ = Box::from_raw(QUERY_CMD_HOOK);
-        QUERY_CMD_HOOK = ptr::null_mut();
-        let _ = Box::from_raw(NICK_CMD_HOOK);
-        NICK_CMD_HOOK = ptr::null_mut();
         let _ = Box::from_raw(CHANNEL_COMPLETION_HOOK);
         CHANNEL_COMPLETION_HOOK = ptr::null_mut();
     };
@@ -210,7 +216,16 @@ fn handle_dm_completion(_buffer: Buffer, _completion_time: &str, mut completion:
 
 // TODO: Make this faster
 // TODO: Handle command options
-fn handle_query(_buffer: Buffer, command: &str) -> i32 {
+fn handle_query(buffer: &weechat::Buffer, command: &str) -> weechat::ReturnCode {
+    if command.len() <= "/query ".len() {
+        plugin_print("query requires a username");
+        return weechat::ReturnCode::Ok;
+    }
+
+    if buffer.get_localvar("guildid").is_empty() {
+        return weechat::ReturnCode::Ok;
+    };
+
     let owned_cmd = command.to_owned();
     thread::spawn(move || {
         let ctx = match crate::discord::get_ctx() {
@@ -260,17 +275,21 @@ fn handle_query(_buffer: Buffer, command: &str) -> i32 {
         }
         plugin_print(&format!("Could not find user {:?}", substr));
     });
-    1
+    weechat::ReturnCode::OkEat
 }
 
 // TODO: Handle command options
-fn handle_nick(buffer: Buffer, command: &str) -> i32 {
+fn handle_nick(buffer: &weechat::Buffer, command: &str) -> weechat::ReturnCode {
+    if buffer.get_localvar("guildid").is_empty() {
+        return weechat::ReturnCode::Ok;
+    };
+
     let guilds;
     let mut substr;
     {
         let ctx = match crate::discord::get_ctx() {
             Some(ctx) => ctx,
-            _ => return 2,
+            _ => return weechat::ReturnCode::Error,
         };
         substr = command["/nick".len()..].trim().to_owned();
         let mut split = substr.split(" ");
@@ -290,13 +309,10 @@ fn handle_nick(buffer: Buffer, command: &str) -> i32 {
                 .collect()
         } else {
             let guild = on_main! {{
-                let guild = match buffer.get("localvar_guildid") {
-                    Some(guild) => guild,
-                    None => return 1,
-                };
+                let guild = buffer.get_localvar("guildid");
                 match guild.parse::<u64>() {
                     Ok(v) => GuildId(v),
-                    Err(_) => return 1,
+                    Err(_) => return weechat::ReturnCode::OkEat,
                 }
             }};
             vec![guild]
@@ -326,12 +342,14 @@ fn handle_nick(buffer: Buffer, command: &str) -> i32 {
             buffers::update_nick();
         }};
     });
-    1
+    weechat::ReturnCode::OkEat
 }
 
-fn run_command(_buffer: &weechat::Buffer, command: &str) {
+fn run_command(buffer: &weechat::Buffer, command: &str) {
     // TODO: Add rename command
     // TODO: Get a proper parser
+    let command = command["/discord".len()..].trim();
+
     match command {
         "" => plugin_print("see /help discord for more information"),
         "connect" => {
@@ -394,10 +412,7 @@ fn run_command(_buffer: &weechat::Buffer, command: &str) {
             plugin_print("Discord will not load on startup");
         }
         _ if command.starts_with("query ") => {
-            handle_query(
-                Buffer::current().expect("there should always be a buffer"),
-                &format!("/{}", command),
-            );
+            handle_query(buffer, &format!("/{}", command));
         }
         "query" => {
             plugin_print("query requires a username");
@@ -600,7 +615,7 @@ fn run_command(_buffer: &weechat::Buffer, command: &str) {
                     guild_name, channel_name
                 ));
                 plugin_print(&format!("join {}", &command["autojoin ".len()..]));
-                run_command(_buffer, &format!("join {}", &command["autojoin ".len()..]));
+                run_command(buffer, &format!("join {}", &command["autojoin ".len()..]));
             } else {
                 plugin_print(&format!("Now autojoining all channels in {}", guild_name))
             }

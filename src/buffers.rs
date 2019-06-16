@@ -59,7 +59,7 @@ pub fn create_buffers(ready_data: &Ready) {
         create_guild_buffer(guild.id, &guild.name);
 
         // TODO: Colors?
-        let nick = if let Ok(current_member) = guild.id.member(&ctx, current_user.id) {
+        let nick = if let Ok(current_member) = guild.id.member(ctx, current_user.id) {
             format!("@{}", current_member.display_name())
         } else {
             format!("@{}", current_user.name)
@@ -130,7 +130,7 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
             let channel = channel.read();
 
             // TODO: Colors?
-            let nick = if let Ok(current_member) = guild.id.member(&ctx, current_user.id) {
+            let nick = if let Ok(current_member) = guild.id.member(ctx, current_user.id) {
                 format!("@{}", current_member.display_name())
             } else {
                 format!("@{}", current_user.name)
@@ -432,7 +432,7 @@ pub fn update_nick() {
         .expect("Unable to fetch guilds")
     {
         // TODO: Colors?
-        let nick = if let Ok(current_member) = guild.id.member(&ctx, current_user.id) {
+        let nick = if let Ok(current_member) = guild.id.member(ctx, current_user.id) {
             format!("@{}", current_member.display_name())
         } else {
             format!("@{}", current_user.name)

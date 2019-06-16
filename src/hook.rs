@@ -547,7 +547,7 @@ fn run_command(buffer: &Buffer, command: &str) {
 
             MAIN_BUFFER.print(&format!("Watched Channels: ({})", channels.len()));
             for (guild, channel) in channels {
-                if let Ok(channel) = channel.to_channel(&ctx) {
+                if let Ok(channel) = channel.to_channel(ctx) {
                     let channel_name = utils::channel_name(&channel);
                     if let Some(guild) = guild {
                         let guild_name = if let Some(guild) = guild.to_guild_cached(&ctx) {
@@ -663,7 +663,7 @@ fn run_command(buffer: &Buffer, command: &str) {
 
             MAIN_BUFFER.print(&format!("Autojoin Channels: ({})", channels.len()));
             for (guild, channel) in channels {
-                if let Ok(channel) = channel.to_channel(&ctx) {
+                if let Ok(channel) = channel.to_channel(ctx) {
                     let channel_name = utils::channel_name(&channel);
                     if let Some(guild) = guild {
                         let guild_name = if let Some(guild) = guild.to_guild_cached(&ctx) {

@@ -41,7 +41,7 @@ pub fn create_buffers(ready_data: &Ready) {
 
     // Prepend any remaning guilds
     for guild in map.values() {
-        sorted_guilds.push_front(guild.clone());
+        sorted_guilds.push_front(guild);
     }
 
     for guild in &sorted_guilds {
@@ -343,28 +343,27 @@ pub fn load_nicks(buffer: &Buffer) {
             } else if !online && use_presence {
                 role_name = OFFLINE_GROUP_NAME.clone();
                 role_color = "grey".to_string();
+            } else if let Some((highest_hoisted, highest)) =
+                utils::find_highest_roles(&ctx.cache, &member)
+            {
+                role_name = format!(
+                    "{}|{}",
+                    ::std::i64::MAX - highest_hoisted.position,
+                    highest_hoisted.name
+                );
+                role_color = crate::utils::rgb_to_ansi(highest.colour).to_string();
             } else {
-                if let Some((highest_hoisted, highest)) = utils::find_highest_roles(&ctx.cache, &member)
-                {
-                    role_name = format!(
-                        "{}|{}",
-                        ::std::i64::MAX - highest_hoisted.position,
-                        highest_hoisted.name
-                    );
-                    role_color = crate::utils::rgb_to_ansi(highest.colour).to_string();
-                } else {
-                    // Can't find a role, add user to generic bucket
-                    if use_presence {
-                        if online {
-                            role_name = ONLINE_GROUP_NAME.clone();
-                        } else {
-                            role_name = OFFLINE_GROUP_NAME.clone();
-                        }
-                        role_color = "grey".to_string();
+                // Can't find a role, add user to generic bucket
+                if use_presence {
+                    if online {
+                        role_name = ONLINE_GROUP_NAME.clone();
                     } else {
-                        buffer.add_nick(member.display_name().as_ref());
-                        continue;
+                        role_name = OFFLINE_GROUP_NAME.clone();
                     }
+                    role_color = "grey".to_string();
+                } else {
+                    buffer.add_nick(member.display_name().as_ref());
+                    continue;
                 }
             }
             if !buffer.group_exists(&role_name) {

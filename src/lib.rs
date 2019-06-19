@@ -36,19 +36,17 @@ impl WeechatPlugin for Weecord {
         let _handles = hook::init(&weechat).expect("Failed to create signal hooks");
 
         if let Some(autostart) = get_option("autostart") {
-            if !args.contains(&"-a".to_owned()) {
-                if autostart == "true" {
-                    if let Some(t) = ffi::get_option("token") {
-                        let t = if t.starts_with("${sec.data") {
-                            weechat.eval_string_expression(&t)
-                        } else {
-                            &t
-                        };
-                        discord::init(&t, utils::get_irc_mode());
+            if !args.contains(&"-a".to_owned()) && autostart == "true" {
+                if let Some(t) = ffi::get_option("token") {
+                    let t = if t.starts_with("${sec.data") {
+                        weechat.eval_string_expression(&t)
                     } else {
-                        plugin_print("Error: plugins.var.weecord.token unset. Run:");
-                        plugin_print("/discord token 123456789ABCDEF");
-                    }
+                        &t
+                    };
+                    discord::init(&t, utils::get_irc_mode());
+                } else {
+                    plugin_print("Error: plugins.var.weecord.token unset. Run:");
+                    plugin_print("/discord token 123456789ABCDEF");
                 }
             }
         }

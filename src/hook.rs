@@ -116,7 +116,7 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
 
 fn handle_timer(_remaining: i32) {
     while let Ok(_) = crate::synchronization::WEE_SYNC.try_recv() {
-        let _ = crate::synchronization::WEE_SYNC.send();
+        crate::synchronization::WEE_SYNC.send();
     }
 }
 
@@ -238,7 +238,7 @@ fn handle_query(buffer: &Buffer, command: &str) -> ReturnCode {
         let substr = &owned_cmd["/query ".len()..].trim();
 
         let mut found_members: Vec<User> = Vec::new();
-        for (_, private_channel) in &ctx.cache.read().private_channels {
+        for private_channel in ctx.cache.read().private_channels.values() {
             if private_channel
                 .read()
                 .name()
@@ -291,7 +291,7 @@ fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
             _ => return ReturnCode::Error,
         };
         substr = command["/nick".len()..].trim().to_owned();
-        let mut split = substr.split(" ");
+        let mut split = substr.split(' ');
         let all = split.next() == Some("-all");
         if all {
             substr = substr["-all".len()..].trim().to_owned();
@@ -474,13 +474,11 @@ fn run_command(buffer: &Buffer, command: &str) {
                     plugin_print("Unable to find server and channel");
                     return;
                 }
+            } else if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
+                crate::utils::unique_guild_id(guild.read().id)
             } else {
-                if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
-                    crate::utils::unique_guild_id(guild.read().id)
-                } else {
-                    plugin_print("Unable to find server");
-                    return;
-                }
+                plugin_print("Unable to find server");
+                return;
             };
             let new_watched = if let Some(watched_channels) = ffi::get_option("watched_channels") {
                 // dedup items
@@ -583,13 +581,11 @@ fn run_command(buffer: &Buffer, command: &str) {
                     plugin_print("Unable to find server and channel");
                     return;
                 }
+            } else if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
+                crate::utils::unique_guild_id(guild.read().id)
             } else {
-                if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
-                    crate::utils::unique_guild_id(guild.read().id)
-                } else {
-                    plugin_print("Unable to find server");
-                    return;
-                }
+                plugin_print("Unable to find server");
+                return;
             };
             let new_autojoined =
                 if let Some(autojoined_channels) = ffi::get_option("autojoin_channels") {
@@ -713,12 +709,13 @@ fn run_command(buffer: &Buffer, command: &str) {
             };
             match channel.send_files(ctx, vec![full], |m| m) {
                 Ok(_) => plugin_print("File uploaded successfully"),
-                Err(e) => match e {
-                    serenity::Error::Model(serenity::model::ModelError::MessageTooLong(_)) => {
+                Err(e) => {
+                    if let serenity::Error::Model(serenity::model::ModelError::MessageTooLong(_)) =
+                        e
+                    {
                         plugin_print("File too large to upload");
                     }
-                    _ => {}
-                },
+                }
             };
         }
         _ if command.contains("upload") => {
@@ -761,7 +758,7 @@ plugins.var.weecord.irc_mode = <bool>
                      noautostart
                      token <token>
                      upload <file>";
-    pub const ARGDESC: &'static str = "\
+    pub const ARGDESC: &str = "\
 connect: sign in to discord and open chat buffers
 disconnect: sign out of Discord
 join: join a channel in irc mode by providing guild name and channel name

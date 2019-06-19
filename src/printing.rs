@@ -8,8 +8,7 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
         Some(ctx) => ctx,
         _ => return,
     };
-    let cache = &ctx.cache;
-    let is_private = if let Some(channel) = msg.channel(cache) {
+    let is_private = if let Some(channel) = msg.channel(ctx) {
         if let Channel::Private(_) = channel {
             true
         } else {
@@ -19,7 +18,7 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
         false
     };
 
-    let self_mentioned = msg.mentions_user_id(cache.read().user.id);
+    let self_mentioned = msg.mentions_user_id(ctx.cache.read().user.id);
 
     let tags = {
         let mut tags = Vec::new();
@@ -38,7 +37,7 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
         tags.join(",")
     };
 
-    let mut msg_content = msg.content_safe(cache);
+    let mut msg_content = msg.content_safe(ctx);
 
     // TODO: Report content_safe() bug
     // TODO: Use nicknames instead of user names
@@ -90,7 +89,7 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
     let maybe_guild = buffer.get("localvar_guildid");
     let display_name = maybe_guild.and_then(|id| {
         id.parse::<u64>().ok().map(GuildId).and_then(|id| {
-            cache
+            ctx.cache
                 .read()
                 .member(id, msg.author.id)
                 .map(|member| member.display_name().to_string())

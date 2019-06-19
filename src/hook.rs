@@ -135,9 +135,8 @@ pub fn buffer_input(buffer: ffi::Buffer, message: &str) {
             Some(ctx) => ctx,
             _ => return,
         };
-        let http = &ctx.http;
         channel
-            .say(http, message)
+            .say(ctx, message)
             .unwrap_or_else(|_| panic!("Unable to send message to {}", channel.0));
     }
 }
@@ -235,7 +234,6 @@ fn handle_query(buffer: &Buffer, command: &str) -> ReturnCode {
             Some(ctx) => ctx,
             _ => return,
         };
-        let http = &ctx.http;
         let current_user = &ctx.cache.read().user;
         let substr = &owned_cmd["/query ".len()..].trim();
 
@@ -252,11 +250,9 @@ fn handle_query(buffer: &Buffer, command: &str) -> ReturnCode {
         }
 
         if found_members.is_empty() {
-            let guilds = current_user
-                .guilds(&ctx.http)
-                .expect("Unable to fetch guilds");
+            let guilds = current_user.guilds(ctx).expect("Unable to fetch guilds");
             for guild in &guilds {
-                if let Some(guild) = guild.id.to_guild_cached(&ctx.cache) {
+                if let Some(guild) = guild.id.to_guild_cached(ctx) {
                     let guild = guild.read().clone();
                     for m in guild.members_containing(substr, false, true) {
                         found_members.push(m.user.read().clone());
@@ -267,7 +263,7 @@ fn handle_query(buffer: &Buffer, command: &str) -> ReturnCode {
         found_members.dedup_by_key(|mem| mem.id);
 
         if let Some(target) = found_members.get(0) {
-            if let Ok(chan) = target.create_dm_channel(http) {
+            if let Ok(chan) = target.create_dm_channel(ctx) {
                 buffers::create_buffer_from_dm(
                     Channel::Private(Arc::new(RwLock::new(chan))),
                     &current_user.name,
@@ -305,7 +301,7 @@ fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
 
             // TODO: Error handling
             current_user
-                .guilds(&ctx.http)
+                .guilds(ctx)
                 .unwrap_or_default()
                 .iter()
                 .map(|g| g.id)
@@ -328,14 +324,13 @@ fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
                 Some(ctx) => ctx,
                 _ => return,
             };
-            let http = &ctx.http;
             for guild in guilds {
                 let new_nick = if substr.is_empty() {
                     None
                 } else {
                     Some(substr.as_str())
                 };
-                let _ = guild.edit_nickname(&http, new_nick);
+                let _ = guild.edit_nickname(ctx, new_nick);
                 // Make it less spammy
                 thread::sleep(Duration::from_secs(1));
             }
@@ -540,7 +535,7 @@ fn run_command(buffer: &Buffer, command: &str) {
 
             MAIN_BUFFER.print(&format!("Watched Servers: ({})", guilds.len()));
             for guild in guilds {
-                if let Some(guild) = guild.to_guild_cached(&ctx.cache) {
+                if let Some(guild) = guild.to_guild_cached(ctx) {
                     MAIN_BUFFER.print(&format!("  {}", guild.read().name));
                 }
             }
@@ -656,7 +651,7 @@ fn run_command(buffer: &Buffer, command: &str) {
 
             MAIN_BUFFER.print(&format!("Autojoin Servers: ({})", guilds.len()));
             for guild in guilds {
-                if let Some(guild) = guild.to_guild_cached(&ctx.cache) {
+                if let Some(guild) = guild.to_guild_cached(ctx) {
                     MAIN_BUFFER.print(&format!("  {}", guild.read().name));
                 }
             }
@@ -716,8 +711,7 @@ fn run_command(buffer: &Buffer, command: &str) {
                 Some(ctx) => ctx,
                 _ => return,
             };
-            let http = &ctx.http;
-            match channel.send_files(http, vec![full], |m| m) {
+            match channel.send_files(ctx, vec![full], |m| m) {
                 Ok(_) => plugin_print("File uploaded successfully"),
                 Err(e) => match e {
                     serenity::Error::Model(serenity::model::ModelError::MessageTooLong(_)) => {

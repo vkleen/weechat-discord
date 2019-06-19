@@ -19,7 +19,7 @@ pub fn create_buffers(ready_data: &Ready) {
     };
     let current_user = ctx.cache.read().user.clone();
 
-    let guilds = match current_user.guilds(&ctx.http) {
+    let guilds = match current_user.guilds(ctx) {
         Ok(guilds) => guilds,
         Err(e) => {
             on_main! {{
@@ -64,10 +64,7 @@ pub fn create_buffers(ready_data: &Ready) {
         } else {
             format!("@{}", current_user.name)
         };
-        let channels = guild
-            .id
-            .channels(&ctx.http)
-            .expect("Unable to fetch channels");
+        let channels = guild.id.channels(ctx).expect("Unable to fetch channels");
         let mut channels = channels.values().collect::<Vec<_>>();
         channels.sort_by_key(|g| g.position);
         for channel in channels {
@@ -103,9 +100,7 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
     for item in autojoin_items {
         match item {
             utils::GuildOrChannel::Guild(guild_id) => {
-                let guild_channels = guild_id
-                    .channels(&ctx.http)
-                    .expect("Unable to fetch channels");
+                let guild_channels = guild_id.channels(ctx).expect("Unable to fetch channels");
                 let mut guild_channels = guild_channels.values().collect::<Vec<_>>();
                 guild_channels.sort_by_key(|g| g.position);
                 channels.extend(guild_channels.iter().map(|ch| (Some(guild_id), ch.id)));
@@ -306,19 +301,14 @@ pub fn load_nicks(buffer: &Buffer) {
         _ => return,
     };
 
-    let guild = guild_id
-        .to_guild_cached(&ctx.cache)
-        .expect("No guild cache item");
+    let guild = guild_id.to_guild_cached(ctx).expect("No guild cache item");
 
     let current_user = ctx.cache.read().user.id;
 
     // Typeck not smart enough
     let none_user: Option<UserId> = None;
     // TODO: What to do with more than 1000 members?
-    let members = guild
-        .read()
-        .members(&ctx.http, Some(1000), none_user)
-        .unwrap();
+    let members = guild.read().members(ctx, Some(1000), none_user).unwrap();
     on_main! {{
         let guild_lock = guild.read();
         for member in members {
@@ -409,9 +399,8 @@ pub fn load_history(buffer: &Buffer) {
         Some(ctx) => ctx,
         _ => return,
     };
-    let http = &ctx.http;
 
-    if let Ok(msgs) = channel.messages(http, |retriever| retriever.limit(25)) {
+    if let Ok(msgs) = channel.messages(ctx, |retriever| retriever.limit(25)) {
         on_main! {{
             for msg in msgs.into_iter().rev() {
                 printing::print_msg(&buffer, &msg, false);
@@ -427,10 +416,7 @@ pub fn update_nick() {
     };
     let current_user = ctx.cache.read().user.clone();
 
-    for guild in current_user
-        .guilds(&ctx.http)
-        .expect("Unable to fetch guilds")
-    {
+    for guild in current_user.guilds(ctx).expect("Unable to fetch guilds") {
         // TODO: Colors?
         let nick = if let Ok(current_member) = guild.id.member(ctx, current_user.id) {
             format!("@{}", current_member.display_name())
@@ -438,10 +424,7 @@ pub fn update_nick() {
             format!("@{}", current_user.name)
         };
 
-        let channels = guild
-            .id
-            .channels(&ctx.http)
-            .expect("Unable to fetch channels");
+        let channels = guild.id.channels(ctx).expect("Unable to fetch channels");
         for channel_id in channels.keys() {
             let string_channel = utils::buffer_id_for_channel(Some(guild.id), *channel_id);
             if let Some(buffer) = Buffer::search(&string_channel) {

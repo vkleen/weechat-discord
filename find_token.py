@@ -50,9 +50,14 @@ def main():
     token_results = set()
     for database in discord_databases:
         for tok in strings(database):
-            if len(tok) == 61:
-                if tok.count(".") == 2:
-                    token_results.add(tok[1:-1])
+            if len(tok) < 40:
+                continue
+            parts = tok.split(".", maxsplit=3)
+            if len(parts) != 3:
+                continue
+            if len(parts[1]) < 6:
+                continue
+            token_results.add(tok[1:-2])
 
     print("Likely Discord tokens are:\n")
     for token in token_results:

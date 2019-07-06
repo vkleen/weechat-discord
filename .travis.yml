@@ -1,0 +1,22 @@
+language: rust
+dist: xenial
+cache: cargo
+
+before_script:
+  - sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 11E9DE8848F2B65222AA75B8D1820DB22A11534E
+  - echo "deb https://weechat.org/ubuntu xenial main" | sudo tee -a /etc/apt/sources.list
+  - sudo apt-get update -qq
+  - sudo apt-get install weechat-dev -y
+
+script:
+  - cargo build --verbose --all
+  - cargo test --verbose --all
+
+# deploy:
+#   provider: releases
+#   api_key:
+#     secure: [encrypted oauth token]
+#   file: target/release/libweecord.so
+#   skip_cleanup: true
+#   on:
+#     tags: true

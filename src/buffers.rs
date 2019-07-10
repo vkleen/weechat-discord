@@ -310,7 +310,6 @@ pub fn load_nicks(buffer: &Buffer) {
     // TODO: What to do with more than 1000 members?
     let members = guild.read().members(ctx, Some(1000), none_user).unwrap();
     on_main! {{
-        let guild_lock = guild.read();
         for member in members {
             let user = member.user.read();
             // the current user does not seem to usually have a presence, assume they are online
@@ -327,7 +326,7 @@ pub fn load_nicks(buffer: &Buffer) {
                     .unwrap_or(false)
             };
 
-            let member_perms = guild_lock.permissions_in(channel_id, user.id);
+            let member_perms = guild.read().permissions_in(channel_id, user.id);
             // A pretty accurate method of checking if a user is "in" a channel
             if !member_perms.read_message_history() || !member_perms.read_messages() {
                 continue;

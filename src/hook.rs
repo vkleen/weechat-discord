@@ -8,6 +8,7 @@ use crate::{
 use weechat::{Buffer, ReturnCode};
 
 use dirs;
+use lazy_static::lazy_static;
 use serenity::{
     model::prelude::User,
     model::{
@@ -16,7 +17,13 @@ use serenity::{
     },
     prelude::RwLock,
 };
-use std::{fs, sync::Arc, thread, time::Duration};
+use std::{
+    fs,
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
+use threadpool::ThreadPool;
 
 pub struct HookHandles {
     _cmd_handle: weechat::CommandHook<()>,
@@ -102,14 +109,32 @@ pub fn init(weechat: &weechat::Weechat) -> Option<HookHandles> {
     })
 }
 
+lazy_static! {
+    pub static ref POOL: Mutex<ThreadPool> = {
+        let threads: usize = ffi::get_option("concurrent_threads")
+            .and_then(|i| i.parse().ok())
+            .unwrap_or(2);
+        Mutex::new(ThreadPool::new(threads))
+    };
+}
+
 #[allow(clippy::needless_pass_by_value)]
 fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
     if let weechat::SignalHookValue::Pointer(buffer_ptr) = data {
         let buffer = ffi::Buffer::from_ptr(buffer_ptr);
-        thread::spawn(move || {
-            buffers::load_history(&buffer);
-            buffers::load_nicks(&buffer);
-        });
+
+        if buffer.get("localvar_loaded_nicks").is_none() {
+            let buffer2 = ffi::Buffer::from_ptr(buffer_ptr);
+            POOL.lock().unwrap().execute(move || {
+                buffers::load_nicks(&buffer2);
+            });
+        }
+        if buffer.get("localvar_loaded_history").is_none() {
+            let buffer2 = ffi::Buffer::from_ptr(buffer_ptr);
+            POOL.lock().unwrap().execute(move || {
+                buffers::load_history(&buffer2);
+            })
+        }
     }
     ReturnCode::Ok
 }

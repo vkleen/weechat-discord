@@ -75,4 +75,14 @@ macro_rules! on_main {
             $block
         }
     }};
+
+    ($v:expr, $block:block) => {{
+        if $v {
+            on_main! {
+                $block
+            }
+        } else {
+            $block
+        }
+    }};
 }

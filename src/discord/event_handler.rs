@@ -124,9 +124,10 @@ impl EventHandler for Handler {
                                     format!("@{}", current_user.name)
                                 };
 
-                                buffers::create_guild_buffer(guild.id, &guild.name);
+                                buffers::create_guild_buffer_lockable(guild.id, &guild.name, false);
                                 // TODO: Muting
-                                buffers::create_buffer_from_channel(&ctx.cache, &channel, &nick, false);
+                                buffers::create_buffer_from_channel_lockable(&ctx.cache, &channel, &nick, false, false);
+                                crate::plugin_print("Ho");
                                 break;
                             }
                         }

@@ -138,9 +138,9 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
     }
 }
 
-pub fn create_guild_buffer(id: GuildId, name: &str) {
+pub fn create_guild_buffer_lockable(id: GuildId, name: &str, lock: bool) {
     let guild_name_id = utils::buffer_id_for_guild(id);
-    on_main! {{
+    on_main!(lock, {
         let buffer = if let Some(buffer) = Buffer::search(&guild_name_id) {
             buffer
         } else {
@@ -149,14 +149,19 @@ pub fn create_guild_buffer(id: GuildId, name: &str) {
         buffer.set("short_name", name);
         buffer.set("localval_set_guildid", &id.0.to_string());
         buffer.set("localvar_set_type", "server");
-    }};
+    });
 }
 
-pub fn create_buffer_from_channel(
+pub fn create_guild_buffer(id: GuildId, name: &str) {
+    create_guild_buffer_lockable(id, name, true);
+}
+
+pub fn create_buffer_from_channel_lockable(
     cache: &CacheRwLock,
     channel: &GuildChannel,
     nick: &str,
     muted: bool,
+    lock: bool,
 ) {
     let current_user = cache.read().user.clone();
     if let Ok(perms) = channel.permissions_for(cache, current_user.id) {
@@ -174,7 +179,7 @@ pub fn create_buffer_from_channel(
 
     let name_id = utils::buffer_id_for_channel(Some(channel.guild_id), channel.id);
 
-    on_main! {{
+    on_main!(lock, {
         let buffer = if let Some(buffer) = Buffer::search(&name_id) {
             buffer
         } else {
@@ -200,7 +205,16 @@ pub fn create_buffer_from_channel(
         }
         buffer.set("title", &title);
         buffer.set("localvar_set_muted", &(muted as u8).to_string());
-    }};
+    });
+}
+
+pub fn create_buffer_from_channel(
+    cache: &CacheRwLock,
+    channel: &GuildChannel,
+    nick: &str,
+    muted: bool,
+) {
+    create_buffer_from_channel_lockable(cache, channel, nick, muted, true)
 }
 
 // TODO: Reduce code duplication

@@ -127,7 +127,6 @@ impl EventHandler for Handler {
                                 buffers::create_guild_buffer_lockable(guild.id, &guild.name, false);
                                 // TODO: Muting
                                 buffers::create_buffer_from_channel_lockable(&ctx.cache, &channel, &nick, false, false);
-                                crate::plugin_print("Ho");
                                 break;
                             }
                         }

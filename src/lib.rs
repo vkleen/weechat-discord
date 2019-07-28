@@ -3,6 +3,7 @@ extern crate weechat;
 
 #[macro_use]
 mod synchronization;
+mod bar_items;
 mod buffers;
 mod discord;
 mod ffi;
@@ -18,6 +19,7 @@ use weechat::{ArgsWeechat, Weechat, WeechatPlugin, WeechatResult};
 struct Weecord {
     weechat: Weechat,
     _handles: hook::HookHandles,
+    _bar_items: bar_items::BarHandles,
 }
 
 impl Weecord {
@@ -34,6 +36,7 @@ impl WeechatPlugin for Weecord {
         ffi::set_plugin(weechat.as_ptr() as *mut std::ffi::c_void);
 
         let _handles = hook::init(&weechat).expect("Failed to create signal hooks");
+        let _bar_items = bar_items::init(&weechat);
 
         if let Some(autostart) = get_option("autostart") {
             if !args.contains(&"-a".to_owned()) && autostart == "true" {
@@ -51,7 +54,11 @@ impl WeechatPlugin for Weecord {
             }
         }
 
-        Ok(Weecord { weechat, _handles })
+        Ok(Weecord {
+            weechat,
+            _handles,
+            _bar_items,
+        })
     }
 }
 

@@ -467,6 +467,7 @@ fn run_command(buffer: &Buffer, command: &str) {
                     &channel.read(),
                     &ctx.cache.read().user.name,
                     false,
+                    &guild.name,
                 );
                 return;
             }

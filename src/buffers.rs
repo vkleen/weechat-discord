@@ -64,13 +64,16 @@ pub fn create_buffers(ready_data: &Ready) {
         } else {
             format!("@{}", current_user.name)
         };
+
+        let guild_name = &guild.name;
+
         let channels = guild.id.channels(ctx).expect("Unable to fetch channels");
         let mut channels = channels.values().collect::<Vec<_>>();
         channels.sort_by_key(|g| g.position);
         for channel in channels {
             let is_muted =
                 guild_muted || channel_muted.get(&channel.id).cloned().unwrap_or_default();
-            create_buffer_from_channel(&ctx.cache, &channel, &nick, is_muted);
+            create_buffer_from_channel(&ctx.cache, &channel, &nick, is_muted, &guild_name);
         }
     }
 }
@@ -133,7 +136,7 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
 
             create_guild_buffer(guild.id, &guild.name);
             // TODO: Muting
-            create_buffer_from_channel(&ctx.cache, &channel, &nick, false)
+            create_buffer_from_channel(&ctx.cache, &channel, &nick, false, &guild.name)
         }
     }
 }
@@ -146,6 +149,7 @@ pub fn create_guild_buffer_lockable(id: GuildId, name: &str, lock: bool) {
         } else {
             Buffer::new(&guild_name_id, |_, _| {}).unwrap()
         };
+        buffer.set("localvar_set_guild_name", name);
         buffer.set("short_name", name);
         buffer.set("localval_set_guildid", &id.0.to_string());
         buffer.set("localvar_set_type", "server");
@@ -161,6 +165,7 @@ pub fn create_buffer_from_channel_lockable(
     channel: &GuildChannel,
     nick: &str,
     muted: bool,
+    guild_name: &str,
     lock: bool,
 ) {
     let current_user = cache.read().user.clone();
@@ -186,6 +191,8 @@ pub fn create_buffer_from_channel_lockable(
             Buffer::new(&name_id, crate::hook::buffer_input).unwrap()
         };
         buffer.set("short_name", &channel.name);
+        buffer.set("localvar_set_channel_name", &channel.name);
+        buffer.set("localvar_set_guild_name", guild_name);
         buffer.set("localvar_set_channelid", &channel.id.0.to_string());
         buffer.set("localvar_set_guildid", &channel.guild_id.0.to_string());
         buffer.set("localvar_set_type", channel_type);
@@ -213,8 +220,9 @@ pub fn create_buffer_from_channel(
     channel: &GuildChannel,
     nick: &str,
     muted: bool,
+    guild_name: &str,
 ) {
-    create_buffer_from_channel_lockable(cache, channel, nick, muted, true)
+    create_buffer_from_channel_lockable(cache, channel, nick, muted, guild_name, true)
 }
 
 // TODO: Reduce code duplication

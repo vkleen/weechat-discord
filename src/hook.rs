@@ -249,7 +249,7 @@ fn handle_query(buffer: &Buffer, command: &str) -> ReturnCode {
         return ReturnCode::Ok;
     }
 
-    if buffer.get_localvar("guildid").is_empty() {
+    if buffer.get_localvar("guildid").is_none() {
         return ReturnCode::Ok;
     };
 
@@ -304,7 +304,7 @@ fn handle_query(buffer: &Buffer, command: &str) -> ReturnCode {
 
 // TODO: Handle command options
 fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
-    if buffer.get_localvar("guildid").is_empty() {
+    if buffer.get_localvar("guildid").is_none() {
         return ReturnCode::Ok;
     };
 
@@ -333,7 +333,7 @@ fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
                 .collect()
         } else {
             let guild = on_main! {{
-                let guild = buffer.get_localvar("guildid");
+                let guild = buffer.get_localvar("guildid").expect("must be some, checked at top of function");
                 match guild.parse::<u64>() {
                     Ok(v) => GuildId(v),
                     Err(_) => return ReturnCode::OkEat,

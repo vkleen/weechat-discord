@@ -59,11 +59,23 @@ fn discord_to_weechat_reducer(weechat: &Weechat, node: &MarkdownNode) -> String 
             weechat.color_codes("-italic")
         ),
         Text(string) => string.to_owned(),
-        InlineCode(string) | Code(_, string) => format!(
+        InlineCode(string) => format!(
             "{}{}{}",
             weechat.color_codes("*8"),
             string,
             weechat.color_codes("reset")
         ),
+        Code(language, text) => {
+            let (fmt, reset) = (weechat.color_codes("*8"), weechat.color_codes("reset"));
+
+            format!(
+                "```{}\n{}\n```",
+                language,
+                text.lines()
+                    .map(|l| format!("{}{}{}", fmt, l, reset))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            )
+        }
     }
 }

@@ -165,3 +165,26 @@ pub fn search_guild(cache: &CacheRwLock, guild_name: &str) -> Option<Arc<RwLock<
     }
     None
 }
+
+/// Take a slice of GuildOrChannel's and flatten it into a vector of channels
+// TODO: Group channels
+pub fn flatten_guilds<'a>(
+    ctx: &Context,
+    items: &[GuildOrChannel],
+) -> Vec<(Option<GuildId>, ChannelId)> {
+    let mut channels: Vec<(Option<GuildId>, ChannelId)> = Vec::new();
+    // flatten guilds into channels
+    for item in items {
+        match item {
+            GuildOrChannel::Guild(guild_id) => {
+                let guild_channels = guild_id.channels(ctx).expect("Unable to fetch channels");
+                let mut guild_channels = guild_channels.values().collect::<Vec<_>>();
+                guild_channels.sort_by_key(|g| g.position);
+                channels.extend(guild_channels.iter().map(|ch| (Some(*guild_id), ch.id)));
+            }
+            GuildOrChannel::Channel(guild, channel) => channels.push((*guild, *channel)),
+        }
+    }
+
+    channels
+}

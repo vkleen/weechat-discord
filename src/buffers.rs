@@ -1,6 +1,6 @@
 use crate::sync::on_main_blocking;
 use crate::{on_main, utils};
-use serenity::{cache::CacheRwLock, model::prelude::*};
+use serenity::{cache::CacheRwLock, model::prelude::*, prelude::Context};
 use std::collections::{HashMap, VecDeque};
 use weechat::{Buffer, Weechat};
 
@@ -95,20 +95,17 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
         .filter(|i| !i.is_empty())
         .filter_map(utils::parse_id);
 
-    let mut channels = Vec::new();
     // flatten guilds into channels
-    for item in autojoin_items {
-        match item {
-            utils::GuildOrChannel::Guild(guild_id) => {
-                let guild_channels = guild_id.channels(ctx).expect("Unable to fetch channels");
-                let mut guild_channels = guild_channels.values().collect::<Vec<_>>();
-                guild_channels.sort_by_key(|g| g.position);
-                channels.extend(guild_channels.iter().map(|ch| (Some(guild_id), ch.id)));
-            }
-            utils::GuildOrChannel::Channel(guild, channel) => channels.push((guild, channel)),
-        }
-    }
+    let channels = utils::flatten_guilds(&ctx, &autojoin_items.collect::<Vec<_>>());
 
+    create_buffers_from_flat_items(&ctx, &current_user, &channels);
+}
+
+pub fn create_buffers_from_flat_items(
+    ctx: &Context,
+    current_user: &CurrentUser,
+    channels: &[(Option<GuildId>, ChannelId)],
+) {
     // TODO: Flatten and iterate by guild, then channel
     for (guild_id, channel_id) in channels {
         if let Some(guild_id) = guild_id {
@@ -127,7 +124,7 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
 
             create_guild_buffer(guild.id, &guild.name);
             // TODO: Muting
-            on_main(move |_| {
+            let () = on_main_blocking(move |_| {
                 let ctx = match crate::discord::get_ctx() {
                     Some(ctx) => ctx,
                     _ => return,
@@ -146,7 +143,7 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
                 let channel = channel.read();
 
                 create_buffer_from_channel(&ctx.cache, &guild.name, &channel, &nick, false)
-            })
+            });
         }
     }
 }

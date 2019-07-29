@@ -1,3 +1,4 @@
+use crate::utils::GuildOrChannel;
 use crate::{buffers, discord, plugin_print, utils};
 use serenity::model::id::ChannelId;
 use weechat::{Buffer, CommandHook, Weechat};
@@ -127,30 +128,40 @@ fn join(_weechat: &Weechat, args: Args) {
             Some(g) => g,
             None => return,
         };
-        let channel_name = match args.next() {
-            Some(c) => c,
-            None => return,
-        };
+        let channel_name = args.next();
 
         let ctx = match discord::get_ctx() {
             Some(ctx) => ctx,
             _ => return,
         };
 
-        if let Some((guild, channel)) =
-            crate::utils::search_channel(&ctx.cache, guild_name, channel_name)
-        {
-            let guild = guild.read();
-            buffers::create_guild_buffer(guild.id, &guild.name);
-            // TODO: Add correct nick handling
-            buffers::create_buffer_from_channel(
-                &ctx.cache,
-                &guild.name,
-                &channel.read(),
-                &ctx.cache.read().user.name,
-                false,
-            );
-            return;
+        if let Some(channel_name) = channel_name {
+            if let Some((guild, channel)) =
+                crate::utils::search_channel(&ctx.cache, guild_name, channel_name)
+            {
+                let guild = guild.read();
+                buffers::create_guild_buffer(guild.id, &guild.name);
+                // TODO: Add correct nick handling
+                buffers::create_buffer_from_channel(
+                    &ctx.cache,
+                    &guild.name,
+                    &channel.read(),
+                    &ctx.cache.read().user.name,
+                    false,
+                );
+                return;
+            }
+        } else {
+            if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
+                let guild = guild.read();
+                let guild_id = guild.id;
+                drop(guild);
+
+                let channels = utils::flatten_guilds(&ctx, &[GuildOrChannel::Guild(guild_id)]);
+
+                buffers::create_buffers_from_flat_items(&ctx, &ctx.cache.read().user, &channels);
+                return;
+            }
         }
         plugin_print("Couldn't find channel")
     }

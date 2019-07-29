@@ -1,9 +1,10 @@
-use crate::{discord::format, ffi::Buffer};
+use crate::discord::formatting;
 use serenity::model::prelude::*;
+use weechat::{Buffer, Weechat};
 
 // TODO: Rework args
 // TODO: Color things
-pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
+pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool) {
     let ctx = match crate::discord::get_ctx() {
         Some(ctx) => ctx,
         _ => return,
@@ -86,7 +87,7 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
         }
     }
 
-    let maybe_guild = buffer.get("localvar_guildid");
+    let maybe_guild = buffer.get_localvar("guildid");
     let display_name = maybe_guild.and_then(|id| {
         id.parse::<u64>().ok().map(GuildId).and_then(|id| {
             ctx.cache
@@ -99,8 +100,12 @@ pub fn print_msg(buffer: &Buffer, msg: &Message, notify: bool) {
     let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
 
     buffer.print_tags_dated(
-        msg.timestamp.timestamp() as i32,
+        msg.timestamp.timestamp(),
         &tags,
-        &format!("{}\t{}", author, format::discord_to_weechat(&msg_content)),
+        &format!(
+            "{}\t{}",
+            author,
+            formatting::discord_to_weechat(weechat, &msg_content)
+        ),
     );
 }

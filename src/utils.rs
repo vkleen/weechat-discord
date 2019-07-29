@@ -1,11 +1,6 @@
-use crate::ffi::{get_option, Buffer};
-use serenity::{
-    cache::CacheRwLock,
-    model::id::{ChannelId, GuildId},
-    model::prelude::*,
-    prelude::*,
-};
+use serenity::{cache::CacheRwLock, model::prelude::*, prelude::*};
 use std::sync::Arc;
+use weechat::Buffer;
 
 #[derive(Debug, Clone, Copy)]
 pub enum GuildOrChannel {
@@ -28,26 +23,6 @@ impl PartialEq<ChannelId> for GuildOrChannel {
             GuildOrChannel::Guild(_) => false,
             GuildOrChannel::Channel(_, this_id) => this_id == other,
         }
-    }
-}
-
-pub fn buffer_id_for_guild(id: GuildId) -> String {
-    format!("{}", id.0)
-}
-
-pub fn buffer_id_for_channel(guild_id: Option<GuildId>, channel_id: ChannelId) -> String {
-    if let Some(guild_id) = guild_id {
-        format!("{}.{}", guild_id, channel_id.0)
-    } else {
-        format!("Private.{}", channel_id.0)
-    }
-}
-
-pub fn buffer_is_muted(buffer: &Buffer) -> bool {
-    if let Some(muted) = buffer.get("localvar_muted") {
-        &muted == "1"
-    } else {
-        false
     }
 }
 
@@ -93,10 +68,6 @@ pub fn find_highest_roles(cache: &CacheRwLock, member: &Member) -> Option<(Role,
     Some((highest_hoisted?.clone(), highest?.clone()))
 }
 
-pub fn get_irc_mode() -> bool {
-    get_option("irc_mode").map(|x| x == "true").unwrap_or(false)
-}
-
 pub fn unique_id(guild: Option<GuildId>, channel: ChannelId) -> String {
     if let Some(guild) = guild {
         format!("G{:?}C{}", guild.0, channel.0)
@@ -120,6 +91,40 @@ pub fn parse_id(id: &str) -> Option<GuildOrChannel> {
         // id is only a guild
         let guild_id = id[1..].parse().ok()?;
         Some(GuildOrChannel::Guild(GuildId(guild_id)))
+    }
+}
+
+pub fn get_irc_mode(weechat: &weechat::Weechat) -> bool {
+    weechat
+        .get_plugin_option("irc_mode")
+        .map(|x| x == "true")
+        .unwrap_or(false)
+}
+
+pub fn buffer_id_for_guild(id: GuildId) -> String {
+    format!("{}", id.0)
+}
+
+pub fn buffer_id_for_channel(guild_id: Option<GuildId>, channel_id: ChannelId) -> String {
+    if let Some(guild_id) = guild_id {
+        format!("{}.{}", guild_id, channel_id.0)
+    } else {
+        format!("Private.{}", channel_id.0)
+    }
+}
+
+pub unsafe fn buffer_from_ptr(buffer_ptr: *mut std::ffi::c_void) -> Buffer {
+    Buffer::from_ptr(
+        crate::__PLUGIN.as_mut().unwrap().weechat.as_ptr(),
+        buffer_ptr as *mut _,
+    )
+}
+
+pub fn buffer_is_muted(buffer: &Buffer) -> bool {
+    if let Some(muted) = buffer.get_localvar("muted") {
+        muted == "1"
+    } else {
+        false
     }
 }
 

@@ -9,10 +9,10 @@ all_debug: src/*
 	cargo build
 
 install: all | $(installdir)/plugins
-	cp target/release/libweecord.* $(installdir)/plugins
+	cp target/release/libweechat_discord.* $(installdir)/plugins
 
 install_test: all_debug | $(testdir)/plugins
-	cp target/debug/libweecord.* $(testdir)/plugins
+	cp target/debug/libweechat_discord.* $(testdir)/plugins
 
 run: install
 	weechat -a
@@ -34,4 +34,3 @@ $(testdir)/plugins: | $(testdir)
 
 format:
 	cargo fmt
-	clang-format -style="{BasedOnStyle: google, IndentWidth: 4}" -i src/**/*.c

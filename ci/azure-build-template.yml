@@ -1,0 +1,55 @@
+jobs:
+  - job: ${{ parameters.name }}
+    pool:
+      vmImage: ${{ parameters.vmImage }}
+    steps:
+      - ${{ if eq(parameters.name, 'Linux') }}:
+          - script: |
+              curl https://sh.rustup.rs -sSf | sh -s -- -y
+              echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+              rustup update stable
+            displayName: Install rust
+      - ${{ if eq(parameters.name, 'macOS') }}:
+          - script: |
+              curl https://sh.rustup.rs -sSf | sh -s -- -y
+              echo "##vso[task.setvariable variable=PATH;]$PATH:$HOME/.cargo/bin"
+              $HOME/.cargo/bin/rustup update stable
+            displayName: Install rust
+
+      - ${{ if eq(parameters.name, 'Linux') }}:
+          - script: |
+              sudo apt-key adv --keyserver keys.gnupg.net --recv-keys 11E9DE8848F2B65222AA75B8D1820DB22A11534E
+              sudo add-apt-repository "deb https://weechat.org/ubuntu $(lsb_release -cs) main"
+              sudo apt update
+              sudo apt install weechat-dev
+            displayName: Install weechat
+      - ${{ if eq(parameters.name, 'macOS') }}:
+          - script: brew install weechat
+            displayName: Install weechat
+
+      - script: |
+          rustc -Vv
+          cargo -V
+        displayName: Query rust and cargo versions
+
+      - script: cargo build --release
+        displayName: Build
+
+
+      - script: cp target/release/libweechat_discord.* $(Build.ArtifactStagingDirectory)/
+        displayName: Copy artifacts
+
+      - ${{ if eq(parameters.name, 'Linux') }}:
+          # Linux.
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              artifactName: 'weechat-discord-linux'
+            displayName: Publish build artifacts
+      - ${{ if eq(parameters.name, 'macOS') }}:
+          # macOS.
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              artifactName: 'weechat-discord-macos'
+            displayName: Publish build artifacts

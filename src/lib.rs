@@ -1,76 +1,69 @@
 #[macro_use]
-extern crate weechat;
+extern crate json;
 
-#[macro_use]
-mod synchronization;
 mod bar_items;
 mod buffers;
+mod command;
 mod discord;
-mod ffi;
 mod hook;
 mod printing;
+mod sync;
 mod utils;
 
-use crate::ffi::get_option;
-pub use crate::ffi::MAIN_BUFFER;
+pub use sync::{on_main, on_main_blocking};
 
-use weechat::{ArgsWeechat, Weechat, WeechatPlugin, WeechatResult};
+use weechat::{weechat_plugin, ArgsWeechat, Weechat, WeechatPlugin, WeechatResult};
 
-struct Weecord {
+pub struct Discord {
     weechat: Weechat,
-    _handles: hook::HookHandles,
-    _bar_items: bar_items::BarHandles,
+    _sync_handle: sync::SyncHandle,
+    _hook_handles: hook::HookHandles,
+    _bar_handles: bar_items::BarHandles,
 }
 
-impl Weecord {
-    pub fn plugin_print(&self, message: &str) {
-        self.weechat.print(&format!("weecord: {}", message))
-    }
-}
-
-impl WeechatPlugin for Weecord {
-    fn init(mut weechat: Weechat, args: ArgsWeechat) -> WeechatResult<Self> {
+impl WeechatPlugin for Discord {
+    fn init(weechat: Weechat, args: ArgsWeechat) -> WeechatResult<Self> {
         let args: Vec<_> = args.collect();
 
-        // Hack to bridge the two ffi modules
-        ffi::set_plugin(weechat.as_ptr() as *mut std::ffi::c_void);
+        let _sync_handle = sync::init(&weechat);
+        let _hook_handles = hook::init(&weechat);
+        let _bar_handles = bar_items::init(&weechat);
 
-        let _handles = hook::init(&weechat).expect("Failed to create signal hooks");
-        let _bar_items = bar_items::init(&weechat);
-
-        if let Some(autostart) = get_option("autostart") {
-            if !args.contains(&"-a".to_owned()) && autostart == "true" {
-                if let Some(t) = ffi::get_option("token") {
+        if let Some(autostart) = weechat.get_plugin_option("autostart").map(|a| a == "true") {
+            if !args.contains(&"-a".to_owned()) && autostart {
+                if let Some(t) = weechat.get_plugin_option("token") {
                     let t = if t.starts_with("${sec.data") {
                         weechat.eval_string_expression(&t)
                     } else {
                         &t
                     };
-                    discord::init(&t, utils::get_irc_mode());
+                    discord::init(&weechat, &t, utils::get_irc_mode(&weechat));
                 } else {
-                    plugin_print("Error: plugins.var.weecord.token unset. Run:");
-                    plugin_print("/discord token 123456789ABCDEF");
+                    weechat.print("Error: plugins.var.discord.token is not set. To set it, run:");
+                    weechat.print("/discord token 123456789ABCDEF");
                 }
             }
         }
 
-        Ok(Weecord {
+        Ok(Discord {
             weechat,
-            _handles,
-            _bar_items,
+            _sync_handle,
+            _hook_handles,
+            _bar_handles,
         })
     }
 }
 
 weechat_plugin!(
-    Weecord,
-    name: b"weecord\0"; 8,
-    author:  b"khyperia <khyperia@live.com>\0"; 29,
-    description: b"Discord support for weechat\0"; 28,
-    version: b"0.1\0"; 4,
-    license: b"MIT\0"; 4
+    Discord,
+    name: b"weecord",
+    author:  b"Noskcaj19",
+    description: b"Discord integration for weechat",
+    version: b"0.2.0",
+    license: b"MIT"
 );
 
-pub fn plugin_print(message: &str) {
-    MAIN_BUFFER.print(&format!("weecord: {}", message));
+pub fn plugin_print(msg: &str) {
+    let msg = msg.to_owned();
+    on_main(move |weechat| weechat.print(&format!("discord: {}", msg)))
 }

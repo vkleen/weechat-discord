@@ -1,25 +1,22 @@
-Weechat Discord
-===============
+# Weechat Discord NG
 
-A plugin for Weechat that provides access to Discord.
+A plugin that adds Discord to [Weechat](https://weechat.org/)
 
-Ditch the slow Electron client and use your terminal!
-
-(Still in Beta)
-
-## A note on using the Discord API (TOS)
-
-***Self-bots are against Discord's TOS***
-
-However, this program is not a self bot but simply a client
-emulating the functionality of the official client, and does not allow any thing
-the official client does not allow (custom embeds) or abuse the api.
-
-I am not responsible if your account or ip is disabled, restricted, banned or otherwise.
+(Beta)
 
 ---
 
-With that in mind:
+### Warning
+
+***Usage of self-tokens is a violation of Discord's TOS***
+
+This client makes use of the "user api" and is essentially a self-bot.
+This client does not abuse the api however it is still a violation of the TOS.
+
+Use at your own risk, using this program could get your account or ip disabled, banned, etc.
+
+---
+
 
 ### Building
 

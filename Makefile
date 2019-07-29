@@ -9,10 +9,10 @@ all_debug: src/*
 	cargo build
 
 install: all | $(installdir)/plugins
-	cp target/release/libweechat_discord.* $(installdir)/plugins
+	cp target/release/libweecord.* $(installdir)/plugins
 
 install_test: all_debug | $(testdir)/plugins
-	cp target/debug/libweechat_discord.* $(testdir)/plugins
+	cp target/debug/libweecord.* $(testdir)/plugins
 
 run: install
 	weechat -a

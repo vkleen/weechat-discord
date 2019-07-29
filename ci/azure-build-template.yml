@@ -36,7 +36,7 @@ jobs:
         displayName: Build
 
 
-      - script: cp target/release/libweechat_discord.* $(Build.ArtifactStagingDirectory)/
+      - script: cp target/release/libweecord.* $(Build.ArtifactStagingDirectory)/
         displayName: Copy artifacts
 
       - ${{ if eq(parameters.name, 'Linux') }}:

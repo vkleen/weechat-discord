@@ -30,43 +30,43 @@ fn discord_to_weechat_reducer(weechat: &Weechat, node: &MarkdownNode) -> String 
     match node {
         Bold(styles) => format!(
             "{}{}{}",
-            weechat.color_codes("bold"),
+            weechat.color("bold"),
             collect_styles(weechat, styles),
-            weechat.color_codes("-bold")
+            weechat.color("-bold")
         ),
         Italic(styles) => format!(
             "{}{}{}",
-            weechat.color_codes("italic"),
+            weechat.color("italic"),
             collect_styles(weechat, styles),
-            weechat.color_codes("-italic")
+            weechat.color("-italic")
         ),
         Underline(styles) => format!(
             "{}{}{}",
-            weechat.color_codes("underline"),
+            weechat.color("underline"),
             collect_styles(weechat, styles),
-            weechat.color_codes("-underline")
+            weechat.color("-underline")
         ),
         Strikethrough(styles) => format!(
             "{}~~{}~~{}",
-            weechat.color_codes("red"),
+            weechat.color("red"),
             collect_styles(weechat, styles),
-            weechat.color_codes("-red")
+            weechat.color("-red")
         ),
         Spoiler(styles) => format!(
             "{}||{}||{}",
-            weechat.color_codes("italic"),
+            weechat.color("italic"),
             collect_styles(weechat, styles),
-            weechat.color_codes("-italic")
+            weechat.color("-italic")
         ),
         Text(string) => string.to_owned(),
         InlineCode(string) => format!(
             "{}{}{}",
-            weechat.color_codes("*8"),
+            weechat.color("*8"),
             string,
-            weechat.color_codes("reset")
+            weechat.color("reset")
         ),
         Code(language, text) => {
-            let (fmt, reset) = (weechat.color_codes("*8"), weechat.color_codes("reset"));
+            let (fmt, reset) = (weechat.color("*8"), weechat.color("reset"));
 
             format!(
                 "```{}\n{}\n```",

@@ -40,6 +40,6 @@ features = [
 path = "parsing"
 
 [dependencies.weechat]
- path = "../rust-weechat/weechat-rs"
-#git = "https://github.com/terminal-discord/rust-weechat"
+# path = "../rust-weechat/weechat-rs"
+git = "https://github.com/terminal-discord/rust-weechat"
 

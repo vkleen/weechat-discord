@@ -1,7 +1,8 @@
 use crate::sync::on_main_blocking;
 use crate::{on_main, utils};
-use serenity::{cache::CacheRwLock, model::prelude::*, prelude::Context};
+use serenity::{cache::CacheRwLock, model::prelude::*, prelude::*};
 use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 use weechat::{Buffer, Weechat};
 
 const OFFLINE_GROUP_NAME: &str = "99999|Offline";
@@ -379,80 +380,97 @@ pub fn load_nicks(buffer: &Buffer) {
             let guild = guild_id.to_guild_cached(ctx).expect("No guild cache item");
 
             for member in members {
-                let user = member.user.read();
-                // the current user does not seem to usually have a presence, assume they are online
-                let online = if !use_presence {
-                    // Dont do the lookup
-                    false
-                } else if user.id == current_user {
-                    true
-                } else {
-                    let cache = ctx.cache.read();
-                    let presence = cache.presences.get(&member.user_id());
-                    presence
-                        .map(|p| utils::status_is_online(p.status))
-                        .unwrap_or(false)
-                };
-
-                let member_perms = guild.read().permissions_in(channel_id, user.id);
-                // A pretty accurate method of checking if a user is "in" a channel
-                if !member_perms.read_message_history() || !member_perms.read_messages() {
-                    continue;
-                }
-
-                let role_name;
-                let role_color;
-
-                // TODO: Change offline/online color somehow?
-                if user.bot {
-                    role_name = BOT_GROUP_NAME.to_owned();
-                    role_color = "gray".to_string();
-                } else if !online && use_presence {
-                    role_name = OFFLINE_GROUP_NAME.to_owned();
-                    role_color = "grey".to_string();
-                } else if let Some((highest_hoisted, highest)) =
-                    utils::find_highest_roles(&ctx.cache, &member)
-                {
-                    role_name = format!(
-                        "{}|{}",
-                        99999 - highest_hoisted.position,
-                        highest_hoisted.name
-                    );
-                    role_color = crate::utils::rgb_to_ansi(highest.colour).to_string();
-                } else {
-                    // Can't find a role, add user to generic bucket
-                    if use_presence {
-                        if online {
-                            role_name = ONLINE_GROUP_NAME.to_owned();
-                        } else {
-                            role_name = OFFLINE_GROUP_NAME.to_owned();
-                        }
-                        role_color = "grey".to_string();
-                    } else {
-                        buffer.add_nick(
-                            weechat::NickArgs {
-                                name: member.display_name().as_ref(),
-                                ..Default::default()
-                            },
-                            None,
-                        );
-                        continue;
-                    }
-                }
-                let group = match buffer.search_nicklist_group(&role_name) {
-                    Some(group) => group,
-                    None => buffer.add_group(&role_name, &role_color, true, None),
-                };
-                buffer.add_nick(
-                    weechat::NickArgs {
-                        name: member.display_name().as_ref(),
-                        ..Default::default()
-                    },
-                    Some(&group),
+                add_member_to_nicklist(
+                    &ctx,
+                    &buffer,
+                    &channel_id,
+                    &guild,
+                    &member,
+                    current_user,
+                    use_presence,
                 );
             }
         });
     });
+}
+
+fn add_member_to_nicklist(
+    ctx: &Context,
+    buffer: &Buffer,
+    channel_id: &ChannelId,
+    guild: &Arc<RwLock<Guild>>,
+    member: &Member,
+    current_user: UserId,
+    use_presence: bool,
+) {
+    let user = member.user.read();
+    // the current user does not seem to usually have a presence, assume they are online
+    let online = if !use_presence {
+        // Dont do the lookup
+        false
+    } else if user.id == current_user {
+        true
+    } else {
+        let cache = ctx.cache.read();
+        let presence = cache.presences.get(&member.user_id());
+        presence
+            .map(|p| utils::status_is_online(p.status))
+            .unwrap_or(false)
+    };
+    let member_perms = guild.read().permissions_in(channel_id, user.id);
+    // A pretty accurate method of checking if a user is "in" a channel
+    if !member_perms.read_message_history() || !member_perms.read_messages() {
+        return;
+    }
+
+    let role_name;
+    let role_color;
+    // TODO: Change offline/online color somehow?
+    if user.bot {
+        role_name = BOT_GROUP_NAME.to_owned();
+        role_color = "gray".to_string();
+    } else if !online && use_presence {
+        role_name = OFFLINE_GROUP_NAME.to_owned();
+        role_color = "grey".to_string();
+    } else if let Some((highest_hoisted, highest)) = utils::find_highest_roles(&ctx.cache, &member)
+    {
+        role_name = format!(
+            "{}|{}",
+            99999 - highest_hoisted.position,
+            highest_hoisted.name
+        );
+        role_color = crate::utils::rgb_to_ansi(highest.colour).to_string();
+    } else {
+        // Can't find a role, add user to generic bucket
+        if use_presence {
+            if online {
+                role_name = ONLINE_GROUP_NAME.to_owned();
+            } else {
+                role_name = OFFLINE_GROUP_NAME.to_owned();
+            }
+            role_color = "grey".to_string();
+        } else {
+            buffer.add_nick(
+                weechat::NickArgs {
+                    name: member.display_name().as_ref(),
+                    ..Default::default()
+                },
+                None,
+            );
+            return;
+        }
+    }
+    let group = match buffer.search_nicklist_group(&role_name) {
+        Some(group) => group,
+        None => buffer.add_group(&role_name, &role_color, true, None),
+    };
+    buffer.add_nick(
+        weechat::NickArgs {
+            name: member.display_name().as_ref(),
+            ..Default::default()
+        },
+        Some(&group),
+    );
 }
 
 pub fn update_nick() {
@@ -471,15 +489,65 @@ pub fn update_nick() {
         };
 
         let channels = guild.id.channels(ctx).expect("Unable to fetch channels");
-        for channel_id in channels.keys() {
-            let string_channel = utils::buffer_id_for_channel(Some(guild.id), *channel_id);
-            let nick = nick.to_owned();
-            on_main(move |weechat| {
+        on_main(move |weechat| {
+            for channel_id in channels.keys() {
+                let string_channel = utils::buffer_id_for_channel(Some(guild.id), *channel_id);
+                let nick = nick.to_owned();
                 if let Some(buffer) = weechat.buffer_search("weecord", &string_channel) {
                     buffer.set_localvar("nick", &nick);
                     weechat.update_bar_item("input_prompt");
                 }
-            })
+            }
+        })
+    }
+}
+
+pub fn update_member_nick(old: &Option<Member>, new: &Member) {
+    let old_nick = match old.as_ref().map(|old| old.display_name()) {
+        Some(old) => old,
+        None => {
+            // TODO: Rebuild entire nicklist?
+            return;
         }
+    };
+    let new_nick = new.display_name();
+    let new = new.clone();
+    let guild_id = new.guild_id;
+
+    if old_nick != new_nick {
+        let old_nick = old_nick.to_owned().to_string();
+        let ctx = match crate::discord::get_ctx() {
+            Some(ctx) => ctx,
+            _ => return,
+        };
+
+        let channels = guild_id.channels(ctx).expect("Unable to fetch channels");
+
+        on_main(move |weechat| {
+            let ctx = match crate::discord::get_ctx() {
+                Some(ctx) => ctx,
+                _ => return,
+            };
+            let current_user = ctx.cache.read().user.id;
+            for channel_id in channels.keys() {
+                let string_channel = utils::buffer_id_for_channel(Some(guild_id), *channel_id);
+                if let Some(buffer) = weechat.buffer_search("weecord", &string_channel) {
+                    if let Some(nick) = buffer.search_nick(&old_nick, None) {
+                        nick.remove();
+                        if let Some(guild) = guild_id.to_guild_cached(&ctx) {
+                            add_member_to_nicklist(
+                                &ctx,
+                                &buffer,
+                                channel_id,
+                                &guild,
+                                &new,
+                                current_user,
+                                false,
+                            );
+                        }
+                    }
+                }
+            }
+        })
     }
 }

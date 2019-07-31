@@ -4,6 +4,7 @@ use serenity::{
     prelude::*,
 };
 use std::sync::{mpsc::Sender, Arc};
+use std::thread;
 use weechat::{Buffer, Weechat};
 
 pub struct Handler {
@@ -98,6 +99,15 @@ impl EventHandler for Handler {
             }
             _ => {}
         }
+    }
+
+    fn guild_member_update(&self, ctx: Context, old: Option<Member>, new: Member) {
+        thread::spawn(move || {
+            buffers::update_member_nick(&old, &new);
+            if ctx.cache.read().user.id == new.user_id() {
+                buffers::update_nick();
+            }
+        });
     }
 
     fn message(&self, ctx: Context, msg: Message) {
@@ -225,6 +235,13 @@ impl EventHandler for Handler {
                 }
             })
         }
+    }
+
+    fn user_update(&self, _ctx: Context, _old: CurrentUser, _new: CurrentUser) {
+        thread::spawn(|| {
+            // TODO: Update nicklist (and/or just rework all nick stuff)
+            buffers::update_nick();
+        });
     }
 }
 

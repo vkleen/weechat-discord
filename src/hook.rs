@@ -289,6 +289,7 @@ fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
                 Some(ctx) => ctx,
                 _ => return,
             };
+            let should_sleep = guilds.len() > 1;
             for guild in guilds {
                 let new_nick = if substr.is_empty() {
                     None
@@ -297,11 +298,11 @@ fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
                 };
                 let _ = guild.edit_nickname(ctx, new_nick);
                 // Make it less spammy
-                thread::sleep(Duration::from_secs(1));
+                if should_sleep {
+                    thread::sleep(Duration::from_secs(1));
+                }
             }
         }
-
-        crate::buffers::update_nick();
     });
     ReturnCode::OkEat
 }

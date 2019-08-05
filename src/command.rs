@@ -1,7 +1,7 @@
 use crate::utils::GuildOrChannel;
 use crate::{buffers, discord, plugin_print, utils};
 use serenity::model::id::ChannelId;
-use weechat::{Buffer, CommandHook, Weechat};
+use weechat::{Buffer, CommandHook, ReturnCode, Weechat};
 
 pub fn init(weechat: &Weechat) -> CommandHook<()> {
     weechat.hook_command(
@@ -11,27 +11,43 @@ pub fn init(weechat: &Weechat) -> CommandHook<()> {
     )
 }
 
-#[derive(Clone, Copy)]
-struct Args<'a> {
-    args: &'a [&'a str],
+#[derive(Clone)]
+pub(crate) struct Args<'a> {
+    base: &'a str,
+    args: Vec<&'a str>,
     rest: &'a str,
+}
+
+impl<'a> Args<'a> {
+    pub(crate) fn from_cmd(cmd: &'a str) -> Args<'a> {
+        let mut args: Vec<_> = cmd.split(' ').skip(1).collect();
+        if args.is_empty() {
+            return Args {
+                base: "",
+                args: Vec::new(),
+                rest: "",
+            };
+        }
+        let base = args.remove(0);
+        Args {
+            base,
+            args: args,
+            rest: &cmd["/discord ".len() + base.len()..].trim(),
+        }
+    }
 }
 
 fn run_command(buffer: &Buffer, cmd: &str) {
     let weechat = &buffer.get_weechat();
 
-    let mut args: Vec<_> = cmd.split(' ').skip(1).collect();
-    if args.is_empty() {
+    let args = Args::from_cmd(cmd);
+
+    if args.args.is_empty() {
         plugin_print("see /help discord for more information");
         return;
     }
-    let base = args.remove(0);
-    let args = Args {
-        args: &args,
-        rest: &cmd["/discord ".len() + base.len()..].trim(),
-    };
 
-    match base {
+    match args.base {
         "connect" => connect(weechat),
         "disconnect" => disconnect(weechat),
         "irc-mode" => irc_mode(weechat),
@@ -42,7 +58,9 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "query" => {
             crate::hook::handle_query(buffer, &format!("/{}", cmd));
         }
-        "join" => join(weechat, args),
+        "join" => {
+            join(weechat, args, true);
+        }
         "watch" => watch(weechat, args),
         "watched" => watched(weechat),
         "autojoin" => autojoin(weechat, args, buffer),
@@ -119,20 +137,21 @@ fn noautostart(weechat: &Weechat) {
     plugin_print("Discord will not load on startup");
 }
 
-fn join(_weechat: &Weechat, args: Args) {
-    if args.args.is_empty() {
+pub(crate) fn join(_weechat: &Weechat, args: Args, verbose: bool) -> ReturnCode {
+    if args.args.is_empty() && verbose {
         plugin_print("join requires an guild name and channel name");
+        ReturnCode::Error
     } else {
         let mut args = args.args.iter();
         let guild_name = match args.next() {
             Some(g) => g,
-            None => return,
+            None => return ReturnCode::Error,
         };
         let channel_name = args.next();
 
         let ctx = match discord::get_ctx() {
             Some(ctx) => ctx,
-            _ => return,
+            _ => return ReturnCode::Error,
         };
 
         if let Some(channel_name) = channel_name {
@@ -149,7 +168,7 @@ fn join(_weechat: &Weechat, args: Args) {
                     &ctx.cache.read().user.name,
                     false,
                 );
-                return;
+                return ReturnCode::OkEat;
             }
         } else {
             if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
@@ -160,10 +179,14 @@ fn join(_weechat: &Weechat, args: Args) {
                 let channels = utils::flatten_guilds(&ctx, &[GuildOrChannel::Guild(guild_id)]);
 
                 buffers::create_buffers_from_flat_items(&ctx, &ctx.cache.read().user, &channels);
-                return;
+                return ReturnCode::OkEat;
             }
         }
-        plugin_print("Couldn't find channel")
+        if verbose {
+            plugin_print("Couldn't find channel");
+            return ReturnCode::OkEat;
+        }
+        ReturnCode::Error
     }
 }
 

@@ -10,6 +10,7 @@ pub struct HookHandles {
     _command_handle: weechat::CommandHook<()>,
     _query_handle: weechat::CommandRunHook<()>,
     _nick_handle: weechat::CommandRunHook<()>,
+    _join_handle: weechat::CommandRunHook<()>,
     _guild_completion_handle: weechat::CompletionHook<()>,
     _channel_completion_handle: weechat::CompletionHook<()>,
     _dm_completion_handle: weechat::CompletionHook<()>,
@@ -33,6 +34,12 @@ pub fn init(weechat: &weechat::Weechat) -> HookHandles {
     let _nick_handle = weechat.hook_command_run(
         "/nick",
         |_, ref buffer, command| handle_nick(buffer, command),
+        None,
+    );
+
+    let _join_handle = weechat.hook_command_run(
+        "/join",
+        |_, ref buffer, command| handle_join(buffer, command),
         None,
     );
 
@@ -62,6 +69,7 @@ pub fn init(weechat: &weechat::Weechat) -> HookHandles {
         _command_handle,
         _query_handle,
         _nick_handle,
+        _join_handle,
         _guild_completion_handle,
         _channel_completion_handle,
         _dm_completion_handle,
@@ -305,4 +313,14 @@ fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
         }
     });
     ReturnCode::OkEat
+}
+
+fn handle_join(buffer: &Buffer, command: &str) -> ReturnCode {
+    let verbose = buffer.get_localvar("guildid").is_some();
+
+    crate::command::join(
+        &buffer.get_weechat(),
+        crate::command::Args::from_cmd(&format!("/discord {}", &command[1..])),
+        verbose,
+    )
 }

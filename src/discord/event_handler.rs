@@ -1,11 +1,55 @@
 use crate::{buffers, on_main, on_main_blocking, printing, utils};
+use lazy_static::lazy_static;
 use serenity::{
     client::bridge::gateway::Message as WsMessage, model::gateway::Ready, model::prelude::*,
     prelude::*,
 };
 use std::sync::{mpsc::Sender, Arc};
 use std::thread;
+use std::time::{SystemTime, UNIX_EPOCH};
 use weechat::{Buffer, Weechat};
+
+const MAX_TYPING_EVENTS: usize = 50;
+
+#[derive(Debug, PartialEq, Eq, Ord)]
+pub struct TypingEntry {
+    channel_id: ChannelId,
+    guild_id: Option<GuildId>,
+    user: UserId,
+    user_name: String,
+    time: u64,
+}
+
+impl PartialOrd for TypingEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.time.partial_cmp(&other.time)
+    }
+}
+
+pub struct TypingTracker {
+    pub entries: Vec<TypingEntry>,
+}
+
+impl TypingTracker {
+    /// Remove any expired entries
+    pub fn sweep(&mut self) {
+        let now = SystemTime::now();
+        let timestamp_now = now
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_secs() as u64;
+
+        // If the entry is more than 5 seconds old, remove it
+        // TODO: Use binary heap or other structure for better performance?
+        self.entries.retain(|e| timestamp_now - e.time < 5)
+    }
+}
+
+lazy_static! {
+    pub static ref TYPING_EVENTS: Arc<Mutex<TypingTracker>> = Arc::new(Mutex::new(TypingTracker {
+        entries: Vec::new(),
+    }));
+}
 
 pub struct Handler {
     sender: Arc<Mutex<Sender<Ready>>>,
@@ -218,6 +262,23 @@ impl EventHandler for Handler {
     }
 
     fn typing_start(&self, ctx: Context, event: TypingStartEvent) {
+        if let Some(user) = event.user_id.to_user_cached(&ctx.cache) {
+            // TODO: Resolve guild nick names
+            let mut typing_events = TYPING_EVENTS.lock();
+            typing_events.entries.push(TypingEntry {
+                channel_id: event.channel_id,
+                guild_id: event.guild_id,
+                user: event.user_id,
+                user_name: user.read().name.clone(),
+                time: event.timestamp,
+            });
+
+            typing_events.sweep();
+            if typing_events.entries.len() > MAX_TYPING_EVENTS {
+                typing_events.entries.pop();
+            }
+        }
+
         if self.typing_messages {
             if event.user_id == ctx.cache.read().user.id {
                 return;

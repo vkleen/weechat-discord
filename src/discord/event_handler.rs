@@ -258,7 +258,7 @@ fn print_guild_status_message(guild_id: GuildId, msg: &str) {
     on_main(move |weechat| {
         if let Some(buffer) = weechat.buffer_search("weecord", &buffer_id) {
             let prefix = weechat.get_prefix("network").to_owned();
-            buffer.print(&(prefix + "\t" + &msg));
+            buffer.print(&(prefix + "\t" + msg.as_ref()));
         }
     })
 }

@@ -35,9 +35,15 @@ impl WeechatPlugin for Discord {
                     let t = if t.starts_with("${sec.data") {
                         weechat.eval_string_expression(&t)
                     } else {
-                        &t
+                        Some(t)
                     };
-                    discord::init(&weechat, &t, utils::get_irc_mode(&weechat));
+                    if let Some(t) = t {
+                        discord::init(&weechat, &t, utils::get_irc_mode(&weechat));
+                    } else {
+                        weechat.print(
+                            "Error: failed to evaluate token option, expected valid ${sec.data...}",
+                        );
+                    }
                 } else {
                     weechat.print("Error: plugins.var.discord.token is not set. To set it, run:");
                     weechat.print("/discord token 123456789ABCDEF");
@@ -56,11 +62,11 @@ impl WeechatPlugin for Discord {
 
 weechat_plugin!(
     Discord,
-    name: b"weecord",
-    author:  b"Noskcaj19",
-    description: b"Discord integration for weechat",
-    version: b"0.2.0",
-    license: b"MIT"
+    name: "weecord",
+    author: "Noskcaj19",
+    description: "Discord integration for weechat",
+    version: "0.2.0",
+    license: "MIT"
 );
 
 pub fn plugin_print(msg: &str) {

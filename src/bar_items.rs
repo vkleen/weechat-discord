@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use weechat::bar::BarItem;
 use weechat::Weechat;
 
@@ -9,11 +10,19 @@ pub struct BarHandles {
 
 pub fn init(weechat: &Weechat) -> BarHandles {
     let _guild_name = weechat.new_bar_item("buffer_guild_name", |_, buffer| {
-        buffer.get_localvar("guild_name").unwrap_or("").to_owned()
+        buffer
+            .get_localvar("guild_name")
+            .map(Cow::into_owned)
+            .unwrap_or_default()
+            .to_owned()
     });
 
     let _channel_name = weechat.new_bar_item("buffer_channel_name", |_, buffer| {
-        buffer.get_localvar("channel_name").unwrap_or("").to_owned()
+        buffer
+            .get_localvar("channel_name")
+            .map(Cow::into_owned)
+            .unwrap_or_default()
+            .to_owned()
     });
 
     let _full_name = weechat.new_bar_item("buffer_discord_full_name", |_, buffer| {

@@ -21,46 +21,46 @@ pub fn init(weechat: &weechat::Weechat) -> HookHandles {
 
     let _buffer_switch_handle = weechat.hook_signal(
         "buffer_switch",
-        |_, value| handle_buffer_switch(value),
+        |_, _, value| handle_buffer_switch(value),
         None,
     );
 
     let _query_handle = weechat.hook_command_run(
         "/query",
-        |_, ref buffer, command| handle_query(buffer, command),
+        |_, ref buffer, ref command| handle_query(buffer, command),
         None,
     );
 
     let _nick_handle = weechat.hook_command_run(
         "/nick",
-        |_, ref buffer, command| handle_nick(buffer, command),
+        |_, ref buffer, ref command| handle_nick(buffer, command),
         None,
     );
 
     let _join_handle = weechat.hook_command_run(
         "/join",
-        |_, ref buffer, command| handle_join(buffer, command),
+        |_, ref buffer, ref command| handle_join(buffer, command),
         None,
     );
 
     let _guild_completion_handle = weechat.hook_completion(
         "weecord_guild_completion",
         "Completion for discord guilds",
-        |_, ref buffer, item, completions| handle_guild_completion(buffer, item, completions),
+        |_, ref buffer, ref item, completions| handle_guild_completion(buffer, item, completions),
         None,
     );
 
     let _channel_completion_handle = weechat.hook_completion(
         "weecord_channel_completion",
         "Completion for discord channels",
-        |_, ref buffer, item, completions| handle_channel_completion(buffer, item, completions),
+        |_, ref buffer, ref item, completions| handle_channel_completion(buffer, item, completions),
         None,
     );
 
     let _dm_completion_handle = weechat.hook_completion(
         "weecord_dm_completion",
         "Completion for Discord private channels",
-        |_, ref buffer, item, completions| handle_dm_completion(buffer, item, completions),
+        |_, ref buffer, ref item, completions| handle_dm_completion(buffer, item, completions),
         None,
     );
 
@@ -115,7 +115,8 @@ fn handle_channel_completion(
 ) -> ReturnCode {
     // Get the previous argument with should be the guild name
     // TODO: Generalize this?
-    let x = buffer.input().split(' ').collect::<Vec<_>>();
+    let input = buffer.input();
+    let x = input.split(' ').collect::<Vec<_>>();
     let input = if x.len() < 2 {
         None
     } else {

@@ -43,3 +43,5 @@ path = "parsing"
 # path = "../rust-weechat/weechat-rs"
 git = "https://github.com/terminal-discord/rust-weechat"
 
+[dependencies.weechat-sys]
+git = "https://github.com/terminal-discord/rust-weechat"

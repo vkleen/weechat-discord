@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::mem::transmute;
 use std::thread;
+use std::time::Duration;
 use weechat::Weechat;
 
 /// Created upon sync initialization, must not be dropped while the plugin is running
@@ -32,7 +33,7 @@ pub fn init(weechat: &weechat::Weechat) -> SyncHandle {
     }
 
     // TODO: Dynamic delay
-    SyncHandle(weechat.hook_timer(25, 0, 0, |_, _| tick(), None))
+    SyncHandle(weechat.hook_timer(Duration::from_millis(25), 0, 0, |_, _, _| tick(), None))
 }
 
 pub fn on_main<F: 'static + FnOnce(&Weechat) + Send>(cb: F) {
@@ -82,4 +83,3 @@ fn tick() {
         None => {}
     }
 }
-

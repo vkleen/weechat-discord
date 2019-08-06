@@ -491,40 +491,41 @@ Discord from the comfort of your favorite command-line IRC client!
 Source code available at https://github.com/terminal-discord/weechat-discord
 Originally by https://github.com/khyperia/weechat-discord
 Options used:
-plugins.var.weecord.token = <discord_token>
-plugins.var.weecord.rename.<id> = <string>
-plugins.var.weecord.autostart = <bool>
-plugins.var.weecord.irc_mode = <bool>",
-    args: "\
-connect
-disconnect
-join
-query
-watch
-autojoin
-watched
-autojoined
-irc-mode
-discord-mode
-autostart
-noautostart
-token <token>
-upload <file>",
-    args_description:
-"connect: sign in to discord and open chat buffers
-disconnect: sign out of Discord
-join: join a channel in irc mode by providing guild name and channel name
-query: open a dm with a user (for when there are no discord buffers open)
-irc-mode: enable irc-mode, meaning that weecord will not load all channels like the official client
-discord-mode: enable discord-mode, meaning all available channels and guilds will be added to the buflist
-watch: Automatically open a buffer when a message is received in a guild or channel
-autojoin: Automatically open a channel or entire guild when discord connects
-watched: List watched guilds and channels
-autojoined: List autojoined guilds and channels
-autostart: automatically sign into discord on start
-noautostart: disable autostart
-token: set Discord login token
-upload: upload a file to the current channel
+    plugins.var.weecord.token = <discord_token>
+    plugins.var.weecord.rename.<id> = <string>
+    plugins.var.weecord.autostart = <bool>
+    plugins.var.weecord.irc_mode = <bool>",
+    args: "
+    connect
+    disconnect
+    join
+    query
+    watch
+    autojoin
+    watched
+    autojoined
+    irc-mode
+    discord-mode
+    autostart
+    noautostart
+    token <token>
+    upload <file>",
+    args_description: "
+    connect: sign in to discord and open chat buffers
+    disconnect: sign out of Discord
+    join: join a channel in irc mode by providing guild name and channel name
+    query: open a dm with a user (for when there are no discord buffers open)
+    irc-mode: enable irc-mode, meaning that weecord will not load all channels like the official client
+    discord-mode: enable discord-mode, meaning all available channels and guilds will be added to the buflist
+    watch: Automatically open a buffer when a message is received in a guild or channel
+    autojoin: Automatically open a channel or entire guild when discord connects
+    watched: List watched guilds and channels
+    autojoined: List autojoined guilds and channels
+    autostart: automatically sign into discord on start
+    noautostart: disable autostart
+    token: set Discord login token
+    upload: upload a file to the current channel
+
 Examples:
   /discord token 123456789ABCDEF
   /discord connect

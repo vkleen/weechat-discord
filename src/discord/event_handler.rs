@@ -59,7 +59,9 @@ pub struct Handler {
 
 impl Handler {
     pub fn new(weechat: &Weechat, sender: Arc<Mutex<Sender<Ready>>>) -> Handler {
-        let watched_channels = weechat.get_plugin_option("watched_channels").unwrap_or("");
+        let watched_channels = weechat
+            .get_plugin_option("watched_channels")
+            .unwrap_or_default();
 
         let typing_messages = weechat
             .get_plugin_option("typing_messages")

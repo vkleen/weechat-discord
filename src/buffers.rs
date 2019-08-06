@@ -83,7 +83,7 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
     let autojoined_items = on_main_blocking(move |weechat| {
         weechat
             .get_plugin_option("autojoin_channels")
-            .map(ToOwned::to_owned)
+            .map(|ch| ch.to_string())
     });
 
     let autojoin_items: String = match autojoined_items {

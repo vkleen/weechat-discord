@@ -1,3 +1,4 @@
+use serenity::model::id::{ChannelId, GuildId};
 use std::borrow::Cow;
 use weechat::bar::BarItem;
 use weechat::Weechat;
@@ -6,6 +7,7 @@ pub struct BarHandles {
     _guild_name: BarItem,
     _channel_name: BarItem,
     _full_name: BarItem,
+    _typing_indicator: BarItem,
 }
 
 pub fn init(weechat: &Weechat) -> BarHandles {
@@ -36,9 +38,40 @@ pub fn init(weechat: &Weechat) -> BarHandles {
         }
     });
 
+    let _typing_indicator = weechat.new_bar_item("discord_typing", |_, buffer| {
+        let typing_events = crate::discord::TYPING_EVENTS.lock();
+
+        if let Some(channel_id) = buffer
+            .get_localvar("channelid")
+            .and_then(|ch| ch.parse().ok())
+            .map(ChannelId)
+        {
+            let guild_id = buffer
+                .get_localvar("guildid")
+                .and_then(|g| g.parse().ok())
+                .map(GuildId);
+            let users = typing_events
+                .entries
+                .iter()
+                .filter(|e| e.guild_id == guild_id && e.channel_id == channel_id)
+                .map(|e| e.user_name.clone())
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            if users.len() == 0 {
+                "".into()
+            } else {
+                format!("typing: {}", users)
+            }
+        } else {
+            "".into()
+        }
+    });
+
     BarHandles {
         _guild_name,
         _channel_name,
         _full_name,
+        _typing_indicator,
     }
 }

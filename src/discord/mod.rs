@@ -8,6 +8,8 @@ mod client;
 mod event_handler;
 pub mod formatting;
 
+pub use event_handler::TYPING_EVENTS;
+
 pub static mut CONTEXT: Option<Context> = None;
 
 pub fn get_ctx() -> Option<&'static Context> {

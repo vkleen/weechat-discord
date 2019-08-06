@@ -6,18 +6,18 @@ use serenity::{
 };
 use std::sync::{mpsc::Sender, Arc};
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use weechat::{Buffer, Weechat};
 
 const MAX_TYPING_EVENTS: usize = 50;
 
 #[derive(Debug, PartialEq, Eq, Ord)]
 pub struct TypingEntry {
-    channel_id: ChannelId,
-    guild_id: Option<GuildId>,
-    user: UserId,
-    user_name: String,
-    time: u64,
+    pub channel_id: ChannelId,
+    pub guild_id: Option<GuildId>,
+    pub user: UserId,
+    pub user_name: String,
+    pub time: u64,
 }
 
 impl PartialOrd for TypingEntry {
@@ -39,9 +39,9 @@ impl TypingTracker {
             .expect("Time went backwards")
             .as_secs() as u64;
 
-        // If the entry is more than 5 seconds old, remove it
+        // If the entry is more than 10 seconds old, remove it
         // TODO: Use binary heap or other structure for better performance?
-        self.entries.retain(|e| timestamp_now - e.time < 5)
+        self.entries.retain(|e| timestamp_now - e.time < 10)
     }
 }
 
@@ -262,6 +262,7 @@ impl EventHandler for Handler {
     }
 
     fn typing_start(&self, ctx: Context, event: TypingStartEvent) {
+        // TODO: Do we want to fetch the user if it isn't cached? (check performance)
         if let Some(user) = event.user_id.to_user_cached(&ctx.cache) {
             // TODO: Resolve guild nick names
             let mut typing_events = TYPING_EVENTS.lock();
@@ -277,6 +278,24 @@ impl EventHandler for Handler {
             if typing_events.entries.len() > MAX_TYPING_EVENTS {
                 typing_events.entries.pop();
             }
+
+            crate::on_main(|weechat| {
+                weechat.update_bar_item("discord_typing");
+            });
+
+            thread::Builder::new()
+                .name("Typing indicator updater".into())
+                .spawn(|| {
+                    // Wait a few seconds, then sweep the list and update the bar item
+                    thread::sleep(Duration::from_secs(10));
+
+                    let mut typing_events = TYPING_EVENTS.lock();
+                    typing_events.sweep();
+                    crate::on_main(|weechat| {
+                        weechat.update_bar_item("discord_typing");
+                    });
+                })
+                .expect("Unable to name thread");
         }
 
         if self.typing_messages {

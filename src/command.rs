@@ -42,7 +42,8 @@ fn run_command(buffer: &Buffer, cmd: &str) {
 
     let args = Args::from_cmd(cmd);
 
-    if args.args.is_empty() {
+    if args.base.is_empty() {
+        plugin_print("no action provided.");
         plugin_print("see /help discord for more information");
         return;
     }

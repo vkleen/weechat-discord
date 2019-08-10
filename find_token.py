@@ -39,7 +39,8 @@ def main():
             results = run_command("find ~/ -name '*.ldb'")
 
     if len(results) == 0 and rg:
-        results = run_command("rg ~/ --hidden  --files -g '*.ldb'")
+        # try again, but search hidden directories
+        results = run_command("rg ~/ --hidden --files -g '*.ldb'")
 
     if len(results) == 0:
         print("No databases found.")
@@ -47,20 +48,24 @@ def main():
 
     discord_databases = list(filter(lambda x: "discord" in x, results))
 
-    token_results = set()
+    token_candidates = set()
     for database in discord_databases:
-        for tok in strings(database):
-            if len(tok) < 40:
+        for candidate in strings(database, 40):
+            if " " in candidate:
                 continue
-            parts = tok.split(".", maxsplit=3)
+            parts = candidate.split(".", maxsplit=3)
             if len(parts) != 3:
                 continue
             if len(parts[1]) < 6:
                 continue
-            token_results.add(tok[1:-2])
+            token_candidates.add(candidate[1:-2])
+
+    if len(token_candidates) == 0:
+        print("No Discord tokens found")
+        return
 
     print("Likely Discord tokens are:\n")
-    for token in token_results:
+    for token in token_candidates:
         print(token)
 
 

@@ -2,8 +2,10 @@ use crate::{discord, on_main, plugin_print};
 use serenity::{model::prelude::*, prelude::*};
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use weechat::{Buffer, ReturnCode, Weechat};
+
+static mut LAST_TYPING_TIMESTAMP: u64 = 0;
 
 pub struct HookHandles {
     _buffer_switch_handle: weechat::SignalHook<()>,
@@ -125,16 +127,27 @@ fn handle_buffer_typing(weechat: &Weechat, data: weechat::SignalHookValue) -> Re
                 .map(|send| send.as_ref() == "true")
                 .unwrap_or(false)
             {
+                if buffer.input().starts_with("/") {
+                    return ReturnCode::Ok;
+                }
                 if let Ok(channel_id) = chnanel_id.as_ref().parse().map(ChannelId) {
-                    // TODO: Wait for user to type for 3 seconds,
-                    //       only send the typing event every 5 or 10 seconds
-                    std::thread::spawn(move || {
-                        let ctx = match discord::get_ctx() {
-                            Some(s) => s,
-                            None => return,
-                        };
-                        let _ = channel_id.broadcast_typing(&ctx.http);
-                    });
+                    // TODO: Wait for user to type for 3 seconds
+                    let now = SystemTime::now();
+                    let timestamp_now = now
+                        .duration_since(UNIX_EPOCH)
+                        .expect("Time went backwards")
+                        .as_secs() as u64;
+
+                    if unsafe { LAST_TYPING_TIMESTAMP } + 9 < timestamp_now {
+                        unsafe { LAST_TYPING_TIMESTAMP = timestamp_now }
+                        std::thread::spawn(move || {
+                            let ctx = match discord::get_ctx() {
+                                Some(s) => s,
+                                None => return,
+                            };
+                            let _ = channel_id.broadcast_typing(&ctx.http);
+                        });
+                    }
                 }
             }
         }

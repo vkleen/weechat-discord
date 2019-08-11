@@ -3,10 +3,11 @@ use serenity::{model::prelude::*, prelude::*};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use weechat::{Buffer, ReturnCode};
+use weechat::{Buffer, ReturnCode, Weechat};
 
 pub struct HookHandles {
     _buffer_switch_handle: weechat::SignalHook<()>,
+    _buffer_typing_handle: weechat::SignalHook<()>,
     _command_handle: weechat::CommandHook<()>,
     _query_handle: weechat::CommandRunHook<()>,
     _nick_handle: weechat::CommandRunHook<()>,
@@ -16,12 +17,18 @@ pub struct HookHandles {
     _dm_completion_handle: weechat::CompletionHook<()>,
 }
 
-pub fn init(weechat: &weechat::Weechat) -> HookHandles {
+pub fn init(weechat: &Weechat) -> HookHandles {
     let _command_handle = crate::command::init(weechat);
 
     let _buffer_switch_handle = weechat.hook_signal(
         "buffer_switch",
         |_, _, value| handle_buffer_switch(value),
+        None,
+    );
+
+    let _buffer_typing_handle = weechat.hook_signal(
+        "input_text_changed",
+        |_, weechat, value| handle_buffer_typing(weechat, value),
         None,
     );
 
@@ -66,6 +73,7 @@ pub fn init(weechat: &weechat::Weechat) -> HookHandles {
 
     HookHandles {
         _buffer_switch_handle,
+        _buffer_typing_handle,
         _command_handle,
         _query_handle,
         _nick_handle,
@@ -103,6 +111,32 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
 
         if buffer.get_localvar("loaded_nicks").is_none() {
             crate::buffers::load_nicks(&buffer);
+        }
+    }
+    ReturnCode::Ok
+}
+
+fn handle_buffer_typing(weechat: &Weechat, data: weechat::SignalHookValue) -> ReturnCode {
+    if let weechat::SignalHookValue::Pointer(buffer_ptr) = data {
+        let buffer = unsafe { crate::utils::buffer_from_ptr(buffer_ptr) };
+        if let Some(chnanel_id) = buffer.get_localvar("channelid") {
+            if weechat
+                .get_plugin_option("send_typing_events")
+                .map(|send| send.as_ref() == "true")
+                .unwrap_or(false)
+            {
+                if let Ok(channel_id) = chnanel_id.as_ref().parse().map(ChannelId) {
+                    // TODO: Wait for user to type for 3 seconds,
+                    //       only send the typing event every 5 or 10 seconds
+                    std::thread::spawn(move || {
+                        let ctx = match discord::get_ctx() {
+                            Some(s) => s,
+                            None => return,
+                        };
+                        let _ = channel_id.broadcast_typing(&ctx.http);
+                    });
+                }
+            }
         }
     }
     ReturnCode::Ok

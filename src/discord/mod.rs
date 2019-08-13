@@ -21,7 +21,16 @@ lazy_static! {
 }
 
 pub fn init(weechat: &Weechat, token: &str, irc_mode: bool) {
-    let (discord_client, events) = DiscordClient::start(weechat, token).unwrap();
+    let (discord_client, events) = match DiscordClient::start(weechat, token) {
+        Ok(d) => d,
+        Err(e) => {
+            weechat.print(&format!(
+                "discord: An error occurred connecting to discord: {}",
+                e
+            ));
+            return;
+        }
+    };
 
     thread::spawn(move || {
         if let Ok(ready) = events.recv() {

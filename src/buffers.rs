@@ -1,9 +1,10 @@
 use crate::sync::on_main_blocking;
 use crate::{on_main, utils};
+use serenity::cache::Cache;
 use serenity::{cache::CacheRwLock, model::prelude::*, prelude::*};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use weechat::{Buffer, Weechat};
+use weechat::{Buffer, NickArgs, Weechat};
 
 const OFFLINE_GROUP_NAME: &str = "99999|Offline";
 const ONLINE_GROUP_NAME: &str = "99998|Online";
@@ -149,6 +150,17 @@ pub fn create_buffers_from_flat_items(
     }
 }
 
+fn user_online(cache: &Cache, user_id: UserId) -> bool {
+    if user_id == cache.user.id {
+        true
+    } else {
+        let presence = cache.presences.get(&user_id);
+        presence
+            .map(|p| utils::status_is_online(p.status))
+            .unwrap_or(false)
+    }
+}
+
 fn find_or_make_buffer(weechat: &Weechat, name: &str) -> Buffer {
     if let Some(buffer) = weechat.buffer_search("weecord", name) {
         buffer
@@ -251,6 +263,8 @@ pub fn create_buffer_from_dm(
     }
     let title = format!("DM with {}", channel.recipient.read().name);
     buffer.set_title(&title);
+
+    load_dm_nicks(&buffer, &*channel);
 }
 
 pub fn create_buffer_from_group(weechat: &Weechat, channel: Channel, nick: &str) {
@@ -313,6 +327,54 @@ pub fn load_history(buffer: &weechat::Buffer) {
             });
         }
     });
+}
+
+pub fn load_dm_nicks(buffer: &Buffer, channel: &PrivateChannel) {
+    let use_presence = buffer
+        .get_weechat()
+        .get_plugin_option("use_presence")
+        .map(|o| o == "true")
+        .unwrap_or(false);
+
+    // If the user doesn't want the presence, there's no reason to open
+    // the nicklist
+    if use_presence {
+        buffer.set_localvar("loaded_nicks", "true");
+        buffer.enable_nicklist();
+
+        let ctx = match crate::discord::get_ctx() {
+            Some(ctx) => ctx,
+            _ => return,
+        };
+
+        let recip = channel.recipient.read();
+        let cache = ctx.cache.read();
+        let online_group = buffer.add_group(ONLINE_GROUP_NAME, "", true, None);
+        let offline_group = buffer.add_group(OFFLINE_GROUP_NAME, "", true, None);
+        let user_group = |user| {
+            if user_online(&*cache, user) {
+                &online_group
+            } else {
+                &offline_group
+            }
+        };
+
+        buffer.add_nick(
+            NickArgs {
+                name: &recip.name,
+                ..Default::default()
+            },
+            Some(user_group(recip.id)),
+        );
+
+        buffer.add_nick(
+            NickArgs {
+                name: &cache.user.name,
+                ..Default::default()
+            },
+            Some(user_group(cache.user.id)),
+        );
+    }
 }
 
 // TODO: Make this nicer somehow
@@ -405,18 +467,12 @@ fn add_member_to_nicklist(
 ) {
     let user = member.user.read();
     // the current user does not seem to usually have a presence, assume they are online
-    let online = if !use_presence {
-        // Dont do the lookup
-        false
-    } else if user.id == current_user {
-        true
+    let online = if use_presence {
+        user_online(&*ctx.cache.read(), user.id)
     } else {
-        let cache = ctx.cache.read();
-        let presence = cache.presences.get(&member.user_id());
-        presence
-            .map(|p| utils::status_is_online(p.status))
-            .unwrap_or(false)
+        false
     };
+
     let member_perms = guild.read().permissions_in(channel_id, user.id);
     // A pretty accurate method of checking if a user is "in" a channel
     if !member_perms.read_message_history() || !member_perms.read_messages() {

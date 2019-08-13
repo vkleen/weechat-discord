@@ -57,7 +57,7 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "autostart" => autostart(weechat),
         "noautostart" => noautostart(weechat),
         "query" => {
-            crate::hook::handle_query(buffer, &format!("/{}", cmd));
+            crate::hook::handle_query(buffer, &format!("/query {}", args.rest));
         }
         "join" => {
             join(weechat, args, true);

@@ -36,7 +36,13 @@ pub fn init(weechat: &Weechat) -> HookHandles {
 
     let _query_handle = weechat.hook_command_run(
         "/query",
-        |_, ref buffer, ref command| handle_query(buffer, command),
+        |_, ref buffer, ref command| {
+            if buffer.get_localvar("guildid").is_none() {
+                return ReturnCode::Error;
+            };
+
+            handle_query(buffer, command)
+        },
         None,
     );
 
@@ -233,15 +239,11 @@ fn handle_dm_completion(
 
 // TODO: Make this faster
 // TODO: Handle command options
-pub(crate) fn handle_query(buffer: &Buffer, command: &str) -> ReturnCode {
+pub fn handle_query(buffer: &Buffer, command: &str) -> ReturnCode {
     if command.len() <= "/query ".len() {
         plugin_print("query requires a username");
         return ReturnCode::Ok;
     }
-
-    if buffer.get_localvar("guildid").is_none() {
-        return ReturnCode::Ok;
-    };
 
     let owned_cmd = command.to_owned();
     thread::spawn(move || {

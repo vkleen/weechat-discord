@@ -110,6 +110,21 @@ Autojoin channels:
 You can use `/discord autojoin <guild-name> [<channel-name>]` to start watching a channel or entire guild.
 Any channel or guild marked as autojoin will be automatically joined when weecord connects.
 
+
+Messages can be edited and deleted using ed style substitutions.
+
+To edit:
+
+    s/foo/bar/
+
+To delete:
+    
+    s///
+
+An optional message id can also be passed to target the nth most recent message:
+
+    3s///
+
 ---
 
 ## MacOS

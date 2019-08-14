@@ -17,6 +17,7 @@ pub struct HookHandles {
     _guild_completion_handle: weechat::CompletionHook<()>,
     _channel_completion_handle: weechat::CompletionHook<()>,
     _dm_completion_handle: weechat::CompletionHook<()>,
+    _role_completion_handle: weechat::CompletionHook<()>,
 }
 
 pub fn init(weechat: &Weechat) -> HookHandles {
@@ -79,6 +80,13 @@ pub fn init(weechat: &Weechat) -> HookHandles {
         None,
     );
 
+    let _role_completion_handle = weechat.hook_completion(
+        "weecord_role",
+        "Completion for Discord channel roles",
+        |_, ref buffer, ref item, completions| handle_role_completion(buffer, item, completions),
+        None,
+    );
+
     HookHandles {
         _buffer_switch_handle,
         _buffer_typing_handle,
@@ -89,6 +97,7 @@ pub fn init(weechat: &Weechat) -> HookHandles {
         _guild_completion_handle,
         _channel_completion_handle,
         _dm_completion_handle,
+        _role_completion_handle,
     }
 }
 
@@ -292,6 +301,33 @@ fn handle_dm_completion(
     for dm in ctx.cache.read().private_channels.values() {
         completion.add(&dm.read().recipient.read().name);
     }
+    ReturnCode::Ok
+}
+
+fn handle_role_completion(
+    buffer: &Buffer,
+    _completion_item: &str,
+    completion: weechat::Completion,
+) -> ReturnCode {
+    let ctx = match discord::get_ctx() {
+        Some(s) => s,
+        None => return ReturnCode::Ok,
+    };
+
+    let guild = buffer
+        .get_localvar("guildid")
+        .and_then(|id| id.parse().ok())
+        .map(GuildId);
+
+    if let Some(guild) = guild {
+        if let Some(guild) = guild.to_guild_cached(&ctx.cache) {
+            let roles = &guild.read().roles;
+            for role in roles.values() {
+                completion.add(&format!("@{}", role.name));
+            }
+        }
+    }
+
     ReturnCode::Ok
 }
 

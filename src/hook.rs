@@ -63,35 +63,35 @@ pub fn init(weechat: &Weechat) -> HookHandles {
     let _guild_completion_handle = weechat.hook_completion(
         "weecord_guild_completion",
         "Completion for discord guilds",
-        |_, ref buffer, ref item, completions| handle_guild_completion(buffer, item, completions),
+        |_, ref buffer, _, completions| handle_guild_completion(buffer, completions),
         None,
     );
 
     let _channel_completion_handle = weechat.hook_completion(
         "weecord_channel_completion",
         "Completion for discord channels",
-        |_, ref buffer, ref item, completions| handle_channel_completion(buffer, item, completions),
+        |_, ref buffer, _, completions| handle_channel_completion(buffer, completions),
         None,
     );
 
     let _dm_completion_handle = weechat.hook_completion(
         "weecord_dm_completion",
         "Completion for Discord private channels",
-        |_, ref buffer, ref item, completions| handle_dm_completion(buffer, item, completions),
+        |_, ref buffer, _, completions| handle_dm_completion(buffer, completions),
         None,
     );
 
     let _nick_completion_handle = weechat.hook_completion(
         "nicks",
         "Completion for users in a buffer",
-        |_, ref buffer, ref item, completions| handle_nick_completion(buffer, item, completions),
+        |_, ref buffer, _, completions| handle_nick_completion(buffer, completions),
         None,
     );
 
     let _role_completion_handle = weechat.hook_completion(
         "weecord_role",
         "Completion for Discord channel roles",
-        |_, ref buffer, ref item, completions| handle_role_completion(buffer, item, completions),
+        |_, ref buffer, _, completions| handle_role_completion(buffer, completions),
         None,
     );
 
@@ -237,11 +237,7 @@ fn handle_buffer_typing(weechat: &Weechat, data: weechat::SignalHookValue) -> Re
     ReturnCode::Ok
 }
 
-fn handle_channel_completion(
-    buffer: &Buffer,
-    _completion_item: &str,
-    completion: weechat::Completion,
-) -> ReturnCode {
+fn handle_channel_completion(buffer: &Buffer, completion: weechat::Completion) -> ReturnCode {
     // Get the previous argument with should be the guild name
     // TODO: Generalize this?
     let input = buffer.input();
@@ -282,11 +278,7 @@ fn handle_channel_completion(
     ReturnCode::Ok
 }
 
-fn handle_guild_completion(
-    _buffer: &Buffer,
-    _completion_item: &str,
-    completion: weechat::Completion,
-) -> ReturnCode {
+fn handle_guild_completion(_buffer: &Buffer, completion: weechat::Completion) -> ReturnCode {
     let ctx = match discord::get_ctx() {
         Some(s) => s,
         None => return ReturnCode::Ok,
@@ -298,11 +290,7 @@ fn handle_guild_completion(
     ReturnCode::Ok
 }
 
-fn handle_dm_completion(
-    _buffer: &Buffer,
-    _completion_itme: &str,
-    completion: weechat::Completion,
-) -> ReturnCode {
+fn handle_dm_completion(_buffer: &Buffer, completion: weechat::Completion) -> ReturnCode {
     let ctx = match discord::get_ctx() {
         Some(s) => s,
         None => return ReturnCode::Ok,
@@ -313,11 +301,7 @@ fn handle_dm_completion(
     ReturnCode::Ok
 }
 
-fn handle_nick_completion(
-    buffer: &Buffer,
-    _compeltion_item: &str,
-    completion: weechat::Completion,
-) -> ReturnCode {
+fn handle_nick_completion(buffer: &Buffer, completion: weechat::Completion) -> ReturnCode {
     let ctx = match discord::get_ctx() {
         Some(s) => s,
         None => return ReturnCode::Ok,
@@ -345,11 +329,7 @@ fn handle_nick_completion(
     ReturnCode::Ok
 }
 
-fn handle_role_completion(
-    buffer: &Buffer,
-    _completion_item: &str,
-    completion: weechat::Completion,
-) -> ReturnCode {
+fn handle_role_completion(buffer: &Buffer, completion: weechat::Completion) -> ReturnCode {
     let ctx = match discord::get_ctx() {
         Some(s) => s,
         None => return ReturnCode::Ok,

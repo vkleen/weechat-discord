@@ -107,7 +107,7 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
         if let Some(edit) = parsing::parse_line_edit(text) {
             match edit {
                 parsing::LineEdit::Delete { line } => {
-                    if let Err(e) = crate::utils::get_nth_message(&ctx.http, channel, line)
+                    if let Err(e) = crate::utils::get_users_nth_message(&ctx, channel, line)
                         .map(|msg| channel.delete_message(&ctx.http, msg.id))
                     {
                         buffer.print(&format!(
@@ -124,7 +124,7 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
                 } => {
                     // TODO: Clean this up, (try block)?
                     if let Err(e) =
-                        crate::utils::get_nth_message(&ctx.http, channel, line).map(|mut msg| {
+                        crate::utils::get_users_nth_message(&ctx, channel, line).map(|mut msg| {
                             let orig = msg.content.clone();
                             msg.edit(ctx, |e| {
                                 if options.map(|o| o.contains("g")).unwrap_or_default() {

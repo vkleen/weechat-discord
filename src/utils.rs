@@ -1,4 +1,3 @@
-use serenity::http::Http;
 use serenity::{cache::CacheRwLock, model::prelude::*, prelude::*};
 use std::sync::Arc;
 use weechat::Buffer;
@@ -190,18 +189,28 @@ pub fn flatten_guilds<'a>(
     channels
 }
 
-pub fn get_nth_message(http: &Http, channel: ChannelId, n: usize) -> serenity::Result<Message> {
+pub fn get_users_nth_message(
+    ctx: &Context,
+    channel: ChannelId,
+    n: usize,
+) -> serenity::Result<Message> {
     if n > 50 {
         return Err(serenity::Error::ExceededLimit(
             "Cannot fetch more than 50 items".into(),
             n as u32,
         ));
     }
+    let user = ctx.cache.read().user.id;
+    // TODO: Page if needed
     channel
-        .messages(http, |retreiver| retreiver.limit(n as u64))
+        .messages(&ctx.http, |retreiver| retreiver.limit(50))
         .and_then(|msgs| {
-            msgs.get(n - 1).cloned().ok_or(serenity::Error::Model(
-                serenity::model::ModelError::ItemMissing,
-            ))
+            msgs.iter()
+                .filter(|msg| msg.author.id == user)
+                .nth(n - 1)
+                .cloned()
+                .ok_or(serenity::Error::Model(
+                    serenity::model::ModelError::ItemMissing,
+                ))
         })
 }

@@ -105,6 +105,7 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
         };
 
         if let Some(edit) = parsing::parse_line_edit(text) {
+            let weechat = buffer.get_weechat();
             match edit {
                 parsing::LineEdit::Delete { line } => {
                     if let Err(e) = crate::utils::get_users_nth_message(&ctx, channel, line)
@@ -114,6 +115,12 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
                             "[discord] An error occurred deleting a message: {}",
                             e
                         ));
+                    } else {
+                        buffer.print(&format!(
+                            "{}\tMessage ({}) deleted",
+                            weechat.get_prefix("network"),
+                            line,
+                        ))
                     }
                 }
                 parsing::LineEdit::Sub {
@@ -139,6 +146,15 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
                             "[discord] An error occurred editing a message: {}",
                             e
                         ));
+                    } else {
+                        buffer.print(&format!(
+                            "{}\t{}s/{}/{}/{}",
+                            weechat.get_prefix("network"),
+                            line,
+                            old,
+                            new,
+                            options.unwrap_or_default()
+                        ))
                     }
                 }
             }

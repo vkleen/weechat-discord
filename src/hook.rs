@@ -3,7 +3,7 @@ use serenity::{model::prelude::*, prelude::*};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use weechat::{Buffer, ReturnCode, Weechat};
+use weechat::{Buffer, CompletionPosition, ReturnCode, Weechat};
 
 static mut LAST_TYPING_TIMESTAMP: u64 = 0;
 
@@ -17,6 +17,7 @@ pub struct HookHandles {
     _guild_completion_handle: weechat::CompletionHook<()>,
     _channel_completion_handle: weechat::CompletionHook<()>,
     _dm_completion_handle: weechat::CompletionHook<()>,
+    _nick_completion_handle: weechat::CompletionHook<()>,
     _role_completion_handle: weechat::CompletionHook<()>,
 }
 
@@ -80,6 +81,13 @@ pub fn init(weechat: &Weechat) -> HookHandles {
         None,
     );
 
+    let _nick_completion_handle = weechat.hook_completion(
+        "nicks",
+        "Completion for users in a buffer",
+        |_, ref buffer, ref item, completions| handle_nick_completion(buffer, item, completions),
+        None,
+    );
+
     let _role_completion_handle = weechat.hook_completion(
         "weecord_role",
         "Completion for Discord channel roles",
@@ -97,6 +105,7 @@ pub fn init(weechat: &Weechat) -> HookHandles {
         _guild_completion_handle,
         _channel_completion_handle,
         _dm_completion_handle,
+        _nick_completion_handle,
         _role_completion_handle,
     }
 }
@@ -291,7 +300,7 @@ fn handle_guild_completion(
 
 fn handle_dm_completion(
     _buffer: &Buffer,
-    _completion_time: &str,
+    _completion_itme: &str,
     completion: weechat::Completion,
 ) -> ReturnCode {
     let ctx = match discord::get_ctx() {
@@ -301,6 +310,38 @@ fn handle_dm_completion(
     for dm in ctx.cache.read().private_channels.values() {
         completion.add(&dm.read().recipient.read().name);
     }
+    ReturnCode::Ok
+}
+
+fn handle_nick_completion(
+    buffer: &Buffer,
+    _compeltion_item: &str,
+    completion: weechat::Completion,
+) -> ReturnCode {
+    let ctx = match discord::get_ctx() {
+        Some(s) => s,
+        None => return ReturnCode::Ok,
+    };
+
+    let channel_id = buffer
+        .get_localvar("channelid")
+        .and_then(|id| id.parse().ok())
+        .map(ChannelId);
+
+    if let Some(Channel::Guild(channel)) = channel_id.and_then(|c| c.to_channel(ctx).ok()) {
+        let channel = channel.read();
+
+        if let Ok(members) = channel.members(&ctx.cache) {
+            for member in members {
+                completion.add_with_options(
+                    &format!("@{}", member.distinct()),
+                    false,
+                    CompletionPosition::Sorted,
+                );
+            }
+        }
+    }
+
     ReturnCode::Ok
 }
 

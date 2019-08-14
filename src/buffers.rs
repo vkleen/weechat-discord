@@ -177,7 +177,7 @@ fn find_or_make_buffer(weechat: &Weechat, name: &str) -> Buffer {
 
 pub fn create_guild_buffer(id: GuildId, name: &str) {
     let guild_name_id = utils::buffer_id_for_guild(id);
-    let _: () = on_main_blocking(move |weechat| {
+    let () = on_main_blocking(move |weechat| {
         let buffer = find_or_make_buffer(&weechat, &guild_name_id);
 
         buffer.set_localvar("guild_name", name);
@@ -210,7 +210,7 @@ pub fn create_buffer_from_channel(
 
     let name_id = utils::buffer_id_for_channel(Some(channel.guild_id), channel.id);
 
-    let _: () = on_main_blocking(|weechat| {
+    let () = on_main_blocking(|weechat| {
         let buffer = find_or_make_buffer(&weechat, &name_id);
 
         buffer.set_short_name(&channel.name);
@@ -423,8 +423,6 @@ pub fn load_nicks(buffer: &Buffer) {
 
         let guild = guild_id.to_guild_cached(ctx).expect("No guild cache item");
 
-        let current_user = ctx.cache.read().user.id;
-
         // Typeck not smart enough
         let none_user: Option<UserId> = None;
         // TODO: What to do with more than 1000 members?
@@ -432,7 +430,7 @@ pub fn load_nicks(buffer: &Buffer) {
 
         drop(guild);
 
-        let _: () = on_main_blocking(move |weechat| {
+        let () = on_main_blocking(move |weechat| {
             let ctx = match crate::discord::get_ctx() {
                 Some(ctx) => ctx,
                 _ => return,
@@ -442,15 +440,7 @@ pub fn load_nicks(buffer: &Buffer) {
             let guild = guild_id.to_guild_cached(ctx).expect("No guild cache item");
 
             for member in members {
-                add_member_to_nicklist(
-                    &ctx,
-                    &buffer,
-                    &channel_id,
-                    &guild,
-                    &member,
-                    current_user,
-                    use_presence,
-                );
+                add_member_to_nicklist(&ctx, &buffer, channel_id, &guild, &member, use_presence);
             }
         });
     });
@@ -459,10 +449,9 @@ pub fn load_nicks(buffer: &Buffer) {
 fn add_member_to_nicklist(
     ctx: &Context,
     buffer: &Buffer,
-    channel_id: &ChannelId,
+    channel_id: ChannelId,
     guild: &Arc<RwLock<Guild>>,
     member: &Member,
-    current_user: UserId,
     use_presence: bool,
 ) {
     let user = member.user.read();
@@ -584,22 +573,13 @@ pub fn update_member_nick(old: &Option<Member>, new: &Member) {
                 Some(ctx) => ctx,
                 _ => return,
             };
-            let current_user = ctx.cache.read().user.id;
             for channel_id in channels.keys() {
                 let string_channel = utils::buffer_id_for_channel(Some(guild_id), *channel_id);
                 if let Some(buffer) = weechat.buffer_search("weecord", &string_channel) {
                     if let Some(nick) = buffer.search_nick(&old_nick, None) {
                         nick.remove();
                         if let Some(guild) = guild_id.to_guild_cached(&ctx) {
-                            add_member_to_nicklist(
-                                &ctx,
-                                &buffer,
-                                channel_id,
-                                &guild,
-                                &new,
-                                current_user,
-                                false,
-                            );
+                            add_member_to_nicklist(&ctx, &buffer, *channel_id, &guild, &new, false);
                         }
                     }
                 }

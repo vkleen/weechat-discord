@@ -168,7 +168,7 @@ pub fn search_guild(cache: &CacheRwLock, guild_name: &str) -> Option<Arc<RwLock<
 
 /// Take a slice of GuildOrChannel's and flatten it into a vector of channels
 // TODO: Group channels
-pub fn flatten_guilds<'a>(
+pub fn flatten_guilds(
     ctx: &Context,
     items: &[GuildOrChannel],
 ) -> Vec<(Option<GuildId>, ChannelId)> {

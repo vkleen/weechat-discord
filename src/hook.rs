@@ -42,7 +42,7 @@ pub fn init(weechat: &Weechat) -> HookHandles {
                 return ReturnCode::Error;
             };
 
-            handle_query(buffer, command)
+            handle_query(command)
         },
         None,
     );
@@ -143,7 +143,7 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
                         crate::utils::get_users_nth_message(&ctx, channel, line).map(|mut msg| {
                             let orig = msg.content.clone();
                             msg.edit(ctx, |e| {
-                                if options.map(|o| o.contains("g")).unwrap_or_default() {
+                                if options.map(|o| o.contains('g')).unwrap_or_default() {
                                     e.content(orig.replace(old, new))
                                 } else {
                                     e.content(orig.replacen(old, new, 1))
@@ -200,7 +200,7 @@ fn handle_buffer_typing(weechat: &Weechat, data: weechat::SignalHookValue) -> Re
                 .map(|send| send.as_ref() == "true")
                 .unwrap_or(false)
             {
-                if buffer.input().starts_with("/") {
+                if buffer.input().starts_with('/') {
                     return ReturnCode::Ok;
                 }
                 if let Ok(channel_id) = chnanel_id.as_ref().parse().map(ChannelId) {
@@ -333,7 +333,7 @@ fn handle_role_completion(
 
 // TODO: Make this faster
 // TODO: Handle command options
-pub fn handle_query(buffer: &Buffer, command: &str) -> ReturnCode {
+pub fn handle_query(command: &str) -> ReturnCode {
     if command.len() <= "/query ".len() {
         plugin_print("query requires a username");
         return ReturnCode::Ok;

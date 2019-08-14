@@ -31,7 +31,7 @@ impl<'a> Args<'a> {
         let base = args.remove(0);
         Args {
             base,
-            args: args,
+            args,
             rest: &cmd["/discord ".len() + base.len()..].trim(),
         }
     }
@@ -57,7 +57,7 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "autostart" => autostart(weechat),
         "noautostart" => noautostart(weechat),
         "query" => {
-            crate::hook::handle_query(buffer, &format!("/query {}", args.rest));
+            crate::hook::handle_query(&format!("/query {}", args.rest));
         }
         "join" => {
             join(weechat, args, true);
@@ -171,17 +171,15 @@ pub(crate) fn join(_weechat: &Weechat, args: Args, verbose: bool) -> ReturnCode 
                 );
                 return ReturnCode::OkEat;
             }
-        } else {
-            if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
-                let guild = guild.read();
-                let guild_id = guild.id;
-                drop(guild);
+        } else if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
+            let guild = guild.read();
+            let guild_id = guild.id;
+            drop(guild);
 
-                let channels = utils::flatten_guilds(&ctx, &[GuildOrChannel::Guild(guild_id)]);
+            let channels = utils::flatten_guilds(&ctx, &[GuildOrChannel::Guild(guild_id)]);
 
-                buffers::create_buffers_from_flat_items(&ctx, &ctx.cache.read().user, &channels);
-                return ReturnCode::OkEat;
-            }
+            buffers::create_buffers_from_flat_items(&ctx, &ctx.cache.read().user, &channels);
+            return ReturnCode::OkEat;
         }
         if verbose {
             plugin_print("Couldn't find channel");

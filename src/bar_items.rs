@@ -74,7 +74,7 @@ pub fn init(weechat: &Weechat) -> BarHandles {
                     .collect::<Vec<_>>()
                     .join(", ");
 
-                if users.len() == 0 {
+                if users.is_empty() {
                     "".into()
                 } else {
                     format!("typing: {}", users)

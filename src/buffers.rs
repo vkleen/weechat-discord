@@ -330,6 +330,7 @@ pub fn load_history(buffer: &weechat::Buffer) {
 }
 
 pub fn load_dm_nicks(buffer: &Buffer, channel: &PrivateChannel) {
+    let weechat = buffer.get_weechat();
     let use_presence = buffer
         .get_weechat()
         .get_plugin_option("use_presence")
@@ -349,30 +350,24 @@ pub fn load_dm_nicks(buffer: &Buffer, channel: &PrivateChannel) {
 
         let recip = channel.recipient.read();
         let cache = ctx.cache.read();
-        let online_group = buffer.add_group(ONLINE_GROUP_NAME, "", true, None);
-        let offline_group = buffer.add_group(OFFLINE_GROUP_NAME, "", true, None);
-        let user_group = |user| {
-            if user_online(&*cache, user) {
-                &online_group
-            } else {
-                &offline_group
-            }
-        };
 
         buffer.add_nick(
             NickArgs {
                 name: &recip.name,
+                prefix: &utils::get_user_status_prefix(&weechat, &cache, recip.id),
                 ..Default::default()
             },
-            Some(user_group(recip.id)),
+            None,
         );
 
+        // TODO: Detect current user status properly
         buffer.add_nick(
             NickArgs {
                 name: &cache.user.name,
+                prefix: &format!("{}•{} ", weechat.color("green"), weechat.color("reset")),
                 ..Default::default()
             },
-            Some(user_group(cache.user.id)),
+            None,
         );
     }
 }

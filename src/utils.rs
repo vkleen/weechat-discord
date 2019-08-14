@@ -1,6 +1,6 @@
-use serenity::{cache::CacheRwLock, model::prelude::*, prelude::*};
+use serenity::{cache::Cache, cache::CacheRwLock, model::prelude::*, prelude::*};
 use std::sync::Arc;
-use weechat::Buffer;
+use weechat::{Buffer, Weechat};
 
 #[derive(Debug, Clone, Copy)]
 pub enum GuildOrChannel {
@@ -40,6 +40,24 @@ pub fn status_is_online(status: OnlineStatus) -> bool {
         Offline | Invisible => false,
         _ => unreachable!(),
     }
+}
+
+pub fn get_user_status_prefix(weechat: &Weechat, cache: &Cache, user: UserId) -> String {
+    let presence = cache.presences.get(&user);
+    let prefix_color = match presence.map(|p| p.status) {
+        Some(OnlineStatus::DoNotDisturb) => "red",
+        Some(OnlineStatus::Idle) => "178",
+        Some(OnlineStatus::Invisible) => "weechat.color.nicklist_away",
+        Some(OnlineStatus::Offline) => "weechat.color.nicklist_away",
+        Some(OnlineStatus::Online) => "green",
+        _ => "".into(),
+    };
+
+    format!(
+        "{}•{} ",
+        weechat.color(prefix_color),
+        weechat.color("Reset"),
+    )
 }
 
 pub fn channel_name(channel: &Channel) -> String {

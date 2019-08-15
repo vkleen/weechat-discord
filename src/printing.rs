@@ -1,4 +1,7 @@
 use crate::discord::formatting;
+use lazy_static::lazy_static;
+use regex::Regex;
+use serenity::cache::CacheRwLock;
 use serenity::model::prelude::*;
 use weechat::{Buffer, Weechat};
 
@@ -38,20 +41,7 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         tags.join(",")
     };
 
-    let mut msg_content = msg.content_safe(ctx);
-
-    // TODO: Report content_safe() bug
-    // TODO: Use nicknames instead of user names
-    for u in &msg.mentions {
-        let mut at_distinct = String::with_capacity(38);
-        at_distinct.push('@');
-        at_distinct.push_str(&u.name);
-        at_distinct.push('#');
-        let mention = u.mention().replace("<@", "<@!");
-        use std::fmt::Write;
-        let _ = write!(at_distinct, "{:04}", u.discriminator);
-        msg_content = msg_content.replace(&mention, &at_distinct);
-    }
+    let mut msg_content = humanize_msg(&ctx.cache, msg);
 
     for attachement in &msg.attachments {
         if !msg_content.is_empty() {
@@ -108,4 +98,51 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
             formatting::discord_to_weechat(weechat, &msg_content)
         ),
     );
+}
+
+/// Convert discords mention formatting to real names
+///
+/// Eg, convert user mentions in the form of `<@343888830585372672>` to `@Noskcaj#0804`
+/// as well as roles and channels
+fn humanize_msg(cache: impl AsRef<CacheRwLock>, msg: &Message) -> String {
+    let mut msg_content = msg.content_safe(cache.as_ref());
+
+    // TODO: Report content_safe() bug
+    // TODO: Use nicknames instead of user names
+    for u in &msg.mentions {
+        let mut at_distinct = String::with_capacity(38);
+        at_distinct.push('@');
+        at_distinct.push_str(&u.name);
+        at_distinct.push('#');
+        let mention = u.mention().replace("<@", "<@!");
+        use std::fmt::Write;
+        let _ = write!(at_distinct, "{:04}", u.discriminator);
+        msg_content = msg_content.replace(&mention, &at_distinct);
+    }
+
+    lazy_static! {
+        static ref CHANNEL_REGEX: Regex = Regex::new(r"<#(\d+)?>").unwrap();
+    }
+
+    let mut edits = Vec::new();
+    for cap in CHANNEL_REGEX.captures_iter(&msg_content) {
+        let i = cap.get(1).unwrap();
+        let channel_id = i.as_str().parse::<u64>().unwrap();
+        let replacement =
+            if let Some(channel) = ChannelId(channel_id).to_channel_cached(cache.as_ref()) {
+                crate::utils::channel_name(&channel)
+            } else {
+                "unknown-channel".into()
+            };
+        edits.push((
+            cap.get(0).unwrap().as_str().to_owned(),
+            format!("#{}", replacement),
+        ));
+    }
+
+    for edit in &edits {
+        msg_content = msg_content.replace(&edit.0, &edit.1);
+    }
+
+    msg_content
 }

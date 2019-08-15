@@ -254,6 +254,11 @@ impl EventHandler for Handler {
                     for (id, pres) in guild.presences.clone() {
                         ctx_lock.presences.insert(id, pres);
                     }
+
+                    // TODO: Why are channels not populated by serenity?
+                    for (id, chan) in guild.channels.clone() {
+                        ctx_lock.channels.insert(id, chan);
+                    }
                 }
             }
         }

@@ -77,5 +77,8 @@ fn discord_to_weechat_reducer(weechat: &Weechat, node: &MarkdownNode) -> String 
                     .join("\n"),
             )
         }
+        BlockQuote(styles) | SingleBlockQuote(styles) => collect_styles(weechat, styles)
+            .lines()
+            .fold(String::new(), |acc, x| format!("{}\n▎{}", acc, x)),
     }
 }

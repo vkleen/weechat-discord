@@ -31,14 +31,7 @@ jobs:
       - script: |
           rustc -Vv
           cargo -V
-          echo "##vso[task.setvariable variable=rustcVersion]$(rustc -V)"
         displayName: Query rust and cargo versions
-
-      - task: CacheBeta@0
-        inputs:
-          key: rustc | $(Agent.OS) | $(rustcVersion)
-          path: $(Pipeline.Workspace)/target
-        displayName: Cache target directory
 
       - script: cargo build --release
         displayName: Build

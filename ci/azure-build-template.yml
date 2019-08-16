@@ -18,10 +18,11 @@ jobs:
 
       - ${{ if eq(parameters.name, 'Linux') }}:
           - script: |
-              sudo apt-key adv --keyserver keys.gnupg.net --recv-keys 11E9DE8848F2B65222AA75B8D1820DB22A11534E
+              sudo apt-get install gnupg-curl
+              sudo apt-key adv --keyserver hkps://keys.openpgp.org --recv-keys 11E9DE8848F2B65222AA75B8D1820DB22A11534E
               sudo add-apt-repository "deb https://weechat.org/ubuntu $(lsb_release -cs) main"
-              sudo apt update
-              sudo apt install weechat-dev
+              sudo apt-get update
+              sudo apt install weechat-devel-curses
             displayName: Install weechat
       - ${{ if eq(parameters.name, 'macOS') }}:
           - script: brew install weechat

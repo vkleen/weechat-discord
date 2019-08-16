@@ -13,6 +13,7 @@ pub fn parse_markdown(str: &str) -> Styled<MarkdownNode> {
         &Italic,
         &Strikethrough,
         &Spoiler,
+        &BlockQuote,
         &Code,
         &InlineCode,
         &Text,

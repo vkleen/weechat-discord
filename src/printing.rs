@@ -121,10 +121,21 @@ fn humanize_msg(cache: impl AsRef<CacheRwLock>, msg: &Message) -> String {
     }
 
     lazy_static! {
-        static ref CHANNEL_REGEX: Regex = Regex::new(r"<#(\d+)?>").unwrap();
+        static ref CHANNEL_REGEX: Regex = Regex::new(r"<#(\d+)>").unwrap();
+        static ref USERNAME_REGEX: Regex = Regex::new(r"<@(\d+)>").unwrap();
     }
 
     let mut edits = Vec::new();
+    // TODO: Why do member joins not replace the user id correctly?
+    if msg.kind != MessageType::MemberJoin {
+        for cap in USERNAME_REGEX.captures_iter(&msg_content) {
+            edits.push((
+                cap.get(0).unwrap().as_str().to_owned(),
+                format!("@deleted-user"),
+            ));
+        }
+    }
+
     for cap in CHANNEL_REGEX.captures_iter(&msg_content) {
         let i = cap.get(1).unwrap();
         let channel_id = i.as_str().parse::<u64>().unwrap();

@@ -43,11 +43,20 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
 
     let mut msg_content = humanize_msg(&ctx.cache, msg);
 
-    for attachement in &msg.attachments {
+    for attachment in &msg.attachments {
         if !msg_content.is_empty() {
             msg_content.push('\n');
         }
-        msg_content.push_str(&attachement.proxy_url);
+        if attachment.width.is_some() {
+            // it's an image
+            if let Ok(ref data) = attachment.download() {
+                if let Some(ref str) = draw_img(weechat, data) {
+                    msg_content.push_str(str);
+                    continue;
+                }
+            }
+        }
+        msg_content.push_str(&attachment.proxy_url);
     }
 
     for embed in &msg.embeds {
@@ -95,7 +104,7 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         &format!(
             "{}\t{}",
             author,
-            formatting::discord_to_weechat(weechat, &msg_content)
+            &msg_content //            formatting::discord_to_weechat(weechat, &msg_content)
         ),
     );
 }
@@ -156,4 +165,55 @@ fn humanize_msg(cache: impl AsRef<CacheRwLock>, msg: &Message) -> String {
     }
 
     msg_content
+}
+
+fn draw_img(weechat: &Weechat, data: &[u8]) -> Option<String> {
+    let img = image::load_from_memory(data).ok()?;
+
+    let img = resize_image(&img, (4, 8), (900, 25));
+
+    let render = termimage::render(img, true, 2);
+
+    let mut out = String::new();
+
+    for x in render {
+        for y in x {
+            let fg = termimage::rgb_to_ansi(y.fg).0;
+            let bg = termimage::rgb_to_ansi(y.bg).0;
+            out.push_str(&format!(
+                "{}{}{}",
+                weechat.color(&format!("{},{}", fg, bg)),
+                y.ch,
+                weechat.color("reset")
+            ))
+        }
+        out.push('\n');
+    }
+
+    Some(out)
+}
+
+/// Resizes an image to fit within a max size, then scales an image to fit within a block size
+fn resize_image(
+    img: &image::DynamicImage,
+    cell_size: (u32, u32),
+    max_size: (u16, u16),
+) -> image::DynamicImage {
+    use image::GenericImageView;
+    let img = img.resize(
+        (u32::from(max_size.0)) * cell_size.0,
+        (u32::from(max_size.1)) * cell_size.1,
+        image::FilterType::Nearest,
+    );
+
+    img.resize_exact(
+        closest_mult(img.width(), cell_size.0),
+        closest_mult(img.height(), cell_size.1),
+        image::FilterType::Nearest,
+    )
+}
+
+/// Returns the closest multiple of a base
+fn closest_mult(x: u32, base: u32) -> u32 {
+    base * ((x as f32) / base as f32).round() as u32
 }

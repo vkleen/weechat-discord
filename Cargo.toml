@@ -22,6 +22,8 @@ dirs = "2.0.1"
 crossbeam-channel = "0.3.9"
 json = "0.11.14"
 regex = "1.2.1"
+image = "0.22.1"
+termimage = { package = "libtermimg", git = "https://github.com/terminal-discord/libtermimg" }
 
 [dependencies.serenity]
 git = "https://github.com/terminal-discord/serenity"

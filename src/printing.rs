@@ -43,22 +43,6 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
 
     let mut msg_content = humanize_msg(&ctx.cache, msg);
 
-    for attachment in &msg.attachments {
-        if !msg_content.is_empty() {
-            msg_content.push('\n');
-        }
-        if attachment.width.is_some() {
-            // it's an image
-            if let Ok(ref data) = attachment.download() {
-                if let Some(ref str) = draw_img(weechat, data) {
-                    msg_content.push_str(str);
-                    continue;
-                }
-            }
-        }
-        msg_content.push_str(&attachment.proxy_url);
-    }
-
     for embed in &msg.embeds {
         if !msg_content.is_empty() {
             msg_content.push('\n');
@@ -98,14 +82,27 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
 
     let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
 
+    msg_content = formatting::discord_to_weechat(weechat, &msg_content);
+    for attachment in &msg.attachments {
+        if !msg_content.is_empty() {
+            msg_content.push('\n');
+        }
+        if attachment.width.is_some() {
+            // it's an image
+            if let Ok(ref data) = attachment.download() {
+                if let Some(ref str) = draw_img(weechat, data) {
+                    msg_content.push_str(str);
+                    continue;
+                }
+            }
+        }
+        msg_content.push_str(&attachment.proxy_url);
+    }
+
     buffer.print_tags_dated(
         msg.timestamp.timestamp(),
         &tags,
-        &format!(
-            "{}\t{}",
-            author,
-            &msg_content //            formatting::discord_to_weechat(weechat, &msg_content)
-        ),
+        &format!("{}\t{}", author, msg_content),
     );
 }
 

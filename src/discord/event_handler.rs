@@ -262,6 +262,10 @@ impl EventHandler for Handler {
                 }
             }
         }
+        if let Some(presence) = ctx.cache.read().presences.get(&ready.user.id) {
+            *crate::command::LAST_STATUS.lock() = presence.status;
+        }
+
         unsafe {
             crate::discord::CONTEXT = Some(ctx);
         }

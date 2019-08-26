@@ -1,8 +1,17 @@
 use crate::utils::GuildOrChannel;
 use crate::{buffers, discord, plugin_print, utils};
+use lazy_static::lazy_static;
+use parking_lot::Mutex;
+use serenity::model::gateway::Activity;
 use serenity::model::id::ChannelId;
 use serenity::model::user::OnlineStatus;
+use std::sync::Arc;
 use weechat::{Buffer, CommandHook, ReturnCode, Weechat};
+
+lazy_static! {
+    // Tracks the last set status for use in setting the current game presence
+    pub static ref LAST_STATUS: Arc<Mutex<OnlineStatus>> = Arc::new(Mutex::new(OnlineStatus::Online));
+}
 
 pub fn init(weechat: &Weechat) -> CommandHook<()> {
     weechat.hook_command(
@@ -68,11 +77,12 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "autojoin" => autojoin(weechat, args, buffer),
         "autojoined" => autojoined(weechat),
         "status" => status(args),
+        "game" => game(args),
         "upload" => upload(args, buffer),
         _ => {
             plugin_print("Unknown command");
         }
-    }
+    };
 }
 
 fn connect(weechat: &Weechat) {
@@ -436,7 +446,36 @@ fn status(args: Args) {
         }
     };
     ctx.set_presence(None, status);
+    *LAST_STATUS.lock() = status;
     plugin_print(&format!("Status set to {} {:#?}", status_str, status));
+}
+
+fn game(args: Args) {
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
+
+    let activity = if args.args.len() == 0 {
+        None
+    } else if args.args.len() == 1 {
+        Some(Activity::playing(args.args.get(0).unwrap()))
+    } else {
+        let activity_type = args.args.get(0).unwrap();
+        let activity = &args.rest[activity_type.len() + 1..];
+
+        Some(match *activity_type {
+            "playing" | "play" => Activity::playing(activity),
+            "listening" => Activity::listening(activity),
+            "watching" | "watch" => Activity::watching(activity),
+            _ => {
+                plugin_print(&format!("Unknown activity type \"{}\"", activity_type));
+                return;
+            }
+        })
+    };
+
+    ctx.set_presence(activity, *LAST_STATUS.lock());
 }
 
 fn upload(args: Args, buffer: &Buffer) {
@@ -573,7 +612,8 @@ discord-mode || \
 token || \
 autostart || \
 noautostart || \
-status online|offline|invisible|idle|dnd ||
+status online|offline|invisible|idle|dnd || \
+game playing|listening|watching || \
 upload %(filename) || \
 join %(weecord_guild_completion) %(weecord_channel_completion)",
 };

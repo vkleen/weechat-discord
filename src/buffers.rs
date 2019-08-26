@@ -195,7 +195,7 @@ pub fn create_buffer_from_channel(
     muted: bool,
 ) {
     let current_user = cache.read().user.clone();
-    if let Ok(perms) = channel.permissions_for(cache, current_user.id) {
+    if let Ok(perms) = channel.permissions_for_user(cache, current_user.id) {
         if !perms.read_message_history() {
             return;
         }
@@ -457,7 +457,7 @@ fn add_member_to_nicklist(
         false
     };
 
-    let member_perms = guild.read().permissions_in(channel_id, user.id);
+    let member_perms = guild.read().user_permissions_in(channel_id, user.id);
     // A pretty accurate method of checking if a user is "in" a channel
     if !member_perms.read_message_history() || !member_perms.read_messages() {
         return;

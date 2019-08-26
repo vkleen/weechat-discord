@@ -66,13 +66,14 @@ pub fn init(weechat: &Weechat) -> BarHandles {
                     .get_localvar("guildid")
                     .and_then(|g| g.parse().ok())
                     .map(GuildId);
-                let users = typing_events
+                let mut users = typing_events
                     .entries
                     .iter()
                     .filter(|e| e.guild_id == guild_id && e.channel_id == channel_id)
                     .map(|e| e.user_name.clone())
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                    .collect::<Vec<_>>();
+                users.dedup();
+                let users = users.join(", ");
 
                 if users.is_empty() {
                     "".into()

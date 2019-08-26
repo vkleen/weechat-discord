@@ -354,7 +354,7 @@ pub fn load_history(buffer: &weechat::Buffer) {
     buffer.clear();
     buffer.set_localvar("loaded_history", "true");
 
-    let guarded_buffer = buffer.seal();
+    let sealed_buffer = buffer.seal();
 
     std::thread::spawn(move || {
         let ctx = match crate::discord::get_ctx() {
@@ -364,7 +364,7 @@ pub fn load_history(buffer: &weechat::Buffer) {
 
         if let Ok(msgs) = channel.messages(ctx, |retriever| retriever.limit(25)) {
             on_main(move |weechat| {
-                let buf = guarded_buffer.unseal(&weechat);
+                let buf = sealed_buffer.unseal(&weechat);
                 for msg in msgs.into_iter().rev() {
                     crate::printing::print_msg(&weechat, &buf, &msg, false);
                 }
@@ -452,7 +452,7 @@ pub fn load_nicks(buffer: &Buffer) {
         .map(|o| o == "true")
         .unwrap_or(false);
 
-    let guarded_buffer = buffer.seal();
+    let sealed_buffer = buffer.seal();
 
     std::thread::spawn(move || {
         let ctx = match crate::discord::get_ctx() {
@@ -475,7 +475,7 @@ pub fn load_nicks(buffer: &Buffer) {
                 _ => return,
             };
 
-            let buffer = guarded_buffer.unseal(&weechat);
+            let buffer = sealed_buffer.unseal(&weechat);
             let guild = guild_id.to_guild_cached(ctx).expect("No guild cache item");
 
             for member in members {

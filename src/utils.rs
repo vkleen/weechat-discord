@@ -101,10 +101,14 @@ pub fn unique_guild_id(guild: GuildId) -> String {
 pub fn parse_id(id: &str) -> Option<GuildOrChannel> {
     // id has channel part
     if let Some(c_start) = id.find('C') {
-        let guild_id = id[1..c_start].parse().ok()?;
-        let channel_id = id[c_start + 1..].parse().ok()?;
-
-        Some(GuildOrChannel::Channel(Some(GuildId(guild_id)), channel_id))
+        if id.starts_with('C') {
+            let channel_id = id[1..].parse().ok()?;
+            Some(GuildOrChannel::Channel(None, channel_id))
+        } else {
+            let guild_id = id[1..c_start].parse().ok()?;
+            let channel_id = id[c_start + 1..].parse().ok()?;
+            Some(GuildOrChannel::Channel(Some(GuildId(guild_id)), channel_id))
+        }
     } else {
         // id is only a guild
         let guild_id = id[1..].parse().ok()?;

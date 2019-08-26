@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use serenity::{cache::Cache, cache::CacheRwLock, model::prelude::*, prelude::*};
 use std::sync::Arc;
 use weechat::{Buffer, Weechat};
@@ -188,13 +189,12 @@ pub fn search_guild(cache: &CacheRwLock, guild_name: &str) -> Option<Arc<RwLock<
     None
 }
 
-/// Take a slice of GuildOrChannel's and flatten it into a vector of channels
-// TODO: Group channels
+/// Take a slice of GuildOrChannel's and flatten it into a map of channels
 pub fn flatten_guilds(
     ctx: &Context,
     items: &[GuildOrChannel],
-) -> Vec<(Option<GuildId>, ChannelId)> {
-    let mut channels: Vec<(Option<GuildId>, ChannelId)> = Vec::new();
+) -> IndexMap<Option<GuildId>, Vec<ChannelId>> {
+    let mut channels: IndexMap<Option<GuildId>, Vec<ChannelId>> = IndexMap::new();
     // flatten guilds into channels
     for item in items {
         match item {
@@ -202,9 +202,14 @@ pub fn flatten_guilds(
                 let guild_channels = guild_id.channels(ctx).expect("Unable to fetch channels");
                 let mut guild_channels = guild_channels.values().collect::<Vec<_>>();
                 guild_channels.sort_by_key(|g| g.position);
-                channels.extend(guild_channels.iter().map(|ch| (Some(*guild_id), ch.id)));
+                channels
+                    .entry(Some(*guild_id))
+                    .or_default()
+                    .extend(guild_channels.iter().map(|ch| ch.id));
             }
-            GuildOrChannel::Channel(guild, channel) => channels.push((*guild, *channel)),
+            GuildOrChannel::Channel(guild, channel) => {
+                channels.entry(*guild).or_default().push(*channel);
+            }
         }
     }
 

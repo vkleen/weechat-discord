@@ -22,6 +22,7 @@ dirs = "2.0.1"
 crossbeam-channel = "0.3.9"
 json = "0.11.14"
 regex = "1.2.1"
+indexmap = "1.1.0"
 
 [dependencies.serenity]
 git = "https://github.com/terminal-discord/serenity"

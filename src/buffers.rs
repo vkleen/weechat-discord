@@ -1,5 +1,6 @@
 use crate::sync::on_main_blocking;
 use crate::{on_main, utils};
+use indexmap::IndexMap;
 use serenity::cache::Cache;
 use serenity::{cache::CacheRwLock, model::prelude::*, prelude::*};
 use std::collections::{HashMap, VecDeque};
@@ -106,46 +107,89 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
 pub fn create_buffers_from_flat_items(
     ctx: &Context,
     current_user: &CurrentUser,
-    channels: &[(Option<GuildId>, ChannelId)],
+    channels: &IndexMap<Option<GuildId>, Vec<ChannelId>>,
 ) {
     // TODO: Flatten and iterate by guild, then channel
-    for (guild_id, channel_id) in channels {
-        if let Some(guild_id) = guild_id {
-            let guild = match guild_id.to_guild_cached(&ctx.cache) {
-                Some(guild) => guild,
-                None => continue,
-            };
-            let guild = guild.read();
-
-            // TODO: Colors?
-            let nick = if let Ok(current_member) = guild.id.member(ctx, current_user.id) {
-                format!("@{}", current_member.display_name())
-            } else {
-                format!("@{}", current_user.name)
-            };
-
-            create_guild_buffer(guild.id, &guild.name);
-            // TODO: Muting
-            let () = on_main_blocking(move |_| {
-                let ctx = match crate::discord::get_ctx() {
-                    Some(ctx) => ctx,
-                    _ => return,
-                };
-
+    for guild_id in channels.iter() {
+        match guild_id {
+            (Some(guild_id), channels) => {
                 let guild = match guild_id.to_guild_cached(&ctx.cache) {
                     Some(guild) => guild,
                     None => return,
                 };
                 let guild = guild.read();
 
-                let channel = match guild.channels.get(&channel_id) {
-                    Some(channel) => channel,
-                    None => return,
+                // TODO: Colors?
+                let nick = if let Ok(current_member) = guild.id.member(ctx, current_user.id) {
+                    format!("@{}", current_member.display_name())
+                } else {
+                    format!("@{}", current_user.name)
                 };
-                let channel = channel.read();
+                let nick = &nick;
 
-                create_buffer_from_channel(&ctx.cache, &guild.name, &channel, &nick, false)
-            });
+                create_guild_buffer(guild.id, &guild.name);
+                for channel in channels {
+                    // TODO: Muting
+                    let () = on_main_blocking(move |_| {
+                        let ctx = match crate::discord::get_ctx() {
+                            Some(ctx) => ctx,
+                            _ => return,
+                        };
+
+                        let guild = match guild_id.to_guild_cached(&ctx.cache) {
+                            Some(guild) => guild,
+                            None => return,
+                        };
+                        let guild = guild.read();
+
+                        let channel = match channel
+                            .to_channel_cached(&ctx.cache)
+                            .and_then(Channel::guild)
+                        {
+                            Some(channel) => channel,
+                            None => return,
+                        };
+
+                        create_buffer_from_channel(
+                            &ctx.cache,
+                            &guild.name,
+                            &channel.read(),
+                            &nick,
+                            false,
+                        );
+                    });
+                }
+            }
+            (None, channels) => {
+                let ctx = match crate::discord::get_ctx() {
+                    Some(ctx) => ctx,
+                    _ => return,
+                };
+                let cache = ctx.cache.read();
+                let nick = cache.user.name.to_string();
+
+                for channel_id in channels {
+                    let nick = nick.clone();
+                    let channel = match channel_id.to_channel(ctx) {
+                        Ok(channel) => channel,
+                        Err(_) => {
+                            crate::plugin_print("cache miss");
+                            continue;
+                        }
+                    };
+
+                    match channel {
+                        channel @ Channel::Private(_) => on_main(move |weechat| {
+                            create_buffer_from_dm(weechat, channel, &nick, false);
+                        }),
+
+                        channel @ Channel::Group(_) => on_main(move |weechat| {
+                            create_buffer_from_group(weechat, channel, &nick);
+                        }),
+                        _ => unreachable!(),
+                    }
+                }
+            }
         }
     }
 }

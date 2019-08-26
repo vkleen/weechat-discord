@@ -1,6 +1,7 @@
 use crate::utils::GuildOrChannel;
 use crate::{buffers, discord, plugin_print, utils};
 use serenity::model::id::ChannelId;
+use serenity::model::user::OnlineStatus;
 use weechat::{Buffer, CommandHook, ReturnCode, Weechat};
 
 pub fn init(weechat: &Weechat) -> CommandHook<()> {
@@ -66,6 +67,7 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "watched" => watched(weechat),
         "autojoin" => autojoin(weechat, args, buffer),
         "autojoined" => autojoined(weechat),
+        "status" => status(args),
         "upload" => upload(args, buffer),
         _ => {
             plugin_print("Unknown command");
@@ -412,6 +414,31 @@ fn autojoined(weechat: &Weechat) {
     }
 }
 
+fn status(args: Args) {
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
+    let status_str = if args.args.is_empty() {
+        "online"
+    } else {
+        args.args.get(0).unwrap()
+    };
+
+    let status = match status_str.to_lowercase().as_str() {
+        "online" => OnlineStatus::Online,
+        "offline" | "invisible" => OnlineStatus::Invisible,
+        "idle" => OnlineStatus::Idle,
+        "dnd" => OnlineStatus::DoNotDisturb,
+        _ => {
+            plugin_print(&format!("Unknown status \"{}\"", status_str));
+            return;
+        }
+    };
+    ctx.set_presence(None, status);
+    plugin_print(&format!("Status set to {} {:#?}", status_str, status));
+}
+
 fn upload(args: Args, buffer: &Buffer) {
     if args.args.is_empty() {
         plugin_print("upload requires an argument");
@@ -522,6 +549,7 @@ Options used:
     autojoined: List autojoined guilds and channels
     autostart: automatically sign into discord on start
     noautostart: disable autostart
+    status: set your Discord online status
     token: set Discord login token
     upload: upload a file to the current channel
 
@@ -545,6 +573,7 @@ discord-mode || \
 token || \
 autostart || \
 noautostart || \
+status online|offline|invisible|idle|dnd ||
 upload %(filename) || \
 join %(weecord_guild_completion) %(weecord_channel_completion)",
 };

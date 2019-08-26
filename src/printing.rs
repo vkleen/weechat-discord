@@ -87,12 +87,15 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         if !msg_content.is_empty() {
             msg_content.push('\n');
         }
-        if attachment.width.is_some() {
-            // it's an image
-            if let Ok(ref data) = attachment.download() {
-                if let Some(ref str) = draw_img(weechat, data) {
-                    msg_content.push_str(str);
-                    continue;
+        #[cfg(feature = "images")]
+        {
+            if attachment.width.is_some() {
+                // it's an image
+                if let Ok(ref data) = attachment.download() {
+                    if let Some(ref str) = draw_img(weechat, data) {
+                        msg_content.push_str(str);
+                        continue;
+                    }
                 }
             }
         }
@@ -164,10 +167,11 @@ fn humanize_msg(cache: impl AsRef<CacheRwLock>, msg: &Message) -> String {
     msg_content
 }
 
+#[cfg(feature = "images")]
 fn draw_img(weechat: &Weechat, data: &[u8]) -> Option<String> {
     let img = image::load_from_memory(data).ok()?;
 
-    let img = resize_image(&img, (4, 8), (900, 25));
+    let img = termimage::resize_image(&img, (4, 8), (900, 25));
 
     let render = termimage::render(img, true, 2);
 
@@ -188,29 +192,4 @@ fn draw_img(weechat: &Weechat, data: &[u8]) -> Option<String> {
     }
 
     Some(out)
-}
-
-/// Resizes an image to fit within a max size, then scales an image to fit within a block size
-fn resize_image(
-    img: &image::DynamicImage,
-    cell_size: (u32, u32),
-    max_size: (u16, u16),
-) -> image::DynamicImage {
-    use image::GenericImageView;
-    let img = img.resize(
-        (u32::from(max_size.0)) * cell_size.0,
-        (u32::from(max_size.1)) * cell_size.1,
-        image::FilterType::Nearest,
-    );
-
-    img.resize_exact(
-        closest_mult(img.width(), cell_size.0),
-        closest_mult(img.height(), cell_size.1),
-        image::FilterType::Nearest,
-    )
-}
-
-/// Returns the closest multiple of a base
-fn closest_mult(x: u32, base: u32) -> u32 {
-    base * ((x as f32) / base as f32).round() as u32
 }

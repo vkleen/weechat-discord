@@ -1,4 +1,5 @@
-installdir=$(HOME)/.weechat
+WEECHAT_HOME ?= $(HOME)
+installdir=$(WEECHAT_HOME)/.weechat
 testdir=./test_dir
 
 .PHONY: all install install_test test run format clippy

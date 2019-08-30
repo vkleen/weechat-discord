@@ -478,20 +478,33 @@ pub fn load_nicks(buffer: &Buffer) {
             let buffer = sealed_buffer.unseal(&weechat);
             let guild = guild_id.to_guild_cached(ctx).expect("No guild cache item");
 
+            let has_crown = guild_has_crown(&guild.read());
+
             for member in members {
-                add_member_to_nicklist(&ctx, &buffer, channel_id, &guild, &member, use_presence);
+                add_member_to_nicklist(
+                    weechat,
+                    &ctx,
+                    &buffer,
+                    channel_id,
+                    &guild,
+                    &member,
+                    use_presence,
+                    has_crown,
+                );
             }
         });
     });
 }
 
 fn add_member_to_nicklist(
+    weechat: &Weechat,
     ctx: &Context,
     buffer: &Buffer,
     channel_id: ChannelId,
     guild: &Arc<RwLock<Guild>>,
     member: &Member,
     use_presence: bool,
+    guild_has_crown: bool,
 ) {
     let user = member.user.read();
     // the current user does not seem to usually have a presence, assume they are online
@@ -548,9 +561,17 @@ fn add_member_to_nicklist(
         Some(group) => group,
         None => buffer.add_group(&role_name, &role_color, true, None),
     };
+
+    // TODO: Only show crown if there are no roles
+    let nicklist_name = if guild_has_crown && guild.read().owner_id == user.id {
+        format!("{} {}♛", member.display_name(), weechat.color("214"))
+    } else {
+        member.display_name().into_owned()
+    };
+
     buffer.add_nick(
         weechat::NickArgs {
-            name: member.display_name().as_ref(),
+            name: nicklist_name.as_ref(),
             ..Default::default()
         },
         Some(&group),
@@ -618,11 +639,29 @@ pub fn update_member_nick(old: &Option<Member>, new: &Member) {
                     if let Some(nick) = buffer.search_nick(&old_nick, None) {
                         nick.remove();
                         if let Some(guild) = guild_id.to_guild_cached(&ctx) {
-                            add_member_to_nicklist(&ctx, &buffer, *channel_id, &guild, &new, false);
+                            add_member_to_nicklist(
+                                weechat,
+                                &ctx,
+                                &buffer,
+                                *channel_id,
+                                &guild,
+                                &new,
+                                false,
+                                guild_has_crown(&guild.read()),
+                            );
                         }
                     }
                 }
             }
         })
     }
+}
+
+fn guild_has_crown(guild: &Guild) -> bool {
+    for role in guild.roles.values() {
+        if role.hoist && role.permissions.administrator() {
+            return false;
+        }
+    }
+    true
 }

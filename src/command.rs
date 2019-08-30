@@ -79,6 +79,9 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "status" => status(args),
         "game" => game(args),
         "upload" => upload(args, buffer),
+        "me" | "tableflip" | "unflip" | "shrug" | "spoiler" => {
+            discord_fmt(args.base, args.rest, buffer)
+        }
         _ => {
             plugin_print("Unknown command");
         }
@@ -549,6 +552,33 @@ fn user_set_option(weechat: &Weechat, name: &str, value: &str) {
     plugin_print(&msg);
 }
 
+fn discord_fmt(cmd: &str, msg: &str, buffer: &Buffer) {
+    let msg = match cmd {
+        "me" => format!("_{}_", msg),
+        "tableflip" => format!("{} (╯°□°）╯︵ ┻━┻", msg),
+        "unflip" => format!("{} ┬─┬ ノ( ゜-゜ノ)", msg),
+        "shrug" => format!("{} ¯\\_(ツ)_/¯", msg),
+        "spoiler" => format!("||{}||", msg),
+        _ => unreachable!(),
+    };
+
+    let channel = match buffer.get_localvar("channelid") {
+        Some(channel) => channel,
+        None => return,
+    };
+    let channel = match channel.parse::<u64>() {
+        Ok(v) => ChannelId(v),
+        Err(_) => return,
+    };
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
+    let _ = channel.send_message(&ctx.http, |m| {
+        m.content(msg)
+    });
+}
+
 const CMD_DESCRIPTION: weechat::CommandDescription = weechat::CommandDescription {
     name: "discord",
     description: "\
@@ -574,7 +604,12 @@ Options used:
     autostart
     noautostart
     token <token>
-    upload <file>",
+    upload <file>
+    me
+    tableflip
+    unflip
+    shrug
+    spoiler",
     args_description: "
     connect: sign in to discord and open chat buffers
     disconnect: sign out of Discord
@@ -615,5 +650,10 @@ noautostart || \
 status online|offline|invisible|idle|dnd || \
 game playing|listening|watching || \
 upload %(filename) || \
+me || \
+tableflip || \
+unflip || \
+shrug || \
+spoiler || \
 join %(weecord_guild_completion) %(weecord_channel_completion)",
 };

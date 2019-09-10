@@ -1,4 +1,4 @@
-use crate::{discord, on_main, plugin_print};
+use crate::{discord, on_main, plugin_print, utils};
 use serenity::{model::prelude::*, prelude::*};
 use std::sync::Arc;
 use std::thread;
@@ -116,6 +116,11 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
         .and_then(|id| id.parse().ok())
         .map(ChannelId);
 
+    let guild = buffer
+        .get_localvar("guildid")
+        .and_then(|id| id.parse().ok())
+        .map(GuildId);
+
     if let Some(channel) = channel {
         let ctx = match crate::discord::get_ctx() {
             Some(ctx) => ctx,
@@ -178,7 +183,7 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
             }
             return;
         }
-
+        let text = utils::create_mentions(&ctx.cache, guild, text);
         channel
             .say(ctx, text)
             .unwrap_or_else(|_| panic!("Unable to send message to {}", channel.0));

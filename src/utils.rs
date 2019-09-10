@@ -1,5 +1,12 @@
 use indexmap::IndexMap;
-use serenity::{cache::Cache, cache::CacheRwLock, model::prelude::*, prelude::*};
+use lazy_static::lazy_static;
+use regex::Regex;
+use serenity::{
+    cache::Cache,
+    cache::CacheRwLock,
+    model::{id::ChannelId, prelude::*},
+    prelude::*,
+};
 use std::sync::Arc;
 use weechat::{Buffer, Weechat};
 
@@ -240,4 +247,66 @@ pub fn get_users_nth_message(
                     serenity::model::ModelError::ItemMissing,
                 ))
         })
+}
+
+// TODO: Role mentions
+/// Parse user input and replace mentions with Discords internal representation
+///
+/// This is not in `parsing` because it depends on `serenity`
+pub fn create_mentions(cache: &CacheRwLock, guild_id: Option<GuildId>, input: &str) -> String {
+    let mut out = String::from(input);
+
+    lazy_static! {
+        static ref CHANNEL_MENTION: Regex = Regex::new(r"#([a-z_-]+)").unwrap();
+        static ref USER_MENTION: Regex = Regex::new(r"@(.{0,32}?)#(\d{4})").unwrap();
+    }
+
+    let channel_mentions = CHANNEL_MENTION.captures_iter(input);
+    for channel_match in channel_mentions {
+        let channel_name = channel_match.get(1).unwrap().as_str();
+
+        // TODO: Remove duplication
+        if let Some(guild) = guild_id.and_then(|g| g.to_guild_cached(cache)) {
+            for (id, chan) in &guild.read().channels {
+                if chan.read().name() == channel_name {
+                    out = out.replace(channel_match.get(0).unwrap().as_str(), &id.mention());
+                }
+            }
+        } else {
+            for (id, chan) in &cache.read().channels {
+                if chan.read().name() == channel_name {
+                    out = out.replace(channel_match.get(0).unwrap().as_str(), &id.mention());
+                }
+            }
+        };
+    }
+
+    let user_mentions = USER_MENTION.captures_iter(input);
+    // TODO: Support nick names
+    for user_match in user_mentions {
+        eprintln!("{}", user_match.get(0).unwrap().as_str());
+        let user_name = user_match.get(1).unwrap().as_str();
+
+        if let Some(guild) = guild_id.and_then(|g| g.to_guild_cached(cache)) {
+            for (id, member) in &guild.read().members {
+                if let Some(nick) = &member.nick {
+                    if nick == user_name {
+                        out = out.replace(user_match.get(0).unwrap().as_str(), &id.mention());
+                        continue;
+                    }
+                }
+
+                if member.user.read().name == user_name {
+                    out = out.replace(user_match.get(0).unwrap().as_str(), &id.mention());
+                }
+            }
+        }
+        for (id, user) in cache.read().users.iter() {
+            if user.read().name == user_name {
+                out = out.replace(user_match.get(0).unwrap().as_str(), &id.mention());
+            }
+        }
+    }
+
+    out
 }

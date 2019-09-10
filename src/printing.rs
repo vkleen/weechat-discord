@@ -89,15 +89,34 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
 
     let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
 
-    buffer.print_tags_dated(
-        msg.timestamp.timestamp(),
-        &tags,
-        &format!(
-            "{}\t{}",
-            author,
-            formatting::discord_to_weechat(weechat, &msg_content)
-        ),
-    );
+    use MessageType::*;
+    match msg.kind {
+        Regular => {
+            buffer.print_tags_dated(
+                msg.timestamp.timestamp(),
+                &tags,
+                &format!(
+                    "{}\t{}",
+                    author,
+                    formatting::discord_to_weechat(weechat, &msg_content)
+                ),
+            );
+        }
+
+        _ => {
+            let prefix = match msg.kind {
+                GroupRecipientAddition | MemberJoin => "join",
+                GroupRecipientRemoval => "quit",
+                _ => "network",
+            };
+            buffer.print_tags_dated(
+                msg.timestamp.timestamp(),
+                &tags,
+                &(weechat.get_prefix(prefix).into_owned()
+                    + &formatting::discord_to_weechat(weechat, &msg_content)),
+            );
+        }
+    };
 }
 
 /// Convert discords mention formatting to real names

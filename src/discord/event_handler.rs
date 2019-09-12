@@ -235,14 +235,10 @@ impl EventHandler for Handler {
     }
 
     fn ready(&self, ctx: Context, ready: Ready) {
-        // Opcode 12 is undocumented "guild sync" which forces all guilds to be sent to the client
-        let data = object! {
-            "op" => 12,
-            "d" => ready.guilds.iter().map(|g| g.id().0.to_string()).collect::<Vec<_>>()
-        };
-        ctx.shard
-            .websocket_message(WsMessage::text(data.to_string()));
         // Cache seems not to have all fields properly populated
+
+        ctx.shard
+            .chunk_guilds(ready.guilds.iter().map(|g| g.id()), None, None);
         {
             let mut ctx_lock = ctx.cache.write();
             for (&id, channel) in &ready.private_channels {

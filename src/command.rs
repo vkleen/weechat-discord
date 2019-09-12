@@ -574,9 +574,7 @@ fn discord_fmt(cmd: &str, msg: &str, buffer: &Buffer) {
         Some(ctx) => ctx,
         _ => return,
     };
-    let _ = channel.send_message(&ctx.http, |m| {
-        m.content(msg)
-    });
+    let _ = channel.send_message(&ctx.http, |m| m.content(msg));
 }
 
 const CMD_DESCRIPTION: weechat::CommandDescription = weechat::CommandDescription {

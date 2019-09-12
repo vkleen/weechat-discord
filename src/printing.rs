@@ -145,9 +145,27 @@ fn humanize_msg(cache: impl AsRef<CacheRwLock>, msg: &Message) -> String {
     }
 
     let mut edits = Vec::new();
-    // TODO: Why do member joins not replace the user id correctly?
-    if msg.kind != MessageType::MemberJoin {
-        for cap in USERNAME_REGEX.captures_iter(&msg_content) {
+    // TODO: Why do non "regular" messages not have mentions in the mention field?
+    for cap in USERNAME_REGEX.captures_iter(&msg_content) {
+        if msg.kind != MessageType::Regular {
+            let ctx = match crate::discord::get_ctx() {
+                Some(ctx) => ctx,
+                _ => unreachable!(),
+            };
+            let i = cap.get(1).unwrap().as_str();
+            let user_id = UserId(i.parse::<u64>().unwrap());
+            if let Some(user) = user_id.to_user_cached(ctx) {
+                let u = user.read();
+                let mut at_distinct = String::with_capacity(38);
+                at_distinct.push('@');
+                at_distinct.push_str(&u.name);
+                at_distinct.push('#');
+                let mention = u.mention();
+                use std::fmt::Write;
+                let _ = write!(at_distinct, "{:04}", u.discriminator);
+                edits.push((cap.get(0).unwrap().as_str().to_owned(), at_distinct));
+            }
+        } else {
             edits.push((
                 cap.get(0).unwrap().as_str().to_owned(),
                 format!("@deleted-user"),

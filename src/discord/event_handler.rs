@@ -1,10 +1,6 @@
 use crate::{buffers, on_main, on_main_blocking, printing, utils};
-use json::object;
 use lazy_static::lazy_static;
-use serenity::{
-    client::bridge::gateway::Message as WsMessage, model::gateway::Ready, model::prelude::*,
-    prelude::*,
-};
+use serenity::{model::gateway::Ready, model::prelude::*, prelude::*};
 use std::sync::{mpsc::Sender, Arc};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

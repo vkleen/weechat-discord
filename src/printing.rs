@@ -160,7 +160,6 @@ fn humanize_msg(cache: impl AsRef<CacheRwLock>, msg: &Message) -> String {
                 at_distinct.push('@');
                 at_distinct.push_str(&u.name);
                 at_distinct.push('#');
-                let mention = u.mention();
                 use std::fmt::Write;
                 let _ = write!(at_distinct, "{:04}", u.discriminator);
                 edits.push((cap.get(0).unwrap().as_str().to_owned(), at_distinct));

@@ -284,7 +284,6 @@ pub fn create_mentions(cache: &CacheRwLock, guild_id: Option<GuildId>, input: &s
     let user_mentions = USER_MENTION.captures_iter(input);
     // TODO: Support nick names
     for user_match in user_mentions {
-        eprintln!("{}", user_match.get(0).unwrap().as_str());
         let user_name = user_match.get(1).unwrap().as_str();
 
         if let Some(guild) = guild_id.and_then(|g| g.to_guild_cached(cache)) {

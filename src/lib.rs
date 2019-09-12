@@ -1,5 +1,3 @@
-extern crate json;
-
 mod bar_items;
 mod buffers;
 mod command;

@@ -258,7 +258,7 @@ pub fn create_mentions(cache: &CacheRwLock, guild_id: Option<GuildId>, input: &s
 
     lazy_static! {
         static ref CHANNEL_MENTION: Regex = Regex::new(r"#([a-z_-]+)").unwrap();
-        static ref USER_MENTION: Regex = Regex::new(r"@(.{0,32}?)#(\d{4})").unwrap();
+        static ref USER_MENTION: Regex = Regex::new(r"@(.{0,32}?)#(\d{2,4})").unwrap();
     }
 
     let channel_mentions = CHANNEL_MENTION.captures_iter(input);

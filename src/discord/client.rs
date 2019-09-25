@@ -1,10 +1,10 @@
 use super::event_handler::Handler;
+use crate::Discord;
 use serenity::{client::bridge::gateway::ShardManager, model::gateway::Ready, prelude::*};
 use std::{
     sync::{mpsc, Arc},
     thread,
 };
-use weechat::Weechat;
 
 pub struct DiscordClient {
     shard_manager: Arc<Mutex<ShardManager>>,
@@ -12,11 +12,11 @@ pub struct DiscordClient {
 
 impl DiscordClient {
     pub fn start(
-        weechat: &Weechat,
+        weecord: &Discord,
         token: &str,
     ) -> Result<(DiscordClient, mpsc::Receiver<Ready>), serenity::Error> {
         let (tx, rx) = mpsc::channel();
-        let handler = Handler::new(weechat, Arc::new(Mutex::new(tx)));
+        let handler = Handler::new(weecord, Arc::new(Mutex::new(tx)));
 
         let mut client = Client::new(token, handler)?;
 

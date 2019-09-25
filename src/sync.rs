@@ -1,3 +1,4 @@
+use crate::Discord;
 use crossbeam_channel::{unbounded, Sender};
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
@@ -13,9 +14,9 @@ use weechat::Weechat;
 pub struct SyncHandle(weechat::TimerHook<()>);
 
 enum Job {
-    Nonblocking(Box<dyn FnOnce(&Weechat) + Send>),
+    Nonblocking(Box<dyn FnOnce(&Discord) + Send>),
     Blocking(
-        Box<dyn FnOnce(&Weechat) -> (Box<dyn Any + Send>) + Send>,
+        Box<dyn FnOnce(&Discord) -> (Box<dyn Any + Send>) + Send>,
         Sender<Box<dyn Any + Send>>,
     ),
 }
@@ -36,10 +37,10 @@ pub fn init(weechat: &weechat::Weechat) -> SyncHandle {
     SyncHandle(weechat.hook_timer(Duration::from_millis(25), 0, 0, |_, _, _| tick(), None))
 }
 
-pub fn on_main<F: 'static + FnOnce(&Weechat) + Send>(cb: F) {
+pub fn on_main<F: 'static + FnOnce(&Discord) + Send>(cb: F) {
     if std::thread::current().id() == unsafe { MAIN_THREAD.unwrap() } {
         // already on the main thread, run closure now
-        cb(unsafe { &crate::__PLUGIN.as_ref().unwrap().weechat });
+        cb(unsafe { &crate::__PLUGIN.as_ref().unwrap() });
     } else {
         // queue closure for later
         JOB_QUEUE
@@ -49,18 +50,18 @@ pub fn on_main<F: 'static + FnOnce(&Weechat) + Send>(cb: F) {
     }
 }
 
-pub fn on_main_blocking<R: Send, F: FnOnce(&Weechat) -> R + Send, ER: 'static + Send>(cb: F) -> ER {
+pub fn on_main_blocking<R: Send, F: FnOnce(&Discord) -> R + Send, ER: 'static + Send>(cb: F) -> ER {
     let cb = unsafe {
         // This should be ok because the lifetime does not actually
         // have to be valid for 'static, just until the function returns
         transmute::<
-            Box<dyn FnOnce(&Weechat) -> R + Send>,
-            Box<dyn 'static + FnOnce(&Weechat) -> ER + Send>,
+            Box<dyn FnOnce(&Discord) -> R + Send>,
+            Box<dyn 'static + FnOnce(&Discord) -> ER + Send>,
         >(Box::new(cb))
     };
 
     if std::thread::current().id() == unsafe { MAIN_THREAD.unwrap() } {
-        cb(unsafe { &crate::__PLUGIN.as_ref().unwrap().weechat })
+        cb(unsafe { &crate::__PLUGIN.as_ref().unwrap() })
     } else {
         let (tx, rx) = unbounded();
         let job = Job::Blocking(Box::new(move |data| Box::new(cb(data))), tx);
@@ -74,12 +75,17 @@ pub fn on_main_blocking<R: Send, F: FnOnce(&Weechat) -> R + Send, ER: 'static + 
 fn tick() {
     match JOB_QUEUE.lock().borrow_mut().pop_front() {
         Some(Job::Nonblocking(cb)) => {
-            (cb)(unsafe { &crate::__PLUGIN.as_ref().unwrap().weechat });
+            (cb)(unsafe { &crate::__PLUGIN.as_ref().unwrap() });
         }
         Some(Job::Blocking(cb, tx)) => {
-            let result = (cb)(unsafe { &crate::__PLUGIN.as_ref().unwrap().weechat });
+            let result = (cb)(unsafe { &crate::__PLUGIN.as_ref().unwrap() });
             let _ = tx.send(result);
         }
         None => {}
     }
+}
+
+pub fn upgrade_plugin(weechat: &Weechat) -> &Discord {
+    let _ = weechat;
+    unsafe { crate::__PLUGIN.as_ref().unwrap() }
 }

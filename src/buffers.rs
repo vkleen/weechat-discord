@@ -5,7 +5,7 @@ use serenity::cache::Cache;
 use serenity::{cache::CacheRwLock, model::prelude::*, prelude::*};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use weechat::{Buffer, NickArgs, Weechat};
+use weechat::{Buffer, ConfigOption, NickArgs, Weechat};
 
 const OFFLINE_GROUP_NAME: &str = "99999|Offline";
 const ONLINE_GROUP_NAME: &str = "99998|Online";
@@ -82,24 +82,10 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
 
     let current_user = ctx.cache.read().user.clone();
 
-    let autojoined_items = on_main_blocking(move |weechat| {
-        weechat
-            .get_plugin_option("autojoin_channels")
-            .map(|ch| ch.to_string())
-    });
-
-    let autojoin_items: String = match autojoined_items {
-        Some(items) => items,
-        None => return,
-    };
-
-    let autojoin_items = autojoin_items
-        .split(',')
-        .filter(|i| !i.is_empty())
-        .filter_map(utils::parse_id);
+    let autojoin_items: Vec<_> = on_main_blocking(|weecord| weecord.config.autojoin_channels());
 
     // flatten guilds into channels
-    let channels = utils::flatten_guilds(&ctx, &autojoin_items.collect::<Vec<_>>());
+    let channels = utils::flatten_guilds(&ctx, &autojoin_items);
 
     create_buffers_from_flat_items(&ctx, &current_user, &channels);
 }
@@ -375,11 +361,7 @@ pub fn load_history(buffer: &weechat::Buffer) {
 
 pub fn load_dm_nicks(buffer: &Buffer, channel: &PrivateChannel) {
     let weechat = buffer.get_weechat();
-    let use_presence = buffer
-        .get_weechat()
-        .get_plugin_option("use_presence")
-        .map(|o| o == "true")
-        .unwrap_or(false);
+    let use_presence = crate::upgrade_plugin(&weechat).config.use_presence.value();
 
     // If the user doesn't want the presence, there's no reason to open
     // the nicklist
@@ -446,12 +428,6 @@ pub fn load_nicks(buffer: &Buffer) {
     buffer.set_localvar("loaded_nicks", "true");
     buffer.enable_nicklist();
 
-    let use_presence = buffer
-        .get_weechat()
-        .get_plugin_option("use_presence")
-        .map(|o| o == "true")
-        .unwrap_or(false);
-
     let sealed_buffer = buffer.seal();
 
     std::thread::spawn(move || {
@@ -474,6 +450,8 @@ pub fn load_nicks(buffer: &Buffer) {
                 Some(ctx) => ctx,
                 _ => return,
             };
+
+            let use_presence = weechat.config.use_presence.value();
 
             let buffer = sealed_buffer.unseal(&weechat);
             let guild = guild_id.to_guild_cached(ctx).expect("No guild cache item");

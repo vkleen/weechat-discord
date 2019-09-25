@@ -8,7 +8,7 @@ use serenity::{
     prelude::*,
 };
 use std::sync::Arc;
-use weechat::{Buffer, Weechat};
+use weechat::{Buffer, ConfigOption, Weechat};
 
 #[derive(Debug, Clone, Copy)]
 pub enum GuildOrChannel {
@@ -125,10 +125,7 @@ pub fn parse_id(id: &str) -> Option<GuildOrChannel> {
 }
 
 pub fn get_irc_mode(weechat: &weechat::Weechat) -> bool {
-    weechat
-        .get_plugin_option("irc_mode")
-        .map(|x| x == "true")
-        .unwrap_or(false)
+    crate::upgrade_plugin(weechat).config.irc_mode.value()
 }
 
 pub fn buffer_id_for_guild(id: GuildId) -> String {

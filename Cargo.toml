@@ -41,11 +41,13 @@ features = [
 path = "parsing"
 
 [dependencies.weechat]
-# path = "../rust-weechat/weechat-rs"
 git = "https://github.com/terminal-discord/rust-weechat"
-rev = "f1fedee"
+rev = "94b4522"
 
 [dependencies.weechat-sys]
-# path = "../rust-weechat/weechat-sys"
 git = "https://github.com/terminal-discord/rust-weechat"
-rev = "f1fedee"
+rev = "94b4522"
+
+#[patch."https://github.com/terminal-discord/rust-weechat"]
+#weechat-sys = { path = "../rust-weechat/weechat-sys" }
+#weechat = { path = "../rust-weechat/weechat-rs" }

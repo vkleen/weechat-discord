@@ -1,8 +1,8 @@
 use self::client::DiscordClient;
+use crate::Discord;
 use lazy_static::lazy_static;
 use serenity::{client::Context, prelude::Mutex};
 use std::{sync::Arc, thread};
-use weechat::Weechat;
 
 mod client;
 mod event_handler;
@@ -20,11 +20,11 @@ lazy_static! {
     pub(crate) static ref DISCORD: Arc<Mutex<Option<DiscordClient>>> = Arc::new(Mutex::new(None));
 }
 
-pub fn init(weechat: &Weechat, token: &str, irc_mode: bool) {
-    let (discord_client, events) = match DiscordClient::start(weechat, token) {
+pub fn init(weecord: &Discord, token: &str, irc_mode: bool) {
+    let (discord_client, events) = match DiscordClient::start(weecord, token) {
         Ok(d) => d,
         Err(e) => {
-            weechat.print(&format!(
+            weecord.print(&format!(
                 "discord: An error occurred connecting to discord: {}",
                 e
             ));

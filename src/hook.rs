@@ -3,7 +3,7 @@ use serenity::{model::prelude::*, prelude::*};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use weechat::{Buffer, CompletionPosition, ReturnCode, Weechat};
+use weechat::{Buffer, CompletionPosition, ConfigOption, ReturnCode, Weechat};
 
 static mut LAST_TYPING_TIMESTAMP: u64 = 0;
 
@@ -209,10 +209,10 @@ fn handle_buffer_typing(weechat: &Weechat, data: weechat::SignalHookValue) -> Re
     if let weechat::SignalHookValue::Pointer(buffer_ptr) = data {
         let buffer = unsafe { crate::utils::buffer_from_ptr(buffer_ptr) };
         if let Some(chnanel_id) = buffer.get_localvar("channelid") {
-            if weechat
-                .get_plugin_option("send_typing_events")
-                .map(|send| send.as_ref() == "true")
-                .unwrap_or(false)
+            if crate::upgrade_plugin(weechat)
+                .config
+                .send_typing_events
+                .value()
             {
                 if buffer.input().starts_with('/') {
                     return ReturnCode::Ok;

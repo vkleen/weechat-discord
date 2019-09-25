@@ -1,12 +1,12 @@
 use crate::utils::GuildOrChannel;
-use crate::{buffers, discord, plugin_print, utils};
+use crate::{buffers, discord, on_main_blocking, plugin_print, utils};
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use serenity::model::gateway::Activity;
 use serenity::model::id::ChannelId;
 use serenity::model::user::OnlineStatus;
 use std::sync::Arc;
-use weechat::{Buffer, CommandHook, ReturnCode, Weechat};
+use weechat::{Buffer, CommandHook, ConfigOption, ReturnCode, Weechat};
 
 lazy_static! {
     // Tracks the last set status for use in setting the current game presence
@@ -89,18 +89,17 @@ fn run_command(buffer: &Buffer, cmd: &str) {
 }
 
 fn connect(weechat: &Weechat) {
-    match weechat.get_plugin_option("token") {
-        Some(t) => {
-            if crate::discord::DISCORD.lock().is_none() {
-                crate::discord::init(weechat, &t, crate::utils::get_irc_mode(weechat));
-            } else {
-                plugin_print("Already connected");
-            }
+    let weecord = crate::upgrade_plugin(weechat);
+    let token: String = weecord.config.token.value().into_owned();
+    if !token.is_empty() {
+        if crate::discord::DISCORD.lock().is_none() {
+            crate::discord::init(weecord, &token, crate::utils::get_irc_mode(weechat));
+        } else {
+            plugin_print("Already connected");
         }
-        None => {
-            plugin_print("Error: plugins.var.weecord.token unset. Run:");
-            plugin_print("/discord token 123456789ABCDEF");
-        }
+    } else {
+        plugin_print("Error: plugins.var.weecord.token unset. Run:");
+        plugin_print("/discord token 123456789ABCDEF");
     };
 }
 
@@ -120,7 +119,10 @@ fn irc_mode(weechat: &Weechat) {
     if crate::utils::get_irc_mode(weechat) {
         plugin_print("irc-mode already enabled")
     } else {
-        user_set_option(weechat, "irc_mode", "true");
+        let weecord = crate::upgrade_plugin(weechat);
+        let before = weecord.config.irc_mode.value();
+        let change = weecord.config.irc_mode.set(true);
+        format_option_change("irc_mode", "true", Some(&before), change);
         plugin_print("irc-mode enabled")
     }
 }
@@ -129,7 +131,10 @@ fn discord_mode(weechat: &Weechat) {
     if !crate::utils::get_irc_mode(weechat) {
         plugin_print("discord-mode already enabled")
     } else {
-        user_set_option(weechat, "irc_mode", "false");
+        let weecord = crate::upgrade_plugin(weechat);
+        let before = weecord.config.irc_mode.value();
+        let change = weecord.config.irc_mode.set(false);
+        format_option_change("irc_mode", "false", Some(&before), change);
         plugin_print("discord-mode enabled")
     }
 }
@@ -138,18 +143,23 @@ fn token(weechat: &Weechat, args: Args) {
     if args.args.is_empty() {
         plugin_print("token requires an argument");
     } else {
-        user_set_option(weechat, "token", args.rest.trim_matches('"'));
+        let weecord = crate::upgrade_plugin(weechat);
+        let new_value = args.rest.trim_matches('"');
+        let before = weecord.config.token.value();
+        let change = weecord.config.token.set(new_value);
+        format_option_change("token", new_value, Some(&before), change);
+
         plugin_print("Set Discord token");
     }
 }
 
 fn autostart(weechat: &Weechat) {
-    weechat.set_plugin_option("autostart", "true");
+    crate::upgrade_plugin(weechat).config.autostart.set(true);
     plugin_print("Discord will now load on startup");
 }
 
 fn noautostart(weechat: &Weechat) {
-    weechat.set_plugin_option("autostart", "false");
+    crate::upgrade_plugin(weechat).config.autostart.set(false);
     plugin_print("Discord will not load on startup");
 }
 
@@ -235,21 +245,20 @@ fn watch(weechat: &Weechat, args: Args) {
             plugin_print("Unable to find server");
             return;
         };
-        let new_watched =
-            if let Some(watched_channels) = weechat.get_plugin_option("watched_channels") {
-                // dedup items
-                let mut channels: Vec<_> = watched_channels
-                    .split(',')
-                    .filter(|i| !i.is_empty())
-                    .collect();
-                channels.push(&new_channel_id);
 
-                channels.dedup();
-                channels.join(",")
-            } else {
-                new_channel_id
-            };
-        weechat.set_plugin_option("watched_channels", &new_watched);
+        let weecord = crate::upgrade_plugin(weechat);
+        let new_watched = {
+            let watched_items = weecord.config.watched_channels.value();
+            let mut watched_items: Vec<_> =
+                watched_items.split(',').filter(|i| !i.is_empty()).collect();
+            watched_items.push(&new_channel_id);
+
+            watched_items.dedup();
+            watched_items.join(",")
+        };
+        let () = on_main_blocking(|weecord| {
+            weecord.config.watched_channels.set(&new_watched);
+        });
         if let Some(channel_name) = channel_name {
             plugin_print(&format!("Now watching {} in {}", guild_name, channel_name))
         } else {
@@ -268,23 +277,12 @@ fn watched(weechat: &Weechat) {
         _ => return,
     };
 
-    match weechat.get_plugin_option("watched_channels") {
-        Some(watched) => {
-            let items = watched.split(',').filter_map(utils::parse_id);
-            for i in items {
-                match i {
-                    utils::GuildOrChannel::Guild(guild) => guilds.push(guild),
-                    utils::GuildOrChannel::Channel(guild, channel) => {
-                        channels.push((guild, channel))
-                    }
-                }
-            }
+    for watched_item in crate::upgrade_plugin(weechat).config.watched_channels() {
+        match watched_item {
+            utils::GuildOrChannel::Guild(guild) => guilds.push(guild),
+            utils::GuildOrChannel::Channel(guild, channel) => channels.push((guild, channel)),
         }
-        None => {
-            plugin_print("Unable to get watched channels");
-            return;
-        }
-    };
+    }
 
     weechat.print(&format!("Watched Servers: ({})", guilds.len()));
     for guild in guilds {
@@ -344,21 +342,20 @@ fn autojoin(weechat: &Weechat, args: Args, buffer: &Buffer) {
             plugin_print("Unable to find server");
             return;
         };
-        let new_autojoined =
-            if let Some(autojoined_channels) = weechat.get_plugin_option("autojoin_channels") {
-                // dedup items
-                let mut channels: Vec<_> = autojoined_channels
-                    .split(',')
-                    .filter(|i| !i.is_empty())
-                    .collect();
-                channels.push(&new_channel_id);
+        let weecord = crate::upgrade_plugin(weechat);
 
-                channels.dedup();
-                channels.join(",")
-            } else {
-                new_channel_id
-            };
-        weechat.set_plugin_option("autojoin_channels", &new_autojoined);
+        let new_autojoined = {
+            let autojoin_items = weecord.config.autojoin_channels.value();
+            let mut autojoin_items: Vec<_> = autojoin_items
+                .split(',')
+                .filter(|i| !i.is_empty())
+                .collect();
+            autojoin_items.push(&new_channel_id);
+
+            autojoin_items.dedup();
+            autojoin_items.join(",")
+        };
+        weecord.config.autojoin_channels.set(&new_autojoined);
 
         if let Some(channel_name) = channel_name {
             plugin_print(&format!(
@@ -382,23 +379,12 @@ fn autojoined(weechat: &Weechat) {
         _ => return,
     };
 
-    match weechat.get_plugin_option("autojoin_channels") {
-        Some(watched) => {
-            let items = watched.split(',').filter_map(utils::parse_id);
-            for i in items {
-                match i {
-                    utils::GuildOrChannel::Guild(guild) => guilds.push(guild),
-                    utils::GuildOrChannel::Channel(guild, channel) => {
-                        channels.push((guild, channel))
-                    }
-                }
-            }
+    for autojoined_item in crate::upgrade_plugin(weechat).config.autojoin_channels() {
+        match autojoined_item {
+            utils::GuildOrChannel::Guild(guild) => guilds.push(guild),
+            utils::GuildOrChannel::Channel(guild, channel) => channels.push((guild, channel)),
         }
-        None => {
-            plugin_print("Unable to get autojoin channels");
-            return;
-        }
-    };
+    }
 
     weechat.print(&format!("Autojoin Servers: ({})", guilds.len()));
     for guild in guilds {
@@ -527,12 +513,15 @@ fn upload(args: Args, buffer: &Buffer) {
     }
 }
 
-fn user_set_option(weechat: &Weechat, name: &str, value: &str) {
-    let before = weechat.get_plugin_option(name);
-    let changed = weechat.set_plugin_option(name, value);
-
+// rust-lang/rust#52662 would let this api be improved by accepting option types
+fn format_option_change<'a, T: std::fmt::Display>(
+    name: &str,
+    value: &str,
+    before: Option<&T>,
+    change: weechat::OptionChanged,
+) {
     use weechat::OptionChanged::*;
-    let msg = match (changed, before) {
+    let msg = match (change, before) {
         (Changed, Some(before)) => format!(
             "option {} successfully changed from {} to {}",
             name, before, value

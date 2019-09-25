@@ -1,10 +1,10 @@
-use crate::{buffers, on_main, on_main_blocking, printing, utils};
+use crate::{buffers, on_main, on_main_blocking, printing, utils, Discord};
 use lazy_static::lazy_static;
 use serenity::{model::gateway::Ready, model::prelude::*, prelude::*};
 use std::sync::{mpsc::Sender, Arc};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use weechat::{Buffer, Weechat};
+use weechat::{Buffer, ConfigOption, Weechat};
 
 const MAX_TYPING_EVENTS: usize = 50;
 
@@ -55,21 +55,9 @@ pub struct Handler {
 }
 
 impl Handler {
-    pub fn new(weechat: &Weechat, sender: Arc<Mutex<Sender<Ready>>>) -> Handler {
-        let watched_channels = weechat
-            .get_plugin_option("watched_channels")
-            .unwrap_or_default();
-
-        let typing_messages = weechat
-            .get_plugin_option("typing_messages")
-            .map(|v| v == "true")
-            .unwrap_or(false);
-
-        let watched_channels = watched_channels
-            .split(',')
-            .filter(|i| !i.is_empty())
-            .filter_map(utils::parse_id)
-            .collect();
+    pub fn new(weecord: &Discord, sender: Arc<Mutex<Sender<Ready>>>) -> Handler {
+        let watched_channels = weecord.config.watched_channels();
+        let typing_messages = weecord.config.typing_messages.value();
 
         Handler {
             sender,

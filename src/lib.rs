@@ -56,8 +56,7 @@ impl WeechatPlugin for Discord {
                 if !t.is_empty() {
                     discord::init(&weecord, &t, irc_mode);
                 } else {
-                    weechat_copy
-                        .print("Error: plugins.var.discord.token is not set. To set it, run:");
+                    weechat_copy.print("Error: weecord.main.token is not set. To set it, run:");
                     weechat_copy.print("/discord token 123456789ABCDEF");
                 }
             } else {

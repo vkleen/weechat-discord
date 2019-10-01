@@ -98,7 +98,7 @@ fn connect(weechat: &Weechat) {
             plugin_print("Already connected");
         }
     } else {
-        plugin_print("Error: plugins.var.weecord.token unset. Run:");
+        plugin_print("Error: weecord.main.token unset. Run:");
         plugin_print("/discord token 123456789ABCDEF");
     };
 }
@@ -571,12 +571,7 @@ const CMD_DESCRIPTION: weechat::CommandDescription = weechat::CommandDescription
     description: "\
 Discord from the comfort of your favorite command-line IRC client!
 Source code available at https://github.com/terminal-discord/weechat-discord
-Originally by https://github.com/khyperia/weechat-discord
-Options used:
-    plugins.var.weecord.token = <discord_token>
-    plugins.var.weecord.rename.<id> = <string>
-    plugins.var.weecord.autostart = <bool>
-    plugins.var.weecord.irc_mode = <bool>",
+Originally by https://github.com/khyperia/weechat-discord",
     args: "
     connect
     disconnect

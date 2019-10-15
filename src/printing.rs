@@ -104,16 +104,49 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         }
 
         _ => {
-            let prefix = match msg.kind {
-                GroupRecipientAddition | MemberJoin => "join",
-                GroupRecipientRemoval => "quit",
-                _ => "network",
+            let (prefix, body) = match msg.kind {
+                GroupRecipientAddition | MemberJoin => {
+                    ("join", format!("{} joined the group.", msg.author.name))
+                }
+                GroupRecipientRemoval => ("quit", format!("{} left the group.", msg.author.name)),
+                GroupNameUpdate => (
+                    "network",
+                    format!(
+                        "{} changed the channel name: {}.",
+                        msg.author.name, msg.content
+                    ),
+                ),
+                GroupCallCreation => ("network", format!("{} started a call.", msg.author.name)),
+                GroupIconUpdate => (
+                    "network",
+                    format!("{} changed the channel icon.", msg.author.name),
+                ),
+                PinsAdd => (
+                    "network",
+                    format!("{} pinned a message to this channel", msg.author.name),
+                ),
+                NitroBoost => (
+                    "network",
+                    format!("{} boosted this channel with nitro", msg.author.name),
+                ),
+                NitroTier1 => (
+                    "network",
+                    format!("This channel has achieved nitro level 1"),
+                ),
+                NitroTier2 => (
+                    "network",
+                    format!("This channel has achieved nitro level 2"),
+                ),
+                NitroTier3 => (
+                    "network",
+                    format!("This channel has achieved nitro level 3"),
+                ),
+                Regular | __Nonexhaustive => unreachable!(),
             };
             buffer.print_tags_dated(
                 msg.timestamp.timestamp(),
                 &tags,
-                &(weechat.get_prefix(prefix).into_owned()
-                    + &formatting::discord_to_weechat(weechat, &msg_content)),
+                &(weechat.get_prefix(prefix).into_owned() + &body),
             );
         }
     };

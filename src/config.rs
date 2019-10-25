@@ -106,7 +106,6 @@ pub fn init(weechat: &Weechat) -> Config {
     );
 
     config.read();
-    weechat.print(&format!("{}", use_presence.value()));
 
     Config {
         token,

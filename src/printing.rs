@@ -41,7 +41,11 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         tags.join(",")
     };
 
-    let mut msg_content = humanize_msg(&ctx.cache, msg);
+    let maybe_guild = buffer
+        .get_localvar("guildid")
+        .and_then(|id| id.parse::<u64>().ok().map(GuildId));
+
+    let mut msg_content = humanize_msg(&ctx.cache, msg, maybe_guild);
 
     for attachement in &msg.attachments {
         if !msg_content.is_empty() {
@@ -77,14 +81,11 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         }
     }
 
-    let maybe_guild = buffer.get_localvar("guildid");
     let display_name = maybe_guild.and_then(|id| {
-        id.parse::<u64>().ok().map(GuildId).and_then(|id| {
-            ctx.cache
-                .read()
-                .member(id, msg.author.id)
-                .map(|member| member.display_name().to_string())
-        })
+        ctx.cache
+            .read()
+            .member(id, msg.author.id)
+            .map(|member| member.display_name().to_string())
     });
 
     let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
@@ -156,15 +157,29 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
 ///
 /// Eg, convert user mentions in the form of `<@343888830585372672>` to `@Noskcaj#0804`
 /// as well as roles and channels
-fn humanize_msg(cache: impl AsRef<CacheRwLock>, msg: &Message) -> String {
-    let mut msg_content = msg.content_safe(cache.as_ref());
+fn humanize_msg(
+    cache: impl AsRef<CacheRwLock>,
+    msg: &Message,
+    guild_id: Option<GuildId>,
+) -> String {
+    let cache = cache.as_ref();
+    let mut msg_content = msg.content_safe(cache);
 
+    // TODO: Why is discord not giving guild messages a guild id?
     // TODO: Report content_safe() bug
-    // TODO: Use nicknames instead of user names
+    // TODO: Why are not all mentions doing nick lookups?
     for u in &msg.mentions {
         let mut at_distinct = String::with_capacity(38);
         at_distinct.push('@');
-        at_distinct.push_str(&u.name);
+        let mut name = u.name.clone();
+        if let Some(guild_id) = guild_id {
+            if let Some(member) = cache.read().member(guild_id, u.id) {
+                if let Some(nick) = member.nick {
+                    name = nick;
+                }
+            }
+        }
+        at_distinct.push_str(&name);
         at_distinct.push('#');
         let mention = u.mention().replace("<@", "<@!");
         use std::fmt::Write;
@@ -191,7 +206,15 @@ fn humanize_msg(cache: impl AsRef<CacheRwLock>, msg: &Message) -> String {
                 let u = user.read();
                 let mut at_distinct = String::with_capacity(38);
                 at_distinct.push('@');
-                at_distinct.push_str(&u.name);
+                let mut name = u.name.clone();
+                if let Some(guild_id) = guild_id {
+                    if let Some(member) = cache.read().member(guild_id, u.id) {
+                        if let Some(nick) = member.nick {
+                            name = nick;
+                        }
+                    }
+                }
+                at_distinct.push_str(&name);
                 at_distinct.push('#');
                 use std::fmt::Write;
                 let _ = write!(at_distinct, "{:04}", u.discriminator);

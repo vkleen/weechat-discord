@@ -101,7 +101,7 @@ pub fn create_buffers_from_flat_items(
             (Some(guild_id), channels) => {
                 let guild = match guild_id.to_guild_cached(&ctx.cache) {
                     Some(guild) => guild,
-                    None => return,
+                    None => continue,
                 };
                 let guild = guild.read();
 

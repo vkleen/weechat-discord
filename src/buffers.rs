@@ -155,7 +155,7 @@ pub fn create_buffers_from_flat_items(
                 let nick = cache.user.name.to_string();
 
                 for channel_id in channels {
-                    let nick = nick.clone();
+                    let nick = format!("@{}", nick);
                     let channel = match channel_id.to_channel(ctx) {
                         Ok(channel) => channel,
                         Err(_) => {

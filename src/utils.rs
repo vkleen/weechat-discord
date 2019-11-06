@@ -52,7 +52,12 @@ pub fn status_is_online(status: OnlineStatus) -> bool {
 
 pub fn get_user_status_prefix(weechat: &Weechat, cache: &Cache, user: UserId) -> String {
     let presence = cache.presences.get(&user);
-    let prefix_color = match presence.map(|p| p.status) {
+
+    format_user_status_prefix(weechat, presence.map(|p| p.status))
+}
+
+pub fn format_user_status_prefix(weechat: &Weechat, status: Option<OnlineStatus>) -> String {
+    let prefix_color = match status {
         Some(OnlineStatus::DoNotDisturb) => "red",
         Some(OnlineStatus::Idle) => "178",
         Some(OnlineStatus::Invisible) => "weechat.color.nicklist_away",

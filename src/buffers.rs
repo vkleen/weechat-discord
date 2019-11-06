@@ -390,7 +390,10 @@ pub fn load_dm_nicks(buffer: &Buffer, channel: &PrivateChannel) {
         buffer.add_nick(
             NickArgs {
                 name: &cache.user.name,
-                prefix: &format!("{}•{} ", weechat.color("green"), weechat.color("reset")),
+                prefix: &utils::format_user_status_prefix(
+                    &weechat,
+                    Some(*crate::command::LAST_STATUS.lock()),
+                ),
                 ..Default::default()
             },
             None,

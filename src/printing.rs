@@ -1,7 +1,4 @@
 use crate::discord::formatting;
-use lazy_static::lazy_static;
-use regex::Regex;
-use serenity::cache::CacheRwLock;
 use serenity::model::prelude::*;
 use weechat::{Buffer, Weechat};
 
@@ -45,7 +42,13 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         .get_localvar("guildid")
         .and_then(|id| id.parse::<u64>().ok().map(GuildId));
 
-    let mut msg_content = humanize_msg(&ctx.cache, msg, maybe_guild);
+    let mut opts = serenity::utils::ContentSafeOptions::new()
+        .clean_here(false)
+        .clean_everyone(false);
+    if let Some(guild) = maybe_guild {
+        opts = opts.display_as_member_from(guild);
+    }
+    let mut msg_content = serenity::utils::content_safe(&ctx.cache, &msg.content, &opts);
 
     for attachement in &msg.attachments {
         if !msg_content.is_empty() {
@@ -107,28 +110,22 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         _ => {
             let (prefix, body) = match msg.kind {
                 GroupRecipientAddition | MemberJoin => {
-                    ("join", format!("{} joined the group.", msg.author.name))
+                    ("join", format!("{} joined the group.", author))
                 }
-                GroupRecipientRemoval => ("quit", format!("{} left the group.", msg.author.name)),
+                GroupRecipientRemoval => ("quit", format!("{} left the group.", author)),
                 GroupNameUpdate => (
                     "network",
-                    format!(
-                        "{} changed the channel name: {}.",
-                        msg.author.name, msg.content
-                    ),
+                    format!("{} changed the channel name: {}.", author, msg.content),
                 ),
-                GroupCallCreation => ("network", format!("{} started a call.", msg.author.name)),
-                GroupIconUpdate => (
-                    "network",
-                    format!("{} changed the channel icon.", msg.author.name),
-                ),
+                GroupCallCreation => ("network", format!("{} started a call.", author)),
+                GroupIconUpdate => ("network", format!("{} changed the channel icon.", author)),
                 PinsAdd => (
                     "network",
-                    format!("{} pinned a message to this channel", msg.author.name),
+                    format!("{} pinned a message to this channel", author),
                 ),
                 NitroBoost => (
                     "network",
-                    format!("{} boosted this channel with nitro", msg.author.name),
+                    format!("{} boosted this channel with nitro", author),
                 ),
                 NitroTier1 => (
                     "network",
@@ -151,101 +148,4 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
             );
         }
     };
-}
-
-/// Convert discords mention formatting to real names
-///
-/// Eg, convert user mentions in the form of `<@343888830585372672>` to `@Noskcaj#0804`
-/// as well as roles and channels
-fn humanize_msg(
-    cache: impl AsRef<CacheRwLock>,
-    msg: &Message,
-    guild_id: Option<GuildId>,
-) -> String {
-    let cache = cache.as_ref();
-    let mut msg_content = msg.content_safe(cache);
-
-    // TODO: Why is discord not giving guild messages a guild id?
-    // TODO: Report content_safe() bug
-    // TODO: Why are not all mentions doing nick lookups?
-    for u in &msg.mentions {
-        let mut at_distinct = String::with_capacity(38);
-        at_distinct.push('@');
-        let mut name = u.name.clone();
-        if let Some(guild_id) = guild_id {
-            if let Some(member) = cache.read().member(guild_id, u.id) {
-                if let Some(nick) = member.nick {
-                    name = nick;
-                }
-            }
-        }
-        at_distinct.push_str(&name);
-        at_distinct.push('#');
-        let mention = u.mention().replace("<@", "<@!");
-        use std::fmt::Write;
-        let _ = write!(at_distinct, "{:04}", u.discriminator);
-        msg_content = msg_content.replace(&mention, &at_distinct);
-    }
-
-    lazy_static! {
-        static ref CHANNEL_REGEX: Regex = Regex::new(r"<#(\d+)>").unwrap();
-        static ref USERNAME_REGEX: Regex = Regex::new(r"<@(\d+)>").unwrap();
-    }
-
-    let mut edits = Vec::new();
-    // TODO: Why do non "regular" messages not have mentions in the mention field?
-    for cap in USERNAME_REGEX.captures_iter(&msg_content) {
-        if msg.kind != MessageType::Regular {
-            let ctx = match crate::discord::get_ctx() {
-                Some(ctx) => ctx,
-                _ => unreachable!(),
-            };
-            let i = cap.get(1).unwrap().as_str();
-            let user_id = UserId(i.parse::<u64>().unwrap());
-            if let Some(user) = user_id.to_user_cached(ctx) {
-                let u = user.read();
-                let mut at_distinct = String::with_capacity(38);
-                at_distinct.push('@');
-                let mut name = u.name.clone();
-                if let Some(guild_id) = guild_id {
-                    if let Some(member) = cache.read().member(guild_id, u.id) {
-                        if let Some(nick) = member.nick {
-                            name = nick;
-                        }
-                    }
-                }
-                at_distinct.push_str(&name);
-                at_distinct.push('#');
-                use std::fmt::Write;
-                let _ = write!(at_distinct, "{:04}", u.discriminator);
-                edits.push((cap.get(0).unwrap().as_str().to_owned(), at_distinct));
-            }
-        } else {
-            edits.push((
-                cap.get(0).unwrap().as_str().to_owned(),
-                format!("@deleted-user"),
-            ));
-        }
-    }
-
-    for cap in CHANNEL_REGEX.captures_iter(&msg_content) {
-        let i = cap.get(1).unwrap();
-        let channel_id = i.as_str().parse::<u64>().unwrap();
-        let replacement =
-            if let Some(channel) = ChannelId(channel_id).to_channel_cached(cache.as_ref()) {
-                crate::utils::channel_name(&channel)
-            } else {
-                "unknown-channel".into()
-            };
-        edits.push((
-            cap.get(0).unwrap().as_str().to_owned(),
-            format!("#{}", replacement),
-        ));
-    }
-
-    for edit in &edits {
-        msg_content = msg_content.replace(&edit.0, &edit.1);
-    }
-
-    msg_content
 }

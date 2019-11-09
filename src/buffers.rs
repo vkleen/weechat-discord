@@ -350,9 +350,37 @@ pub fn load_history(buffer: &weechat::Buffer) {
 
         if let Ok(msgs) = channel.messages(ctx, |retriever| retriever.limit(25)) {
             on_main(move |weechat| {
+                let ctx = match crate::discord::get_ctx() {
+                    Some(ctx) => ctx,
+                    _ => return,
+                };
                 let buf = sealed_buffer.unseal(&weechat);
-                for msg in msgs.into_iter().rev() {
-                    crate::printing::print_msg(&weechat, &buf, &msg, false);
+                if let Some(read_state) = ctx.cache.read().read_state.get(&channel) {
+                    let unread_in_page = msgs.iter().any(|m| m.id == read_state.last_message_id);
+
+                    if unread_in_page {
+                        let mut backlog = true;
+                        for msg in msgs.into_iter().rev() {
+                            crate::printing::print_msg(&weechat, &buf, &msg, false);
+                            if backlog {
+                                buf.mark_read();
+                                buf.clear_hotlist();
+                            }
+                            if msg.id == read_state.last_message_id {
+                                backlog = false;
+                            }
+                        }
+                    } else {
+                        buf.mark_read();
+                        buf.clear_hotlist();
+                        for msg in msgs.into_iter().rev() {
+                            crate::printing::print_msg(&weechat, &buf, &msg, false);
+                        }
+                    }
+                } else {
+                    for msg in msgs.into_iter().rev() {
+                        crate::printing::print_msg(&weechat, &buf, &msg, false);
+                    }
                 }
             });
         }

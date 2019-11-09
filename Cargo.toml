@@ -25,7 +25,7 @@ indexmap = "1.1.0"
 
 [dependencies.serenity]
 git = "https://github.com/terminal-discord/serenity"
-rev = "2ca01e8a"
+rev = "0ff59b6"
 default_features = false
 features = [
     "builder",
@@ -42,11 +42,11 @@ path = "parsing"
 
 [dependencies.weechat]
 git = "https://github.com/terminal-discord/rust-weechat"
-rev = "94b4522"
+rev = "b6be91d"
 
 [dependencies.weechat-sys]
 git = "https://github.com/terminal-discord/rust-weechat"
-rev = "94b4522"
+rev = "b6be91d"
 
 #[patch."https://github.com/terminal-discord/rust-weechat"]
 #weechat-sys = { path = "../rust-weechat/weechat-sys" }

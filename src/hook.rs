@@ -1,5 +1,6 @@
 use crate::utils::ChannelExt;
 use crate::{discord, on_main, plugin_print, utils};
+use crossbeam_channel::unbounded;
 use serenity::{model::prelude::*, prelude::*};
 use std::sync::Arc;
 use std::thread;
@@ -195,8 +196,10 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
     if let weechat::SignalHookValue::Pointer(buffer_ptr) = data {
         let buffer = unsafe { crate::utils::buffer_from_ptr(buffer_ptr) };
 
+        // Wait until messages have been loaded to acknowledge them
+        let (tx, rx) = unbounded();
         if buffer.get_localvar("loaded_history").is_none() {
-            crate::buffers::load_history(&buffer);
+            crate::buffers::load_history(&buffer, tx);
         }
 
         if buffer.get_localvar("loaded_nicks").is_none() {
@@ -209,6 +212,9 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
             .map(ChannelId);
 
         thread::spawn(move || {
+            if let Err(_) = rx.recv() {
+                return;
+            }
             let ctx = match discord::get_ctx() {
                 Some(s) => s,
                 None => return,

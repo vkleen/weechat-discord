@@ -1,4 +1,5 @@
 use crate::sync::on_main_blocking;
+use crate::utils::ChannelExt;
 use crate::{on_main, utils};
 use indexmap::IndexMap;
 use serenity::cache::Cache;
@@ -74,7 +75,6 @@ pub fn create_buffers(ready_data: &Ready) {
 }
 
 // TODO: Merge these functions
-// Flesh this out
 pub fn create_autojoin_buffers(_ready: &Ready) {
     let ctx = match crate::discord::get_ctx() {
         Some(ctx) => ctx,
@@ -83,12 +83,38 @@ pub fn create_autojoin_buffers(_ready: &Ready) {
 
     let current_user = ctx.cache.read().user.clone();
 
-    let autojoin_items: Vec<_> = on_main_blocking(|weecord| weecord.config.autojoin_channels());
+    // TODO: Add sorting
+    let mut autojoin_items: Vec<_> = on_main_blocking(|weecord| weecord.config.autojoin_channels());
+
+    let watched_items: Vec<_> = on_main_blocking(|weecord| weecord.config.watched_channels());
+
+    let watched_channels = utils::flatten_guilds(&ctx, &watched_items);
+
+    let cache = ctx.cache.read();
+    for (guild_id, channels) in watched_channels {
+        for channel in channels {
+            let read_state = match cache.read_state.get(&channel) {
+                Some(rs) => rs,
+                None => continue,
+            };
+            let last_msg = match channel
+                .to_channel_cached(ctx)
+                .and_then(|c| c.last_message())
+            {
+                Some(msg) => msg,
+                None => continue,
+            };
+
+            if read_state.last_message_id != last_msg {
+                autojoin_items.push(utils::GuildOrChannel::Channel(guild_id, channel))
+            }
+        }
+    }
 
     // flatten guilds into channels
-    let channels = utils::flatten_guilds(&ctx, &autojoin_items);
+    let autojoin_channels = utils::flatten_guilds(&ctx, &autojoin_items);
 
-    create_buffers_from_flat_items(&ctx, &current_user, &channels);
+    create_buffers_from_flat_items(&ctx, &current_user, &autojoin_channels);
 }
 
 pub fn create_buffers_from_flat_items(
@@ -372,7 +398,7 @@ pub fn create_buffer_from_group(
     }
 }
 
-pub fn load_history(buffer: &weechat::Buffer) {
+pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_channel::Sender<()>) {
     if buffer.get_localvar("loaded_history").is_some() {
         return;
     }
@@ -430,6 +456,7 @@ pub fn load_history(buffer: &weechat::Buffer) {
                         crate::printing::print_msg(&weechat, &buf, &msg, false);
                     }
                 }
+                completion_sender.send(()).unwrap();
             });
         }
     });

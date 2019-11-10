@@ -404,7 +404,12 @@ pub fn handle_query(command: &str) -> ReturnCode {
         if let Some(target) = found_members.get(0) {
             if let Ok(chan) = target.create_dm_channel(ctx) {
                 on_main(move |weechat| {
+                    let ctx = match crate::discord::get_ctx() {
+                        Some(ctx) => ctx,
+                        _ => return,
+                    };
                     crate::buffers::create_buffer_from_dm(
+                        &ctx.cache,
                         &weechat,
                         Channel::Private(Arc::new(RwLock::new(chan))),
                         &current_user_name,

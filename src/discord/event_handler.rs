@@ -153,6 +153,7 @@ impl EventHandler for Handler {
                             print_message(&weechat, ctx, &msg, &buffer);
                         } else {
                             buffers::create_buffer_from_dm(
+                                &ctx.cache,
                                 &weechat,
                                 chan.unwrap(),
                                 &ctx.cache.read().user.name,
@@ -165,6 +166,7 @@ impl EventHandler for Handler {
                             print_message(&weechat, ctx, &msg, &buffer);
                         } else {
                             buffers::create_buffer_from_group(
+                                &ctx.cache,
                                 &weechat,
                                 chan.unwrap(),
                                 &ctx.cache.read().user.name,

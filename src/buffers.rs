@@ -5,6 +5,7 @@ use serenity::cache::Cache;
 use serenity::{cache::CacheRwLock, model::prelude::*, prelude::*};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
+use weechat::buffer::HotlistPriority;
 use weechat::{Buffer, ConfigOption, NickArgs, Weechat};
 
 const OFFLINE_GROUP_NAME: &str = "99999|Offline";
@@ -166,11 +167,19 @@ pub fn create_buffers_from_flat_items(
 
                     match channel {
                         channel @ Channel::Private(_) => on_main(move |weechat| {
-                            create_buffer_from_dm(weechat, channel, &nick, false);
+                            let ctx = match crate::discord::get_ctx() {
+                                Some(ctx) => ctx,
+                                _ => return,
+                            };
+                            create_buffer_from_dm(&ctx.cache, weechat, channel, &nick, false);
                         }),
 
                         channel @ Channel::Group(_) => on_main(move |weechat| {
-                            create_buffer_from_group(weechat, channel, &nick);
+                            let ctx = match crate::discord::get_ctx() {
+                                Some(ctx) => ctx,
+                                _ => return,
+                            };
+                            create_buffer_from_group(&ctx.cache, weechat, channel, &nick);
                         }),
                         _ => unreachable!(),
                     }
@@ -239,6 +248,12 @@ pub fn create_buffer_from_channel(
     };
 
     let name_id = utils::buffer_id_for_channel(Some(channel.guild_id), channel.id);
+    let has_unread = cache
+        .read()
+        .read_state
+        .get(&channel.id)
+        .map(|rs| rs.last_message_id)
+        != channel.last_message_id;
 
     let () = on_main_blocking(|weechat| {
         let buffer = find_or_make_buffer(&weechat, &name_id);
@@ -251,6 +266,10 @@ pub fn create_buffer_from_channel(
         buffer.set_localvar("guild_name", guild_name);
         buffer.set_localvar("type", channel_type);
         buffer.set_localvar("nick", &nick);
+        if has_unread && !muted {
+            buffer.set_hotlist(HotlistPriority::Message);
+        }
+
         let mut title = if let Some(ref topic) = channel.topic {
             if !topic.is_empty() {
                 format!("{} | {}", channel.name, topic)
@@ -271,6 +290,7 @@ pub fn create_buffer_from_channel(
 
 // TODO: Reduce code duplication
 pub fn create_buffer_from_dm(
+    cache: &CacheRwLock,
     weechat: &crate::Weechat,
     channel: Channel,
     nick: &str,
@@ -288,6 +308,18 @@ pub fn create_buffer_from_dm(
     buffer.set_short_name(&channel.name());
     buffer.set_localvar("channelid", &channel.id.0.to_string());
     buffer.set_localvar("nick", &nick);
+
+    let has_unread = cache
+        .read()
+        .read_state
+        .get(&channel.id)
+        .map(|rs| rs.last_message_id)
+        != channel.last_message_id;
+
+    if has_unread {
+        buffer.set_hotlist(HotlistPriority::Private);
+    }
+
     if switch_to {
         buffer.switch_to();
     }
@@ -297,7 +329,12 @@ pub fn create_buffer_from_dm(
     load_dm_nicks(&buffer, &*channel);
 }
 
-pub fn create_buffer_from_group(weechat: &Weechat, channel: Channel, nick: &str) {
+pub fn create_buffer_from_group(
+    cache: &CacheRwLock,
+    weechat: &Weechat,
+    channel: Channel,
+    nick: &str,
+) {
     let channel = match channel.group() {
         Some(chan) => chan,
         None => return,
@@ -322,6 +359,17 @@ pub fn create_buffer_from_group(weechat: &Weechat, channel: Channel, nick: &str)
     buffer.set_localvar("channelid", &channel.channel_id.0.to_string());
     buffer.set_localvar("nick", &nick);
     buffer.set_title(&title);
+
+    let has_unread = cache
+        .read()
+        .read_state
+        .get(&channel.channel_id)
+        .map(|rs| rs.last_message_id)
+        != channel.last_message_id;
+
+    if has_unread {
+        buffer.set_hotlist(HotlistPriority::Private);
+    }
 }
 
 pub fn load_history(buffer: &weechat::Buffer) {

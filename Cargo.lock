@@ -1288,7 +1288,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.7.0"
-source = "git+https://github.com/terminal-discord/serenity?rev=0ff59b6#0ff59b640a5ac0ebdc51d1234d240bb70d0f1e99"
+source = "git+https://github.com/terminal-discord/serenity?rev=19237cb8#19237cb82a552f908a1fe6efc4c9bfa6d18cbc02"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1851,7 +1851,7 @@ dependencies = [
  "parking_lot 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parsing 0.1.0",
  "regex 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "serenity 0.7.0 (git+https://github.com/terminal-discord/serenity?rev=0ff59b6)",
+ "serenity 0.7.0 (git+https://github.com/terminal-discord/serenity?rev=19237cb8)",
  "weechat 0.1.0 (git+https://github.com/terminal-discord/rust-weechat?rev=191014c)",
  "weechat-sys 0.1.0 (git+https://github.com/terminal-discord/rust-weechat?rev=191014c)",
 ]
@@ -2102,7 +2102,7 @@ dependencies = [
 "checksum serde_derive 1.0.100 (registry+https://github.com/rust-lang/crates.io-index)" = "11e410fde43e157d789fc290d26bc940778ad0fdd47836426fbac36573710dbb"
 "checksum serde_json 1.0.40 (registry+https://github.com/rust-lang/crates.io-index)" = "051c49229f282f7c6f3813f8286cc1e3323e8051823fce42c7ea80fe13521704"
 "checksum serde_urlencoded 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)" = "642dd69105886af2efd227f75a520ec9b44a820d65bc133a9131f7d229fd165a"
-"checksum serenity 0.7.0 (git+https://github.com/terminal-discord/serenity?rev=0ff59b6)" = "<none>"
+"checksum serenity 0.7.0 (git+https://github.com/terminal-discord/serenity?rev=19237cb8)" = "<none>"
 "checksum sha-1 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "23962131a91661d643c98940b20fcaffe62d776a823247be80a48fcb8b6fce68"
 "checksum simple_ast 0.1.0 (git+https://github.com/Noskcaj19/simple-ast?rev=7b9d765)" = "<none>"
 "checksum slab 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"

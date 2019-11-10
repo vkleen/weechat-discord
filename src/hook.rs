@@ -1,3 +1,4 @@
+use crate::utils::ChannelExt;
 use crate::{discord, on_main, plugin_print, utils};
 use serenity::{model::prelude::*, prelude::*};
 use std::sync::Arc;
@@ -201,6 +202,27 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
         if buffer.get_localvar("loaded_nicks").is_none() {
             crate::buffers::load_nicks(&buffer);
         }
+
+        let channel_id = buffer
+            .get_localvar("channelid")
+            .and_then(|id| id.parse().ok())
+            .map(ChannelId);
+
+        thread::spawn(move || {
+            let ctx = match discord::get_ctx() {
+                Some(s) => s,
+                None => return,
+            };
+            if let Some(channel) = channel_id.and_then(|id| id.to_channel_cached(&ctx)) {
+                if let Some(rs) = ctx.cache.read().read_state.get(&channel.id()) {
+                    if let Some(last_message_id) = channel.last_message() {
+                        if rs.last_message_id != last_message_id {
+                            let _ = channel.id().ack_message(&ctx, last_message_id);
+                        }
+                    }
+                }
+            }
+        });
     }
     ReturnCode::Ok
 }

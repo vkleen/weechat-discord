@@ -73,18 +73,36 @@ pub fn format_user_status_prefix(weechat: &Weechat, status: Option<OnlineStatus>
     )
 }
 
-pub fn channel_name(channel: &Channel) -> String {
-    use std::borrow::Cow;
-    use Channel::*;
-    match channel {
-        Guild(channel) => channel.read().name().to_string(),
-        Group(channel) => match channel.read().name() {
-            Cow::Borrowed(name) => name.to_string(),
-            Cow::Owned(name) => name,
-        },
-        Category(category) => category.read().name().to_string(),
-        Private(channel) => channel.read().name(),
-        __Nonexhaustive => unreachable!(),
+pub trait ChannelExt {
+    fn name(&self) -> String;
+    fn last_message(&self) -> Option<MessageId>;
+}
+
+impl ChannelExt for Channel {
+    fn name(&self) -> String {
+        use std::borrow::Cow;
+        use Channel::*;
+        match self {
+            Guild(channel) => channel.read().name().to_string(),
+            Group(channel) => match channel.read().name() {
+                Cow::Borrowed(name) => name.to_string(),
+                Cow::Owned(name) => name,
+            },
+            Category(category) => category.read().name().to_string(),
+            Private(channel) => channel.read().name(),
+            __Nonexhaustive => unreachable!(),
+        }
+    }
+
+    fn last_message(&self) -> Option<MessageId> {
+        use Channel::*;
+        match self {
+            Guild(channel) => channel.read().last_message_id,
+            Group(channel) => channel.read().last_message_id,
+            Category(_) => None,
+            Private(channel) => channel.read().last_message_id,
+            __Nonexhaustive => unreachable!(),
+        }
     }
 }
 

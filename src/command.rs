@@ -1,4 +1,4 @@
-use crate::utils::GuildOrChannel;
+use crate::utils::{ChannelExt, GuildOrChannel};
 use crate::{buffers, discord, on_main_blocking, plugin_print, utils};
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
@@ -294,7 +294,7 @@ fn watched(weechat: &Weechat) {
     weechat.print(&format!("Watched Channels: ({})", channels.len()));
     for (guild, channel) in channels {
         if let Ok(channel) = channel.to_channel(ctx) {
-            let channel_name = utils::channel_name(&channel);
+            let channel_name = channel.name();
             if let Some(guild) = guild {
                 let guild_name = if let Some(guild) = guild.to_guild_cached(&ctx) {
                     guild.read().name.to_owned()
@@ -396,7 +396,7 @@ fn autojoined(weechat: &Weechat) {
     weechat.print(&format!("Autojoin Channels: ({})", channels.len()));
     for (guild, channel) in channels {
         if let Ok(channel) = channel.to_channel(ctx) {
-            let channel_name = utils::channel_name(&channel);
+            let channel_name = channel.name();
             if let Some(guild) = guild {
                 let guild_name = if let Some(guild) = guild.to_guild_cached(&ctx) {
                     guild.read().name.to_owned()

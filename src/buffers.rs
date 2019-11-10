@@ -156,6 +156,9 @@ pub fn create_buffers_from_flat_items(
                 let nick = &nick;
 
                 create_guild_buffer(guild.id, &guild.name);
+
+                parking_lot::RwLockReadGuard::unlock_fair(guild);
+
                 for channel in channels {
                     // TODO: Muting
                     let () = on_main_blocking(move |_| {

@@ -1,54 +1,21 @@
 use crate::discord::formatting;
+use serenity::cache::CacheRwLock;
 use serenity::model::prelude::*;
 use weechat::{Buffer, Weechat};
 
-// TODO: Rework args
-// TODO: Color things
-pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool) {
-    let ctx = match crate::discord::get_ctx() {
-        Some(ctx) => ctx,
-        _ => return,
-    };
-    let is_private = if let Some(channel) = msg.channel(ctx) {
-        if let Channel::Private(_) = channel {
-            true
-        } else {
-            false
-        }
-    } else {
-        false
-    };
-
-    let self_mentioned = msg.mentions_user_id(ctx.cache.read().user.id);
-
-    let tags = {
-        let mut tags = Vec::new();
-        if notify {
-            if self_mentioned {
-                tags.push("notify_highlight");
-            } else if is_private {
-                tags.push("notify_private");
-            } else {
-                tags.push("notify_message");
-            };
-        } else {
-            tags.push("notify_none");
-        }
-
-        tags.join(",")
-    };
-
-    let maybe_guild = buffer
-        .get_localvar("guildid")
-        .and_then(|id| id.parse::<u64>().ok().map(GuildId));
-
+pub fn render_msg(
+    cache: &CacheRwLock,
+    weechat: &Weechat,
+    msg: &Message,
+    guild: Option<GuildId>,
+) -> String {
     let mut opts = serenity::utils::ContentSafeOptions::new()
         .clean_here(false)
         .clean_everyone(false);
-    if let Some(guild) = maybe_guild {
+    if let Some(guild) = guild {
         opts = opts.display_as_member_from(guild);
     }
-    let mut msg_content = serenity::utils::content_safe(&ctx.cache, &msg.content, &opts);
+    let mut msg_content = serenity::utils::content_safe(&cache, &msg.content, &opts);
 
     for attachement in &msg.attachments {
         if !msg_content.is_empty() {
@@ -84,8 +51,8 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         }
     }
 
-    let display_name = maybe_guild.and_then(|id| {
-        ctx.cache
+    let display_name = guild.and_then(|id| {
+        cache
             .read()
             .member(id, msg.author.id)
             .map(|member| member.display_name().to_string())
@@ -96,15 +63,11 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
     use MessageType::*;
     match msg.kind {
         Regular => {
-            buffer.print_tags_dated(
-                msg.timestamp.timestamp(),
-                &tags,
-                &format!(
-                    "{}\t{}",
-                    author,
-                    formatting::discord_to_weechat(weechat, &msg_content)
-                ),
-            );
+            return format!(
+                "{}\t{}",
+                author,
+                formatting::discord_to_weechat(weechat, &msg_content)
+            )
         }
 
         _ => {
@@ -141,11 +104,52 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
                 ),
                 Regular | __Nonexhaustive => unreachable!(),
             };
-            buffer.print_tags_dated(
-                msg.timestamp.timestamp(),
-                &tags,
-                &(weechat.get_prefix(prefix).into_owned() + &body),
-            );
+            return weechat.get_prefix(prefix).into_owned() + &body;
         }
     };
+}
+
+pub fn msg_tags(cache: &CacheRwLock, msg: &Message, notify: bool) -> Vec<String> {
+    let is_private = if let Some(channel) = msg.channel(cache) {
+        if let Channel::Private(_) = channel {
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    let self_mentioned = msg.mentions_user_id(cache.read().user.id);
+
+    let mut tags = Vec::new();
+    if notify {
+        if self_mentioned {
+            tags.push("notify_highlight");
+        } else if is_private {
+            tags.push("notify_private");
+        } else {
+            tags.push("notify_message");
+        };
+    } else {
+        tags.push("notify_none");
+    }
+
+    tags.into_iter().map(|t| t.to_string()).collect()
+}
+
+// TODO: Color things
+pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool) {
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
+    let maybe_guild = buffer
+        .get_localvar("guildid")
+        .and_then(|id| id.parse::<u64>().ok().map(GuildId));
+
+    let content = render_msg(&ctx.cache, weechat, msg, maybe_guild);
+    let timestamp = msg.timestamp.timestamp();
+    let tags = msg_tags(&ctx.cache, msg, notify).join(",");
+    buffer.print_tags_dated(timestamp, &tags, &content);
 }

@@ -16,7 +16,7 @@ pub struct SyncHandle(weechat::TimerHook<()>);
 enum Job {
     Nonblocking(Box<dyn FnOnce(&Discord) + Send>),
     Blocking(
-        Box<dyn FnOnce(&Discord) -> (Box<dyn Any + Send>) + Send>,
+        Box<dyn FnOnce(&Discord) -> Box<dyn Any + Send> + Send>,
         Sender<Box<dyn Any + Send>>,
     ),
 }

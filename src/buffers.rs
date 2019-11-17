@@ -447,13 +447,16 @@ pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_chann
                     _ => return,
                 };
                 let buf = sealed_buffer.unseal(&weechat);
+
+                use crate::printing;
                 if let Some(read_state) = ctx.cache.read().read_state.get(&channel) {
                     let unread_in_page = msgs.iter().any(|m| m.id == read_state.last_message_id);
 
                     if unread_in_page {
                         let mut backlog = true;
                         for msg in msgs.into_iter().rev() {
-                            crate::printing::print_msg(&weechat, &buf, &msg, false);
+                            printing::print_msg(&weechat, &buf, &msg, false);
+                            printing::inject_msg_id(msg.id, &buf);
                             if backlog {
                                 buf.mark_read();
                                 buf.clear_hotlist();
@@ -466,12 +469,14 @@ pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_chann
                         buf.mark_read();
                         buf.clear_hotlist();
                         for msg in msgs.into_iter().rev() {
-                            crate::printing::print_msg(&weechat, &buf, &msg, false);
+                            printing::print_msg(&weechat, &buf, &msg, false);
+                            printing::inject_msg_id(msg.id, &buf);
                         }
                     }
                 } else {
                     for msg in msgs.into_iter().rev() {
-                        crate::printing::print_msg(&weechat, &buf, &msg, false);
+                        printing::print_msg(&weechat, &buf, &msg, false);
+                        printing::inject_msg_id(msg.id, &buf);
                     }
                 }
                 completion_sender.send(()).unwrap();

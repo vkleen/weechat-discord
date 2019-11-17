@@ -1,7 +1,8 @@
 use crate::discord::formatting;
 use serenity::cache::CacheRwLock;
 use serenity::model::prelude::*;
-use weechat::{Buffer, Weechat};
+use weechat::hdata::HDataPointer;
+use weechat::{Buffer, HasHData, Weechat};
 
 pub fn render_msg(
     cache: &CacheRwLock,
@@ -152,4 +153,28 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
     let timestamp = msg.timestamp.timestamp();
     let tags = msg_tags(&ctx.cache, msg, notify).join(",");
     buffer.print_tags_dated(timestamp, &tags, &content);
+}
+
+// Use the `date_printed` hdata field to store the message id in the last message
+pub fn inject_msg_id(msg_id: MessageId, buffer: &Buffer) {
+    let buffer_hdata = buffer.get_hdata("buffer").unwrap();
+    let lines_ptr: HDataPointer = buffer_hdata.get_var("own_lines").unwrap();
+    let lines_hdata = lines_ptr.get_hdata("lines").unwrap();
+    let mut last_line_ptr_maybe = lines_hdata.get_var::<HDataPointer>("last_line");
+
+    while let Some(last_line_ptr) = last_line_ptr_maybe {
+        let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
+        let line_data_ptr: HDataPointer = last_line_hdata.get_var("data").unwrap();
+
+        let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
+        line_data_hdata.update_var("date_printed", msg_id.0.to_string());
+
+        if let Some(prefix) = unsafe { line_data_hdata.get_string_unchecked("prefix") } {
+            if !prefix.is_empty() {
+                break;
+            }
+        }
+
+        last_line_ptr_maybe = last_line_ptr.advance(&last_line_hdata, -1);
+    }
 }

@@ -323,6 +323,7 @@ fn print_message(weechat: &Weechat, ctx: Context, msg: &Message, buffer: &Buffer
     let muted = utils::buffer_is_muted(&buffer);
     let notify = !msg.is_own(ctx.cache) && !muted;
     printing::print_msg(&weechat, &buffer, &msg, notify);
+    printing::inject_msg_id(msg.id, buffer);
 }
 
 fn print_guild_status_message(guild_id: GuildId, msg: &str) {

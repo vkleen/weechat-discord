@@ -226,7 +226,7 @@ pub fn flatten_guilds(
     for item in items {
         match item {
             GuildOrChannel::Guild(guild_id) => {
-                let guild_channels = guild_id.channels(ctx).expect("Unable to fetch channels");
+                let guild_channels = guild_id.channels(ctx).unwrap_or_default();
                 let mut guild_channels = guild_channels.values().collect::<Vec<_>>();
                 guild_channels.sort_by_key(|g| g.position);
                 channels

@@ -285,10 +285,11 @@ pub fn create_buffer_from_channel(
     }
 
     let channel_type = match channel.kind {
-        ChannelType::Category | ChannelType::Voice => return,
+        // TODO: Should we display store channels somehow?
+        ChannelType::Category | ChannelType::Voice | ChannelType::Store => return,
         ChannelType::Private => "private",
         ChannelType::Group | ChannelType::Text | ChannelType::News => "channel",
-        _ => panic!("Unknown chanel type"),
+        ChannelType::__Nonexhaustive => unreachable!(),
     };
 
     let name_id = utils::buffer_id_for_channel(Some(channel.guild_id), channel.id);

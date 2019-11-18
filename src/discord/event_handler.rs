@@ -241,7 +241,7 @@ impl EventHandler for Handler {
 
                 let mut msgs = match event
                     .channel_id
-                    .messages(ctx, |retreiver| retreiver.limit(1).around(event.id))
+                    .messages(ctx, |retriever| retriever.limit(1).around(event.id))
                 {
                     Ok(msg) => msg,
                     _ => {

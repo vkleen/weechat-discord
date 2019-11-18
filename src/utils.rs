@@ -257,7 +257,7 @@ pub fn get_users_nth_message(
     let user = ctx.cache.read().user.id;
     // TODO: Page if needed
     channel
-        .messages(&ctx.http, |retreiver| retreiver.limit(50))
+        .messages(&ctx.http, |retriever| retriever.limit(50))
         .and_then(|msgs| {
             msgs.iter()
                 .filter(|msg| msg.author.id == user)

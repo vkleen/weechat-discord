@@ -221,6 +221,21 @@ impl EventHandler for Handler {
         });
     }
 
+    fn message_delete(&self, ctx: Context, channel_id: ChannelId, deleted_message_id: MessageId) {
+        delete_message(&ctx, channel_id, deleted_message_id)
+    }
+
+    fn message_delete_bulk(
+        &self,
+        ctx: Context,
+        channel_id: ChannelId,
+        deleted_messages_ids: Vec<MessageId>,
+    ) {
+        for message_id in deleted_messages_ids {
+            delete_message(&ctx, channel_id, message_id)
+        }
+    }
+
     fn message_update(
         &self,
         ctx: Context,
@@ -362,6 +377,26 @@ impl EventHandler for Handler {
         thread::spawn(|| {
             // TODO: Update nicklist (and/or just rework all nick stuff)
             buffers::update_nick();
+        });
+    }
+}
+
+fn delete_message(ctx: &Context, channel_id: ChannelId, deleted_message_id: MessageId) {
+    if let Some(channel) = ctx.cache.read().channels.get(&channel_id) {
+        let guild_id = channel.read().guild_id;
+        let buffer_name = utils::buffer_id_for_channel(Some(guild_id), channel_id);
+
+        on_main(move |weecord| {
+            modify_buffer_lines(
+                weecord,
+                deleted_message_id,
+                buffer_name,
+                format!(
+                    "{}(deleted){}",
+                    weecord.color("red"),
+                    weecord.color("reset")
+                ),
+            );
         });
     }
 }

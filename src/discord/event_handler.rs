@@ -230,7 +230,6 @@ impl EventHandler for Handler {
     ) {
         if let Some(channel) = ctx.cache.read().channels.get(&event.channel_id) {
             let guild_id = channel.read().guild_id;
-            // Search for a message with matching timestamps
             let buffer_name = utils::buffer_id_for_channel(Some(guild_id), event.channel_id);
 
             thread::spawn(move || {
@@ -259,72 +258,10 @@ impl EventHandler for Handler {
                         _ => return,
                     };
 
-                    let buffer = match weecord.buffer_search("weecord", &buffer_name) {
-                        Some(buf) => buf,
-                        None => return,
-                    };
-                    if buffer.get_localvar("loaded_history").is_none() {
-                        return;
-                    }
-
                     let (_, new_content) =
                         crate::printing::render_msg(&ctx.cache, weecord, &msg, Some(guild_id));
 
-                    {
-                        let buffer_hdata = buffer.get_hdata("buffer").unwrap();
-                        let lines_ptr: HDataPointer = buffer_hdata.get_var("own_lines").unwrap();
-                        let lines_hdata = lines_ptr.get_hdata("lines").unwrap();
-                        let mut maybe_last_line_ptr =
-                            lines_hdata.get_var::<HDataPointer>("last_line");
-
-                        let mut pointers = Vec::new();
-
-                        fn get_msg_id(last_line_hdata: &HData) -> u64 {
-                            let line_data_ptr: HDataPointer =
-                                last_line_hdata.get_var("data").unwrap();
-
-                            let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
-
-                            unsafe { line_data_hdata.get_i64_unchecked("date_printed") as u64 }
-                        }
-
-                        // advance to the edited message
-                        while let Some(last_line_ptr) = &maybe_last_line_ptr {
-                            let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
-
-                            if get_msg_id(&last_line_hdata) == msg.id.0 {
-                                break;
-                            }
-
-                            maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
-                        }
-
-                        // collect all lines of the message
-                        while let Some(last_line_ptr) = maybe_last_line_ptr {
-                            let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
-
-                            if get_msg_id(&last_line_hdata) != msg.id.0 {
-                                break;
-                            }
-
-                            let line_data_ptr: HDataPointer =
-                                last_line_hdata.get_var("data").unwrap();
-
-                            let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
-
-                            pointers.push(line_data_hdata);
-
-                            maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
-                        }
-
-                        let new_lines = new_content.splitn(pointers.len(), "\n");
-                        let new_lines = new_lines.map(|l| l.replace("\n", " | "));
-                        let new_lines = new_lines.chain(std::iter::repeat("".to_owned()));
-
-                        for (line_ptr, new_line) in pointers.iter().rev().zip(new_lines) {
-                            line_ptr.update_var("message", new_line);
-                        }
-                    }
+                    modify_buffer_lines(weecord, msg.id, buffer_name, new_content);
                 })
             });
         }
@@ -446,4 +383,70 @@ fn print_guild_status_message(guild_id: GuildId, msg: &str) {
             buffer.print(&(prefix + "\t" + msg.as_ref()));
         }
     })
+}
+
+fn modify_buffer_lines(
+    weecord: &Discord,
+    message_id: MessageId,
+    buffer_name: String,
+    new_content: String,
+) {
+    let buffer = match weecord.buffer_search("weecord", &buffer_name) {
+        Some(buf) => buf,
+        None => return,
+    };
+    if buffer.get_localvar("loaded_history").is_none() {
+        return;
+    }
+
+    let buffer_hdata = buffer.get_hdata("buffer").unwrap();
+    let lines_ptr: HDataPointer = buffer_hdata.get_var("own_lines").unwrap();
+    let lines_hdata = lines_ptr.get_hdata("lines").unwrap();
+    let mut maybe_last_line_ptr = lines_hdata.get_var::<HDataPointer>("last_line");
+
+    let mut pointers = Vec::new();
+
+    fn get_msg_id(last_line_hdata: &HData) -> u64 {
+        let line_data_ptr: HDataPointer = last_line_hdata.get_var("data").unwrap();
+
+        let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
+
+        unsafe { line_data_hdata.get_i64_unchecked("date_printed") as u64 }
+    }
+
+    // advance to the edited message
+    while let Some(last_line_ptr) = &maybe_last_line_ptr {
+        let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
+
+        if get_msg_id(&last_line_hdata) == message_id.0 {
+            break;
+        }
+
+        maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
+    }
+
+    // collect all lines of the message
+    while let Some(last_line_ptr) = maybe_last_line_ptr {
+        let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
+
+        if get_msg_id(&last_line_hdata) != message_id.0 {
+            break;
+        }
+
+        let line_data_ptr: HDataPointer = last_line_hdata.get_var("data").unwrap();
+
+        let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
+
+        pointers.push(line_data_hdata);
+
+        maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
+    }
+
+    let new_lines = new_content.splitn(pointers.len(), "\n");
+    let new_lines = new_lines.map(|l| l.replace("\n", " | "));
+    let new_lines = new_lines.chain(std::iter::repeat("".to_owned()));
+
+    for (line_ptr, new_line) in pointers.iter().rev().zip(new_lines) {
+        line_ptr.update_var("message", new_line);
+    }
 }

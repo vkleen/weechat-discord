@@ -46,7 +46,7 @@ pub fn status_is_online(status: OnlineStatus) -> bool {
     match status {
         Online | Idle | DoNotDisturb => true,
         Offline | Invisible => false,
-        _ => unreachable!(),
+        __Nonexhaustive => unreachable!(),
     }
 }
 

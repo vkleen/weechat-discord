@@ -9,7 +9,7 @@ pub fn render_msg(
     weechat: &Weechat,
     msg: &Message,
     guild: Option<GuildId>,
-) -> String {
+) -> (String, String) {
     let mut opts = serenity::utils::ContentSafeOptions::new()
         .clean_here(false)
         .clean_everyone(false);
@@ -17,6 +17,9 @@ pub fn render_msg(
         opts = opts.display_as_member_from(guild);
     }
     let mut msg_content = serenity::utils::content_safe(&cache, &msg.content, &opts);
+    if msg.edited_timestamp.is_some() {
+        msg_content.push_str(" (edited)");
+    }
 
     for attachement in &msg.attachments {
         if !msg_content.is_empty() {
@@ -52,22 +55,14 @@ pub fn render_msg(
         }
     }
 
-    let display_name = guild.and_then(|id| {
-        cache
-            .read()
-            .member(id, msg.author.id)
-            .map(|member| member.display_name().to_string())
-    });
-
-    let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
+    let author = author_display_name(cache, &msg, guild);
 
     use MessageType::*;
     match msg.kind {
         Regular => {
-            return format!(
-                "{}\t{}",
+            return (
                 author,
-                formatting::discord_to_weechat(weechat, &msg_content)
+                formatting::discord_to_weechat(weechat, &msg_content),
             )
         }
 
@@ -105,9 +100,20 @@ pub fn render_msg(
                 ),
                 Regular | __Nonexhaustive => unreachable!(),
             };
-            return weechat.get_prefix(prefix).into_owned() + &body;
+            return (weechat.get_prefix(prefix).into_owned(), body);
         }
     };
+}
+
+pub fn author_display_name(cache: &CacheRwLock, msg: &Message, guild: Option<GuildId>) -> String {
+    let display_name = guild.and_then(|id| {
+        cache
+            .read()
+            .member(id, msg.author.id)
+            .map(|member| member.display_name().to_string())
+    });
+    let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
+    author
 }
 
 pub fn msg_tags(cache: &CacheRwLock, msg: &Message, notify: bool) -> Vec<String> {
@@ -149,10 +155,10 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         .get_localvar("guildid")
         .and_then(|id| id.parse::<u64>().ok().map(GuildId));
 
-    let content = render_msg(&ctx.cache, weechat, msg, maybe_guild);
+    let (prefix, content) = render_msg(&ctx.cache, weechat, msg, maybe_guild);
     let timestamp = msg.timestamp.timestamp();
     let tags = msg_tags(&ctx.cache, msg, notify).join(",");
-    buffer.print_tags_dated(timestamp, &tags, &content);
+    buffer.print_tags_dated(timestamp, &tags, &format!("{}\t{}", prefix, content));
 }
 
 // Use the `date_printed` hdata field to store the message id in the last message
@@ -160,9 +166,9 @@ pub fn inject_msg_id(msg_id: MessageId, buffer: &Buffer) {
     let buffer_hdata = buffer.get_hdata("buffer").unwrap();
     let lines_ptr: HDataPointer = buffer_hdata.get_var("own_lines").unwrap();
     let lines_hdata = lines_ptr.get_hdata("lines").unwrap();
-    let mut last_line_ptr_maybe = lines_hdata.get_var::<HDataPointer>("last_line");
+    let mut maybe_last_line_ptr = lines_hdata.get_var::<HDataPointer>("last_line");
 
-    while let Some(last_line_ptr) = last_line_ptr_maybe {
+    while let Some(last_line_ptr) = maybe_last_line_ptr {
         let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
         let line_data_ptr: HDataPointer = last_line_hdata.get_var("data").unwrap();
 
@@ -175,6 +181,6 @@ pub fn inject_msg_id(msg_id: MessageId, buffer: &Buffer) {
             }
         }
 
-        last_line_ptr_maybe = last_line_ptr.advance(&last_line_hdata, -1);
+        maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
     }
 }

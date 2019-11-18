@@ -18,7 +18,9 @@ pub fn render_msg(
     }
     let mut msg_content = serenity::utils::content_safe(&cache, &msg.content, &opts);
     if msg.edited_timestamp.is_some() {
-        msg_content.push_str(" (edited)");
+        let edited_text =
+            weechat.color("8").into_owned() + " (edited)" + &weechat.color("reset").into_owned();
+        msg_content.push_str(&edited_text);
     }
 
     for attachement in &msg.attachments {

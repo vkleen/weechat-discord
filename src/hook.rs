@@ -303,6 +303,10 @@ fn handle_channel_completion(buffer: &Buffer, completion: weechat::Completion) -
                     Text | Private | Group | News => {}
                     _ => continue,
                 }
+                let permissions = guild.user_permissions_in(channel.id, ctx.cache.read().user.id);
+                if !permissions.read_message_history() || !permissions.read_messages() {
+                    continue;
+                }
                 completion.add(&parsing::weechat_arg_strip(&channel.name))
             }
             return ReturnCode::Ok;

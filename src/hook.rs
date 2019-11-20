@@ -1,3 +1,4 @@
+use crate::buffers::load_pin_buffer_history;
 use crate::utils::ChannelExt;
 use crate::{discord, on_main, plugin_print, utils};
 use crossbeam_channel::unbounded;
@@ -199,6 +200,13 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
         // Wait until messages have been loaded to acknowledge them
         let (tx, rx) = unbounded();
         if buffer.get_localvar("loaded_history").is_none() {
+            let pinned_channel_id = buffer.get_localvar("pins_for_channel");
+
+            if pinned_channel_id.is_some() {
+                load_pin_buffer_history(&buffer);
+                return ReturnCode::Ok;
+            }
+
             crate::buffers::load_history(&buffer, tx);
         }
 

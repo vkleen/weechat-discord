@@ -4,8 +4,7 @@ use serenity::{model::gateway::Ready, model::prelude::*, prelude::*};
 use std::sync::{mpsc::Sender, Arc};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use weechat::hdata::{HData, HDataPointer};
-use weechat::{Buffer, ConfigOption, HasHData, Weechat};
+use weechat::{Buffer, ConfigOption, Weechat};
 
 const MAX_TYPING_EVENTS: usize = 50;
 
@@ -87,6 +86,10 @@ impl EventHandler for Handler {
             channel.guild_id,
             &format!("Channel `{}` deleted", channel.name()),
         );
+    }
+
+    fn channel_pins_update(&self, _ctx: Context, pin: ChannelPinsUpdateEvent) {
+        buffers::load_pin_buffer_history_for_id(pin.channel_id);
     }
 
     fn channel_update(&self, ctx: Context, old: Option<Channel>, new: Channel) {
@@ -276,7 +279,7 @@ impl EventHandler for Handler {
                     let (_, new_content) =
                         crate::printing::render_msg(&ctx.cache, weecord, &msg, Some(guild_id));
 
-                    modify_buffer_lines(weecord, msg.id, buffer_name, new_content);
+                    crate::buffers::modify_buffer_lines(weecord, msg.id, buffer_name, new_content);
                 })
             });
         }
@@ -387,7 +390,7 @@ fn delete_message(ctx: &Context, channel_id: ChannelId, deleted_message_id: Mess
         let buffer_name = utils::buffer_id_for_channel(Some(guild_id), channel_id);
 
         on_main(move |weecord| {
-            modify_buffer_lines(
+            crate::buffers::modify_buffer_lines(
                 weecord,
                 deleted_message_id,
                 buffer_name,
@@ -418,70 +421,4 @@ fn print_guild_status_message(guild_id: GuildId, msg: &str) {
             buffer.print(&(prefix + "\t" + msg.as_ref()));
         }
     })
-}
-
-fn modify_buffer_lines(
-    weecord: &Discord,
-    message_id: MessageId,
-    buffer_name: String,
-    new_content: String,
-) {
-    let buffer = match weecord.buffer_search("weecord", &buffer_name) {
-        Some(buf) => buf,
-        None => return,
-    };
-    if buffer.get_localvar("loaded_history").is_none() {
-        return;
-    }
-
-    let buffer_hdata = buffer.get_hdata("buffer").unwrap();
-    let lines_ptr: HDataPointer = buffer_hdata.get_var("own_lines").unwrap();
-    let lines_hdata = lines_ptr.get_hdata("lines").unwrap();
-    let mut maybe_last_line_ptr = lines_hdata.get_var::<HDataPointer>("last_line");
-
-    let mut pointers = Vec::new();
-
-    fn get_msg_id(last_line_hdata: &HData) -> u64 {
-        let line_data_ptr: HDataPointer = last_line_hdata.get_var("data").unwrap();
-
-        let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
-
-        unsafe { line_data_hdata.get_i64_unchecked("date_printed") as u64 }
-    }
-
-    // advance to the edited message
-    while let Some(last_line_ptr) = &maybe_last_line_ptr {
-        let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
-
-        if get_msg_id(&last_line_hdata) == message_id.0 {
-            break;
-        }
-
-        maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
-    }
-
-    // collect all lines of the message
-    while let Some(last_line_ptr) = maybe_last_line_ptr {
-        let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
-
-        if get_msg_id(&last_line_hdata) != message_id.0 {
-            break;
-        }
-
-        let line_data_ptr: HDataPointer = last_line_hdata.get_var("data").unwrap();
-
-        let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
-
-        pointers.push(line_data_hdata);
-
-        maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
-    }
-
-    let new_lines = new_content.splitn(pointers.len(), "\n");
-    let new_lines = new_lines.map(|l| l.replace("\n", " | "));
-    let new_lines = new_lines.chain(std::iter::repeat("".to_owned()));
-
-    for (line_ptr, new_line) in pointers.iter().rev().zip(new_lines) {
-        line_ptr.update_var("message", new_line);
-    }
 }

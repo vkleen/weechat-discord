@@ -77,6 +77,7 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "autojoin" => autojoin(weechat, args, buffer),
         "autojoined" => autojoined(weechat),
         "status" => status(args),
+        "pins" | "pinned" => pins(weechat, buffer),
         "game" => game(args),
         "upload" => upload(args, buffer),
         "me" | "tableflip" | "unflip" | "shrug" | "spoiler" => {
@@ -439,6 +440,31 @@ fn status(args: Args) {
     plugin_print(&format!("Status set to {} {:#?}", status_str, status));
 }
 
+fn pins(weechat: &Weechat, buffer: &Buffer) {
+    let channel = buffer
+        .get_localvar("channelid")
+        .and_then(|id| id.parse().ok())
+        .map(ChannelId);
+
+    let channel_id = match channel {
+        Some(ch) => ch,
+        None => return,
+    };
+
+    let ctx = match crate::discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return,
+    };
+
+    let channel = match channel_id.to_channel_cached(ctx) {
+        Some(ch) => ch,
+        None => return,
+    };
+
+    buffers::create_pins_buffer(weechat, &channel);
+    buffers::load_pin_buffer_history_for_id(channel.id());
+}
+
 fn game(args: Args) {
     let ctx = match crate::discord::get_ctx() {
         Some(ctx) => ctx,
@@ -581,6 +607,7 @@ Originally by https://github.com/khyperia/weechat-discord",
     autojoin
     watched
     autojoined
+    pins
     irc-mode
     discord-mode
     autostart
@@ -603,6 +630,7 @@ Originally by https://github.com/khyperia/weechat-discord",
     autojoin: Automatically open a channel or entire guild when discord connects
     watched: List watched guilds and channels
     autojoined: List autojoined guilds and channels
+    pins: Show a list of pinned messages for the current channel
     autostart: automatically sign into discord on start
     noautostart: disable autostart
     status: set your Discord online status
@@ -626,6 +654,7 @@ autojoined || \
 autojoin %(weecord_guild_completion) %(weecord_channel_completion) || \
 irc-mode || \
 discord-mode || \
+pins || \
 token || \
 autostart || \
 noautostart || \

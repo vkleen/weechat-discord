@@ -1,13 +1,14 @@
 use crate::sync::on_main_blocking;
 use crate::utils::ChannelExt;
-use crate::{on_main, utils};
+use crate::{on_main, printing, utils, Discord};
 use indexmap::IndexMap;
 use serenity::cache::Cache;
 use serenity::{cache::CacheRwLock, model::prelude::*, prelude::*};
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use weechat::buffer::HotlistPriority;
-use weechat::{Buffer, ConfigOption, NickArgs, Weechat};
+use weechat::hdata::HData;
+use weechat::{hdata::HDataPointer, Buffer, ConfigOption, HasHData, NickArgs, Weechat};
 
 const OFFLINE_GROUP_NAME: &str = "99999|Offline";
 const ONLINE_GROUP_NAME: &str = "99998|Online";
@@ -419,6 +420,60 @@ pub fn create_buffer_from_group(
     }
 }
 
+pub fn create_pins_buffer(weechat: &Weechat, channel: &Channel) {
+    let buffer_name = format!("Pins.{}", channel.id().0);
+
+    let buffer = find_or_make_buffer(weechat, &buffer_name);
+    buffer.switch_to();
+
+    buffer.set_title(&format!("Pinned messages in #{}", channel.name()));
+    buffer.set_full_name(&format!("Pinned messages in ${}", channel.name()));
+    buffer.set_short_name(&format!("#{} pins", channel.name()));
+    buffer.set_localvar("pins_for_channel", &channel.id().0.to_string());
+}
+
+pub fn load_pin_buffer_history(buffer: &weechat::Buffer) {
+    let channel = match buffer
+        .get_localvar("pins_for_channel")
+        .and_then(|id| id.parse().ok())
+        .map(ChannelId)
+    {
+        Some(ch) => ch,
+        None => return,
+    };
+
+    buffer.set_localvar("loaded_history", "true");
+    buffer.clear();
+    let sealed_buffer = buffer.seal();
+
+    std::thread::spawn(move || {
+        let ctx = match crate::discord::get_ctx() {
+            Some(ctx) => ctx,
+            _ => return,
+        };
+
+        let pins = match channel.pins(ctx) {
+            Ok(pins) => pins,
+            Err(_) => return,
+        };
+
+        on_main(move |weecord| {
+            let buf = sealed_buffer.unseal(&weecord);
+
+            for pin in pins.iter().rev() {
+                printing::print_msg(&weecord, &buf, &pin, false);
+            }
+        });
+    });
+}
+pub fn load_pin_buffer_history_for_id(id: ChannelId) {
+    on_main(move |weecord| {
+        if let Some(buffer) = weecord.buffer_search("weecord", &format!("Pins.{}", id)) {
+            load_pin_buffer_history(&buffer)
+        };
+    })
+}
+
 pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_channel::Sender<()>) {
     if buffer.get_localvar("loaded_history").is_some() {
         return;
@@ -451,7 +506,6 @@ pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_chann
                 };
                 let buf = sealed_buffer.unseal(&weechat);
 
-                use crate::printing;
                 if let Some(read_state) = ctx.cache.read().read_state.get(&channel) {
                     let unread_in_page = msgs.iter().any(|m| m.id == read_state.last_message_id);
 
@@ -764,6 +818,72 @@ pub fn update_member_nick(old: &Option<Member>, new: &Member) {
                 }
             }
         })
+    }
+}
+
+pub fn modify_buffer_lines(
+    weecord: &Discord,
+    message_id: MessageId,
+    buffer_name: String,
+    new_content: String,
+) {
+    let buffer = match weecord.buffer_search("weecord", &buffer_name) {
+        Some(buf) => buf,
+        None => return,
+    };
+    if buffer.get_localvar("loaded_history").is_none() {
+        return;
+    }
+
+    let buffer_hdata = buffer.get_hdata("buffer").unwrap();
+    let lines_ptr: HDataPointer = buffer_hdata.get_var("own_lines").unwrap();
+    let lines_hdata = lines_ptr.get_hdata("lines").unwrap();
+    let mut maybe_last_line_ptr = lines_hdata.get_var::<HDataPointer>("last_line");
+
+    let mut pointers = Vec::new();
+
+    fn get_msg_id(last_line_hdata: &HData) -> u64 {
+        let line_data_ptr: HDataPointer = last_line_hdata.get_var("data").unwrap();
+
+        let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
+
+        unsafe { line_data_hdata.get_i64_unchecked("date_printed") as u64 }
+    }
+
+    // advance to the edited message
+    while let Some(last_line_ptr) = &maybe_last_line_ptr {
+        let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
+
+        if get_msg_id(&last_line_hdata) == message_id.0 {
+            break;
+        }
+
+        maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
+    }
+
+    // collect all lines of the message
+    while let Some(last_line_ptr) = maybe_last_line_ptr {
+        let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
+
+        if get_msg_id(&last_line_hdata) != message_id.0 {
+            break;
+        }
+
+        let line_data_ptr: HDataPointer = last_line_hdata.get_var("data").unwrap();
+
+        let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
+
+        pointers.push(line_data_hdata);
+
+        maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
+    }
+
+    let new_lines = new_content.splitn(pointers.len(), "\n");
+    let new_lines = new_lines.map(|l| l.replace("\n", " | "));
+    let new_lines = new_lines.chain(std::iter::repeat("".to_owned()));
+
+    for (line_ptr, new_line) in pointers.iter().rev().zip(new_lines) {
+        line_ptr.update_var("message", new_line);
     }
 }
 

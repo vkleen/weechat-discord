@@ -2,8 +2,7 @@ use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serenity::{
-    cache::Cache,
-    cache::CacheRwLock,
+    cache::{Cache, CacheRwLock},
     model::{id::ChannelId, prelude::*},
     prelude::*,
 };
@@ -194,7 +193,7 @@ pub fn search_channel(
                 // Skip non text channels
                 use serenity::model::channel::ChannelType::*;
                 match channel_lock.kind {
-                    Text | Private | Group | News => {}
+                    Text | Private | Group | News => {},
                     _ => continue,
                 }
                 return Some((raw_guild.clone(), channel.clone()));
@@ -233,10 +232,10 @@ pub fn flatten_guilds(
                     .entry(Some(*guild_id))
                     .or_default()
                     .extend(guild_channels.iter().map(|ch| ch.id));
-            }
+            },
             GuildOrChannel::Channel(guild, channel) => {
                 channels.entry(*guild).or_default().push(*channel);
-            }
+            },
         }
     }
 

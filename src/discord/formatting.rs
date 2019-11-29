@@ -1,6 +1,5 @@
 use parsing::{self, MarkdownNode};
-use std::rc::Rc;
-use std::sync::RwLock;
+use std::{rc::Rc, sync::RwLock};
 use weechat::Weechat;
 
 pub fn discord_to_weechat(weechat: &Weechat, msg: &str) -> String {
@@ -76,7 +75,7 @@ fn discord_to_weechat_reducer(weechat: &Weechat, node: &MarkdownNode) -> String 
                     .collect::<Vec<_>>()
                     .join("\n"),
             )
-        }
+        },
         BlockQuote(styles) => collect_styles(weechat, styles)
             .lines()
             .fold(String::new(), |acc, x| format!("{}\n▎{}", acc, x)),

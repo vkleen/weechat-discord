@@ -1,11 +1,13 @@
-use crate::buffers::load_pin_buffer_history;
-use crate::utils::ChannelExt;
-use crate::{discord, on_main, plugin_print, utils};
+use crate::{
+    buffers::load_pin_buffer_history, discord, on_main, plugin_print, utils, utils::ChannelExt,
+};
 use crossbeam_channel::unbounded;
 use serenity::{model::prelude::*, prelude::*};
-use std::sync::Arc;
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    sync::Arc,
+    thread,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use weechat::{Buffer, CompletionPosition, ConfigOption, ReturnCode, Weechat};
 
 static mut LAST_TYPING_TIMESTAMP: u64 = 0;
@@ -148,7 +150,7 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
                             line,
                         ))
                     }
-                }
+                },
                 parsing::LineEdit::Sub {
                     line,
                     old,
@@ -182,7 +184,7 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
                             options.unwrap_or_default()
                         ))
                     }
-                }
+                },
             }
             return;
         }
@@ -308,7 +310,7 @@ fn handle_channel_completion(buffer: &Buffer, completion: weechat::Completion) -
                 // Skip non text channels
                 use serenity::model::channel::ChannelType::*;
                 match channel.kind {
-                    Text | Private | Group | News => {}
+                    Text | Private | Group | News => {},
                     _ => continue,
                 }
                 let permissions = guild.user_permissions_in(channel.id, ctx.cache.read().user.id);

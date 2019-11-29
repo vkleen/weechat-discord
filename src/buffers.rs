@@ -1,14 +1,19 @@
-use crate::sync::on_main_blocking;
-use crate::utils::ChannelExt;
-use crate::{on_main, printing, utils, Discord};
+use crate::{on_main, printing, sync::on_main_blocking, utils, utils::ChannelExt, Discord};
 use indexmap::IndexMap;
-use serenity::cache::Cache;
-use serenity::{cache::CacheRwLock, model::prelude::*, prelude::*};
-use std::collections::{HashMap, VecDeque};
-use std::sync::Arc;
-use weechat::buffer::HotlistPriority;
-use weechat::hdata::HData;
-use weechat::{hdata::HDataPointer, Buffer, ConfigOption, HasHData, NickArgs, Weechat};
+use serenity::{
+    cache::{Cache, CacheRwLock},
+    model::prelude::*,
+    prelude::*,
+};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
+use weechat::{
+    buffer::HotlistPriority,
+    hdata::{HData, HDataPointer},
+    Buffer, ConfigOption, HasHData, NickArgs, Weechat,
+};
 
 const OFFLINE_GROUP_NAME: &str = "99999|Offline";
 const ONLINE_GROUP_NAME: &str = "99998|Online";
@@ -26,7 +31,7 @@ pub fn create_buffers(ready_data: &Ready) {
         Err(e) => {
             crate::plugin_print(&format!("Error getting user guilds: {:?}", e));
             vec![]
-        }
+        },
     };
     let mut map: HashMap<_, _> = guilds.iter().map(|g| (g.id, g)).collect();
 
@@ -191,7 +196,7 @@ pub fn create_buffers_from_flat_items(
                         );
                     });
                 }
-            }
+            },
             (None, channels) => {
                 let ctx = match crate::discord::get_ctx() {
                     Some(ctx) => ctx,
@@ -207,7 +212,7 @@ pub fn create_buffers_from_flat_items(
                         Err(_) => {
                             crate::plugin_print("cache miss");
                             continue;
-                        }
+                        },
                     };
 
                     match channel {
@@ -229,7 +234,7 @@ pub fn create_buffers_from_flat_items(
                         _ => unreachable!(),
                     }
                 }
-            }
+            },
         }
     }
 }
@@ -777,7 +782,7 @@ pub fn update_member_nick(old: &Option<Member>, new: &Member) {
         None => {
             // TODO: Rebuild entire nicklist?
             return;
-        }
+        },
     };
     let new_nick = new.display_name();
     let new = new.clone();

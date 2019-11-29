@@ -1,10 +1,10 @@
-use crate::utils::{ChannelExt, GuildOrChannel};
-use crate::{buffers, discord, on_main_blocking, plugin_print, utils};
+use crate::{
+    buffers, discord, on_main_blocking, plugin_print, utils,
+    utils::{ChannelExt, GuildOrChannel},
+};
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
-use serenity::model::gateway::Activity;
-use serenity::model::id::ChannelId;
-use serenity::model::user::OnlineStatus;
+use serenity::model::{gateway::Activity, id::ChannelId, user::OnlineStatus};
 use std::sync::Arc;
 use weechat::{Buffer, CommandHook, ConfigOption, ReturnCode, Weechat};
 
@@ -68,10 +68,10 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "noautostart" => noautostart(weechat),
         "query" => {
             crate::hook::handle_query(&format!("/query {}", args.rest));
-        }
+        },
         "join" => {
             join(weechat, args, true);
-        }
+        },
         "watch" => watch(weechat, args),
         "watched" => watched(weechat),
         "autojoin" => autojoin(weechat, args, buffer),
@@ -82,10 +82,10 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "upload" => upload(args, buffer),
         "me" | "tableflip" | "unflip" | "shrug" | "spoiler" => {
             discord_fmt(args.base, args.rest, buffer)
-        }
+        },
         _ => {
             plugin_print("Unknown command");
-        }
+        },
     };
 }
 
@@ -433,7 +433,7 @@ fn status(args: Args) {
         _ => {
             plugin_print(&format!("Unknown status \"{}\"", status_str));
             return;
-        }
+        },
     };
     ctx.set_presence(None, status);
     *LAST_STATUS.lock() = status;
@@ -486,7 +486,7 @@ fn game(args: Args) {
             _ => {
                 plugin_print(&format!("Unknown activity type \"{}\"", activity_type));
                 return;
-            }
+            },
         })
     };
 
@@ -512,7 +512,7 @@ fn upload(args: Args, buffer: &Buffer) {
             Err(e) => {
                 plugin_print(&format!("Unable to resolve file path: {}", e));
                 return;
-            }
+            },
         };
         let full = full.as_str();
         // TODO: Check perms and file size
@@ -534,7 +534,7 @@ fn upload(args: Args, buffer: &Buffer) {
                 if let serenity::Error::Model(serenity::model::ModelError::MessageTooLong(_)) = e {
                     plugin_print("File too large to upload");
                 }
-            }
+            },
         };
     }
 }
@@ -554,7 +554,7 @@ fn format_option_change<'a, T: std::fmt::Display>(
         ),
         (Changed, None) | (Unchanged, None) => {
             format!("option {} successfully set to {}", name, value)
-        }
+        },
         (Unchanged, Some(before)) => format!("option {} already contained {}", name, before),
         (NotFound, _) => format!("option {} not found", name),
         (Error, Some(before)) => format!(

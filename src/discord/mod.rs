@@ -29,7 +29,7 @@ pub fn init(weecord: &Discord, token: &str, irc_mode: bool) {
                 e
             ));
             return;
-        }
+        },
     };
 
     thread::spawn(move || {

@@ -1,8 +1,6 @@
 use crate::discord::formatting;
-use serenity::cache::CacheRwLock;
-use serenity::model::prelude::*;
-use weechat::hdata::HDataPointer;
-use weechat::{Buffer, HasHData, Weechat};
+use serenity::{cache::CacheRwLock, model::prelude::*};
+use weechat::{hdata::HDataPointer, Buffer, HasHData, Weechat};
 
 pub fn render_msg(
     cache: &CacheRwLock,
@@ -66,13 +64,13 @@ pub fn render_msg(
                 author,
                 formatting::discord_to_weechat(weechat, &msg_content),
             )
-        }
+        },
 
         _ => {
             let (prefix, body) = match msg.kind {
                 GroupRecipientAddition | MemberJoin => {
                     ("join", format!("{} joined the group.", author))
-                }
+                },
                 GroupRecipientRemoval => ("quit", format!("{} left the group.", author)),
                 GroupNameUpdate => (
                     "network",
@@ -103,7 +101,7 @@ pub fn render_msg(
                 Regular | __Nonexhaustive => unreachable!(),
             };
             return (weechat.get_prefix(prefix).into_owned(), body);
-        }
+        },
     };
 }
 

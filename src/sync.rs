@@ -2,12 +2,7 @@ use crate::Discord;
 use crossbeam_channel::{unbounded, Sender};
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
-use std::any::Any;
-use std::cell::RefCell;
-use std::collections::VecDeque;
-use std::mem::transmute;
-use std::thread;
-use std::time::Duration;
+use std::{any::Any, cell::RefCell, collections::VecDeque, mem::transmute, thread, time::Duration};
 use weechat::Weechat;
 
 /// Created upon sync initialization, must not be dropped while the plugin is running
@@ -76,12 +71,12 @@ fn tick() {
     match JOB_QUEUE.lock().borrow_mut().pop_front() {
         Some(Job::Nonblocking(cb)) => {
             (cb)(unsafe { &crate::__PLUGIN.as_ref().unwrap() });
-        }
+        },
         Some(Job::Blocking(cb, tx)) => {
             let result = (cb)(unsafe { &crate::__PLUGIN.as_ref().unwrap() });
             let _ = tx.send(result);
-        }
-        None => {}
+        },
+        None => {},
     }
 }
 

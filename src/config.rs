@@ -1,7 +1,5 @@
+use crate::{utils, utils::GuildOrChannel};
 use weechat::{BooleanOption, ConfigOption, ConfigSectionInfo, StringOption, Weechat};
-
-use crate::utils;
-use crate::utils::GuildOrChannel;
 
 pub struct Config {
     pub token: StringOption,

@@ -1,9 +1,14 @@
 use crate::{buffers, on_main, on_main_blocking, printing, utils, Discord};
 use lazy_static::lazy_static;
-use serenity::{model::gateway::Ready, model::prelude::*, prelude::*};
-use std::sync::{mpsc::Sender, Arc};
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use serenity::{
+    model::{gateway::Ready, prelude::*},
+    prelude::*,
+};
+use std::{
+    sync::{mpsc::Sender, Arc},
+    thread,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use weechat::{Buffer, ConfigOption, Weechat};
 
 const MAX_TYPING_EVENTS: usize = 50;
@@ -118,7 +123,7 @@ impl EventHandler for Handler {
                         }
                     }
                 }
-            }
+            },
             Channel::Guild(new) => {
                 if let Some(old) = old.and_then(|old| old.guild()) {
                     let new = new.read();
@@ -131,8 +136,8 @@ impl EventHandler for Handler {
                         );
                     }
                 }
-            }
-            _ => {}
+            },
+            _ => {},
         }
     }
 
@@ -164,7 +169,7 @@ impl EventHandler for Handler {
                                 false,
                             );
                         }
-                    }
+                    },
                     chan @ Ok(Channel::Group(_)) => {
                         if let Some(buffer) = weechat.buffer_search("weecord", &string_channel) {
                             print_message(&weechat, ctx, &msg, &buffer);
@@ -176,7 +181,7 @@ impl EventHandler for Handler {
                                 &ctx.cache.read().user.name,
                             );
                         }
-                    }
+                    },
                     Ok(Channel::Guild(channel)) => {
                         // Check that the channel is on the watch list
                         let channel = channel.read();
@@ -217,8 +222,8 @@ impl EventHandler for Handler {
                                 break;
                             }
                         }
-                    }
-                    _ => {}
+                    },
+                    _ => {},
                 }
             }
         });
@@ -263,7 +268,7 @@ impl EventHandler for Handler {
                     Ok(msg) => msg,
                     _ => {
                         return;
-                    }
+                    },
                 };
                 let msg = match msgs.pop() {
                     Some(msg) => msg,

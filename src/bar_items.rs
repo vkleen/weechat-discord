@@ -1,7 +1,6 @@
 use serenity::model::id::{ChannelId, GuildId};
 use std::borrow::Cow;
-use weechat::bar::BarItem;
-use weechat::Weechat;
+use weechat::{bar::BarItem, Weechat};
 
 pub struct BarHandles {
     _guild_name: BarItem<()>,
@@ -45,7 +44,7 @@ pub fn init(weechat: &Weechat) -> BarHandles {
                 (Some(name), None) | (None, Some(name)) => format!("{}", name),
                 (Some(guild_name), Some(channel_name)) => {
                     format!("{}:{}", guild_name, channel_name)
-                }
+                },
                 (None, None) => String::new(),
             }
         },

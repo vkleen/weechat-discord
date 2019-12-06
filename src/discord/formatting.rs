@@ -76,17 +76,19 @@ fn discord_to_weechat_reducer(weechat: &Weechat, node: &MarkdownNode) -> String 
                     .join("\n"),
             )
         },
-        BlockQuote(styles) => collect_styles(weechat, styles)
-            .lines()
-            .fold(String::new(), |acc, x| format!("{}\n▎{}", acc, x)),
-        SingleBlockQuote(styles) => collect_styles(weechat, styles)
-            .lines()
-            .fold(String::new(), |acc, x| {
-                format!("{}▎{}\n", acc, strip_leading_bracket(x))
-            }),
+        BlockQuote(styles) => format_block_quote(collect_styles(weechat, styles).lines()),
+        SingleBlockQuote(styles) => format_block_quote(
+            collect_styles(weechat, styles)
+                .lines()
+                .map(strip_leading_bracket),
+        ),
     }
 }
 
 fn strip_leading_bracket(line: &str) -> &str {
     &line[line.find("> ").map(|x| x + 2).unwrap_or(0)..]
+}
+
+fn format_block_quote<'a>(lines: impl Iterator<Item = &'a str>) -> String {
+    lines.fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x))
 }

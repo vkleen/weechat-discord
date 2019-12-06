@@ -104,14 +104,14 @@ impl EventHandler for Handler {
         match new {
             Channel::Category(new) => {
                 // TODO: old doesn't ever seem to be available
-                if let Some(old) = old.and_then(|old| old.category()) {
+                if let Some(old) = old.and_then(Channel::category) {
                     let new = new.read();
                     let old = old.read();
 
                     let guild_id = new
                         .id
                         .to_channel_cached(&ctx)
-                        .and_then(|ch| ch.guild())
+                        .and_then(Channel::guild)
                         .map(|ch| ch.read().guild_id);
 
                     if let Some(guild_id) = guild_id {
@@ -125,7 +125,7 @@ impl EventHandler for Handler {
                 }
             },
             Channel::Guild(new) => {
-                if let Some(old) = old.and_then(|old| old.guild()) {
+                if let Some(old) = old.and_then(Channel::guild) {
                     let new = new.read();
                     let old = old.read();
 
@@ -261,14 +261,13 @@ impl EventHandler for Handler {
                     _ => return,
                 };
 
-                let mut msgs = match event
+                let mut msgs = if let Ok(msgs) = event
                     .channel_id
                     .messages(ctx, |retriever| retriever.limit(1).around(event.id))
                 {
-                    Ok(msg) => msg,
-                    _ => {
-                        return;
-                    },
+                    msgs
+                } else {
+                    return;
                 };
                 let msg = match msgs.pop() {
                     Some(msg) => msg,
@@ -284,7 +283,12 @@ impl EventHandler for Handler {
                     let (_, new_content) =
                         crate::printing::render_msg(&ctx.cache, weecord, &msg, Some(guild_id));
 
-                    crate::buffers::modify_buffer_lines(weecord, msg.id, buffer_name, new_content);
+                    crate::buffers::modify_buffer_lines(
+                        weecord,
+                        msg.id,
+                        &buffer_name,
+                        &new_content,
+                    );
                 })
             });
         }
@@ -294,7 +298,7 @@ impl EventHandler for Handler {
         // Cache seems not to have all fields properly populated
 
         ctx.shard
-            .chunk_guilds(ready.guilds.iter().map(|g| g.id()), None, None);
+            .chunk_guilds(ready.guilds.iter().map(GuildStatus::id), None, None);
         {
             let mut ctx_lock = ctx.cache.write();
             for (&id, channel) in &ready.private_channels {
@@ -302,7 +306,7 @@ impl EventHandler for Handler {
                     ctx_lock.private_channels.insert(id, pc);
                 }
             }
-            for guild in ready.guilds.iter() {
+            for guild in &ready.guilds {
                 if let GuildStatus::OnlineGuild(guild) = guild {
                     for (id, pres) in guild.presences.clone() {
                         ctx_lock.presences.insert(id, pres);
@@ -398,8 +402,8 @@ fn delete_message(ctx: &Context, channel_id: ChannelId, deleted_message_id: Mess
             crate::buffers::modify_buffer_lines(
                 weecord,
                 deleted_message_id,
-                buffer_name,
-                format!(
+                &buffer_name,
+                &format!(
                     "{}(deleted){}",
                     weecord.color("red"),
                     weecord.color("reset")

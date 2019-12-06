@@ -80,6 +80,7 @@ fn tick() {
     }
 }
 
+#[must_use]
 pub fn upgrade_plugin(weechat: &Weechat) -> &Discord {
     let _ = weechat;
     unsafe { crate::__PLUGIN.as_ref().unwrap() }

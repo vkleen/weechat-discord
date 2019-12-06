@@ -60,26 +60,26 @@ fn run_command(buffer: &Buffer, cmd: &str) {
 
     match args.base {
         "connect" => connect(weechat),
-        "disconnect" => disconnect(weechat),
+        "dis&connect" => disconnect(weechat),
         "irc-mode" => irc_mode(weechat),
         "discord-mode" => discord_mode(weechat),
-        "token" => token(weechat, args),
+        "token" => token(weechat, &args),
         "autostart" => autostart(weechat),
         "noautostart" => noautostart(weechat),
         "query" => {
             crate::hook::handle_query(&format!("/query {}", args.rest));
         },
         "join" => {
-            join(weechat, args, true);
+            join(weechat, &args, true);
         },
-        "watch" => watch(weechat, args),
+        "watch" => watch(weechat, &args),
         "watched" => watched(weechat),
-        "autojoin" => autojoin(weechat, args, buffer),
+        "autojoin" => autojoin(weechat, &args, buffer),
         "autojoined" => autojoined(weechat),
-        "status" => status(args),
+        "status" => status(&args),
         "pins" | "pinned" => pins(weechat, buffer),
-        "game" => game(args),
-        "upload" => upload(args, buffer),
+        "game" => game(&args),
+        "upload" => upload(&args, buffer),
         "me" | "tableflip" | "unflip" | "shrug" | "spoiler" => {
             discord_fmt(args.base, args.rest, buffer)
         },
@@ -140,7 +140,7 @@ fn discord_mode(weechat: &Weechat) {
     }
 }
 
-fn token(weechat: &Weechat, args: Args) {
+fn token(weechat: &Weechat, args: &Args) {
     if args.args.is_empty() {
         plugin_print("token requires an argument");
     } else {
@@ -164,7 +164,7 @@ fn noautostart(weechat: &Weechat) {
     plugin_print("Discord will not load on startup");
 }
 
-pub(crate) fn join(_weechat: &Weechat, args: Args, verbose: bool) -> ReturnCode {
+pub(crate) fn join(_weechat: &Weechat, args: &Args, verbose: bool) -> ReturnCode {
     if args.args.is_empty() && verbose {
         plugin_print("join requires an guild name and channel name");
         ReturnCode::Error
@@ -215,7 +215,7 @@ pub(crate) fn join(_weechat: &Weechat, args: Args, verbose: bool) -> ReturnCode 
     }
 }
 
-fn watch(weechat: &Weechat, args: Args) {
+fn watch(weechat: &Weechat, args: &Args) {
     if args.args.is_empty() {
         plugin_print("watch requires a guild name and channel name");
     } else {
@@ -312,7 +312,7 @@ fn watched(weechat: &Weechat) {
     }
 }
 
-fn autojoin(weechat: &Weechat, args: Args, buffer: &Buffer) {
+fn autojoin(weechat: &Weechat, args: &Args, buffer: &Buffer) {
     if args.args.is_empty() {
         plugin_print("autojoin requires a guild name and channel name");
     } else {
@@ -414,7 +414,7 @@ fn autojoined(weechat: &Weechat) {
     }
 }
 
-fn status(args: Args) {
+fn status(args: &Args) {
     let ctx = match crate::discord::get_ctx() {
         Some(ctx) => ctx,
         _ => return,
@@ -465,13 +465,13 @@ fn pins(weechat: &Weechat, buffer: &Buffer) {
     buffers::load_pin_buffer_history_for_id(channel.id());
 }
 
-fn game(args: Args) {
+fn game(args: &Args) {
     let ctx = match crate::discord::get_ctx() {
         Some(ctx) => ctx,
         _ => return,
     };
 
-    let activity = if args.args.len() == 0 {
+    let activity = if args.args.is_empty() {
         None
     } else if args.args.len() == 1 {
         Some(Activity::playing(args.args.get(0).unwrap()))
@@ -493,7 +493,7 @@ fn game(args: Args) {
     ctx.set_presence(activity, *LAST_STATUS.lock());
 }
 
-fn upload(args: Args, buffer: &Buffer) {
+fn upload(args: &Args, buffer: &Buffer) {
     if args.args.is_empty() {
         plugin_print("upload requires an argument");
     } else {
@@ -540,7 +540,7 @@ fn upload(args: Args, buffer: &Buffer) {
 }
 
 // rust-lang/rust#52662 would let this api be improved by accepting option types
-fn format_option_change<'a, T: std::fmt::Display>(
+fn format_option_change<T: std::fmt::Display>(
     name: &str,
     value: &str,
     before: Option<&T>,

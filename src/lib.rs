@@ -1,3 +1,5 @@
+#![allow(clippy::let_unit_value)]
+
 mod bar_items;
 mod buffers;
 mod command;

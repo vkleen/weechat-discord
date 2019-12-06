@@ -58,51 +58,47 @@ pub fn render_msg(
     let author = author_display_name(cache, &msg, guild);
 
     use MessageType::*;
-    match msg.kind {
-        Regular => {
-            return (
-                author,
-                formatting::discord_to_weechat(weechat, &msg_content),
-            )
-        },
-
-        _ => {
-            let (prefix, body) = match msg.kind {
-                GroupRecipientAddition | MemberJoin => {
-                    ("join", format!("{} joined the group.", author))
-                },
-                GroupRecipientRemoval => ("quit", format!("{} left the group.", author)),
-                GroupNameUpdate => (
-                    "network",
-                    format!("{} changed the channel name: {}.", author, msg.content),
-                ),
-                GroupCallCreation => ("network", format!("{} started a call.", author)),
-                GroupIconUpdate => ("network", format!("{} changed the channel icon.", author)),
-                PinsAdd => (
-                    "network",
-                    format!("{} pinned a message to this channel", author),
-                ),
-                NitroBoost => (
-                    "network",
-                    format!("{} boosted this channel with nitro", author),
-                ),
-                NitroTier1 => (
-                    "network",
-                    format!("This channel has achieved nitro level 1"),
-                ),
-                NitroTier2 => (
-                    "network",
-                    format!("This channel has achieved nitro level 2"),
-                ),
-                NitroTier3 => (
-                    "network",
-                    format!("This channel has achieved nitro level 3"),
-                ),
-                Regular | __Nonexhaustive => unreachable!(),
-            };
-            return (weechat.get_prefix(prefix).into_owned(), body);
-        },
-    };
+    if let Regular = msg.kind {
+        (
+            author,
+            formatting::discord_to_weechat(weechat, &msg_content),
+        )
+    } else {
+        let (prefix, body) = match msg.kind {
+            GroupRecipientAddition | MemberJoin => {
+                ("join", format!("{} joined the group.", author))
+            },
+            GroupRecipientRemoval => ("quit", format!("{} left the group.", author)),
+            GroupNameUpdate => (
+                "network",
+                format!("{} changed the channel name: {}.", author, msg.content),
+            ),
+            GroupCallCreation => ("network", format!("{} started a call.", author)),
+            GroupIconUpdate => ("network", format!("{} changed the channel icon.", author)),
+            PinsAdd => (
+                "network",
+                format!("{} pinned a message to this channel", author),
+            ),
+            NitroBoost => (
+                "network",
+                format!("{} boosted this channel with nitro", author),
+            ),
+            NitroTier1 => (
+                "network",
+                "This channel has achieved nitro level 1".to_string(),
+            ),
+            NitroTier2 => (
+                "network",
+                "This channel has achieved nitro level 2".to_string(),
+            ),
+            NitroTier3 => (
+                "network",
+                "This channel has achieved nitro level 3".to_string(),
+            ),
+            Regular | __Nonexhaustive => unreachable!(),
+        };
+        (weechat.get_prefix(prefix).into_owned(), body)
+    }
 }
 
 pub fn author_display_name(cache: &CacheRwLock, msg: &Message, guild: Option<GuildId>) -> String {
@@ -112,8 +108,7 @@ pub fn author_display_name(cache: &CacheRwLock, msg: &Message, guild: Option<Gui
             .member(id, msg.author.id)
             .map(|member| member.display_name().to_string())
     });
-    let author = display_name.unwrap_or_else(|| msg.author.name.to_owned());
-    author
+    display_name.unwrap_or_else(|| msg.author.name.to_owned())
 }
 
 pub fn msg_tags(cache: &CacheRwLock, msg: &Message, notify: bool) -> Vec<String> {
@@ -142,7 +137,7 @@ pub fn msg_tags(cache: &CacheRwLock, msg: &Message, notify: bool) -> Vec<String>
         tags.push("notify_none");
     }
 
-    tags.into_iter().map(|t| t.to_string()).collect()
+    tags.into_iter().map(ToString::to_string).collect()
 }
 
 // TODO: Color things

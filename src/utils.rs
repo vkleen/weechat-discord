@@ -59,10 +59,11 @@ pub fn format_user_status_prefix(weechat: &Weechat, status: Option<OnlineStatus>
     let prefix_color = match status {
         Some(OnlineStatus::DoNotDisturb) => "red",
         Some(OnlineStatus::Idle) => "178",
-        Some(OnlineStatus::Invisible) => "weechat.color.nicklist_away",
-        Some(OnlineStatus::Offline) => "weechat.color.nicklist_away",
+        Some(OnlineStatus::Invisible) | Some(OnlineStatus::Offline) => {
+            "weechat.color.nicklist_away"
+        },
         Some(OnlineStatus::Online) => "green",
-        _ => "".into(),
+        _ => "",
     };
 
     format!(
@@ -215,7 +216,7 @@ pub fn search_guild(cache: &CacheRwLock, guild_name: &str) -> Option<Arc<RwLock<
     None
 }
 
-/// Take a slice of GuildOrChannel's and flatten it into a map of channels
+/// Take a slice of `GuildOrChannel`'s and flatten it into a map of channels
 pub fn flatten_guilds(
     ctx: &Context,
     items: &[GuildOrChannel],
@@ -319,7 +320,7 @@ pub fn create_mentions(cache: &CacheRwLock, guild_id: Option<GuildId>, input: &s
                 }
             }
         }
-        for (id, user) in cache.read().users.iter() {
+        for (id, user) in &cache.read().users {
             if user.read().name == user_name {
                 out = out.replace(user_match.get(0).unwrap().as_str(), &id.mention());
             }

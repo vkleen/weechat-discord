@@ -222,7 +222,7 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
             .map(ChannelId);
 
         thread::spawn(move || {
-            if let Err(_) = rx.recv() {
+            if rx.recv().is_err() {
                 return;
             }
             let ctx = match discord::get_ctx() {
@@ -537,7 +537,7 @@ fn handle_join(buffer: &Buffer, command: &str) -> ReturnCode {
 
     crate::command::join(
         &buffer.get_weechat(),
-        crate::command::Args::from_cmd(&format!("/discord {}", &command[1..])),
+        &crate::command::Args::from_cmd(&format!("/discord {}", &command[1..])),
         verbose,
     )
 }

@@ -17,7 +17,6 @@ pub fn init(weechat: &Weechat) -> BarHandles {
                 .get_localvar("guild_name")
                 .map(Cow::into_owned)
                 .unwrap_or_default()
-                .to_owned()
         },
         None,
     );
@@ -29,7 +28,6 @@ pub fn init(weechat: &Weechat) -> BarHandles {
                 .get_localvar("channel_name")
                 .map(Cow::into_owned)
                 .unwrap_or_default()
-                .to_owned()
         },
         None,
     );

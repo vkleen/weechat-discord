@@ -55,7 +55,7 @@ pub fn create_buffers(ready_data: &Ready) {
         let mut channel_muted = HashMap::new();
         if let Some(guild_settings) = guild_settings {
             guild_muted = guild_settings.muted;
-            for (channel_id, channel_override) in guild_settings.channel_overrides.iter() {
+            for (channel_id, channel_override) in &guild_settings.channel_overrides {
                 channel_muted.insert(channel_id, channel_override.muted);
             }
         } else {
@@ -207,12 +207,11 @@ pub fn create_buffers_from_flat_items(
 
                 for channel_id in channels {
                     let nick = format!("@{}", nick);
-                    let channel = match channel_id.to_channel(ctx) {
-                        Ok(channel) => channel,
-                        Err(_) => {
-                            crate::plugin_print("cache miss");
-                            continue;
-                        },
+                    let channel = if let Ok(channel) = channel_id.to_channel(ctx) {
+                        channel
+                    } else {
+                        crate::plugin_print("cache miss");
+                        continue;
                     };
 
                     match channel {
@@ -777,12 +776,11 @@ pub fn update_nick() {
 }
 
 pub fn update_member_nick(old: &Option<Member>, new: &Member) {
-    let old_nick = match old.as_ref().map(|old| old.display_name()) {
-        Some(old) => old,
-        None => {
-            // TODO: Rebuild entire nicklist?
-            return;
-        },
+    let old_nick = if let Some(old) = old.as_ref().map(Member::display_name) {
+        old
+    } else {
+        // TODO: Rebuild entire nicklist?
+        return;
     };
     let new_nick = new.display_name();
     let new = new.clone();
@@ -829,8 +827,8 @@ pub fn update_member_nick(old: &Option<Member>, new: &Member) {
 pub fn modify_buffer_lines(
     weecord: &Discord,
     message_id: MessageId,
-    buffer_name: String,
-    new_content: String,
+    buffer_name: &str,
+    new_content: &str,
 ) {
     let buffer = match weecord.buffer_search("weecord", &buffer_name) {
         Some(buf) => buf,
@@ -883,7 +881,7 @@ pub fn modify_buffer_lines(
         maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
     }
 
-    let new_lines = new_content.splitn(pointers.len(), "\n");
+    let new_lines = new_content.splitn(pointers.len(), '\n');
     let new_lines = new_lines.map(|l| l.replace("\n", " | "));
     let new_lines = new_lines.chain(std::iter::repeat("".to_owned()));
 

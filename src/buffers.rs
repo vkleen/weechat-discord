@@ -631,7 +631,7 @@ pub fn load_nicks(buffer: &Buffer) {
         // Typeck not smart enough
         let none_user: Option<UserId> = None;
         // TODO: What to do with more than 1000 members?
-        let members = guild.read().members(ctx, Some(1000), none_user).unwrap();
+        let members = guild.read().members(ctx, Some(250), none_user).unwrap();
 
         drop(guild);
 

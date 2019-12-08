@@ -1,4 +1,10 @@
-use crate::{on_main, printing, sync::on_main_blocking, utils, utils::ChannelExt, Discord};
+use crate::{
+    on_main, printing,
+    sync::on_main_blocking,
+    utils,
+    utils::{BufferExt, ChannelExt},
+    Discord,
+};
 use indexmap::IndexMap;
 use serenity::{
     cache::{Cache, CacheRwLock},
@@ -433,20 +439,16 @@ pub fn create_pins_buffer(weechat: &Weechat, channel: &Channel) {
     buffer.set_title(&format!("Pinned messages in #{}", channel.name()));
     buffer.set_full_name(&format!("Pinned messages in ${}", channel.name()));
     buffer.set_short_name(&format!("#{} pins", channel.name()));
-    buffer.set_localvar("pins_for_channel", &channel.id().0.to_string());
+    utils::set_pins_for_channel(&buffer, channel.id());
 }
 
 pub fn load_pin_buffer_history(buffer: &weechat::Buffer) {
-    let channel = match buffer
-        .get_localvar("pins_for_channel")
-        .and_then(|id| id.parse().ok())
-        .map(ChannelId)
-    {
+    let channel = match utils::pins_for_channel(&buffer) {
         Some(ch) => ch,
         None => return,
     };
 
-    buffer.set_localvar("loaded_history", "true");
+    buffer.set_history_loaded();
     buffer.clear();
     let sealed_buffer = buffer.seal();
 
@@ -479,20 +481,18 @@ pub fn load_pin_buffer_history_for_id(id: ChannelId) {
 }
 
 pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_channel::Sender<()>) {
-    if buffer.get_localvar("loaded_history").is_some() {
+    if buffer.history_loaded() {
         return;
     }
 
-    let channel = match buffer.get_localvar("channelid") {
-        Some(ch) => ch,
-        None => return,
+    let channel = if let Some(channel) = buffer.channel_id() {
+        channel
+    } else {
+        return;
     };
-    let channel = match channel.parse::<u64>() {
-        Ok(v) => ChannelId(v),
-        Err(_) => return,
-    };
+
     buffer.clear();
-    buffer.set_localvar("loaded_history", "true");
+    buffer.set_history_loaded();
 
     let sealed_buffer = buffer.seal();
 
@@ -553,7 +553,7 @@ pub fn load_dm_nicks(buffer: &Buffer, channel: &PrivateChannel) {
     // If the user doesn't want the presence, there's no reason to open
     // the nicklist
     if use_presence {
-        buffer.set_localvar("loaded_nicks", "true");
+        buffer.set_nicks_loaded();
         buffer.enable_nicklist();
 
         let ctx = match crate::discord::get_ctx() {
@@ -591,31 +591,23 @@ pub fn load_dm_nicks(buffer: &Buffer, channel: &PrivateChannel) {
 // TODO: Make this nicer somehow
 // TODO: Refactor this to use `?`
 pub fn load_nicks(buffer: &Buffer) {
-    if buffer.get_localvar("loaded_nicks").is_some() {
+    if buffer.nicks_loaded() {
         return;
     }
 
-    let guild_id = match buffer.get_localvar("guildid") {
-        Some(guild_id) => guild_id,
-        None => return,
+    let guild_id = if let Some(guild_id) = buffer.guild_id() {
+        guild_id
+    } else {
+        return;
     };
 
-    let channel_id = match buffer.get_localvar("channelid") {
-        Some(channel_id) => channel_id,
-        None => return,
+    let channel_id = if let Some(channel_id) = buffer.channel_id() {
+        channel_id
+    } else {
+        return;
     };
 
-    let guild_id = match guild_id.parse::<u64>() {
-        Ok(v) => GuildId(v),
-        Err(_) => return,
-    };
-
-    let channel_id = match channel_id.parse::<u64>() {
-        Ok(v) => ChannelId(v),
-        Err(_) => return,
-    };
-
-    buffer.set_localvar("loaded_nicks", "true");
+    buffer.set_nicks_loaded();
     buffer.enable_nicklist();
 
     let sealed_buffer = buffer.seal();
@@ -834,7 +826,7 @@ pub fn modify_buffer_lines(
         Some(buf) => buf,
         None => return,
     };
-    if buffer.get_localvar("loaded_history").is_none() {
+    if !buffer.history_loaded() {
         return;
     }
 

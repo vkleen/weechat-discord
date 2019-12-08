@@ -1,4 +1,4 @@
-use crate::discord::formatting;
+use crate::{discord::formatting, utils::BufferExt};
 use serenity::{cache::CacheRwLock, model::prelude::*};
 use weechat::{hdata::HDataPointer, Buffer, HasHData, Weechat};
 
@@ -146,9 +146,7 @@ pub fn print_msg(weechat: &Weechat, buffer: &Buffer, msg: &Message, notify: bool
         Some(ctx) => ctx,
         _ => return,
     };
-    let maybe_guild = buffer
-        .get_localvar("guildid")
-        .and_then(|id| id.parse::<u64>().ok().map(GuildId));
+    let maybe_guild = buffer.guild_id();
 
     let (prefix, content) = render_msg(&ctx.cache, weechat, msg, maybe_guild);
     let timestamp = msg.timestamp.timestamp();

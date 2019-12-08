@@ -1,10 +1,10 @@
 use crate::{
     buffers, discord, on_main_blocking, plugin_print, utils,
-    utils::{ChannelExt, GuildOrChannel},
+    utils::{BufferExt, ChannelExt, GuildOrChannel},
 };
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
-use serenity::model::{gateway::Activity, id::ChannelId, user::OnlineStatus};
+use serenity::model::{gateway::Activity, user::OnlineStatus};
 use std::sync::Arc;
 use weechat::{Buffer, CommandHook, ConfigOption, ReturnCode, Weechat};
 
@@ -441,10 +441,7 @@ fn status(args: &Args) {
 }
 
 fn pins(weechat: &Weechat, buffer: &Buffer) {
-    let channel = buffer
-        .get_localvar("channelid")
-        .and_then(|id| id.parse().ok())
-        .map(ChannelId);
+    let channel = buffer.channel_id();
 
     let channel_id = match channel {
         Some(ch) => ch,
@@ -516,13 +513,10 @@ fn upload(args: &Args, buffer: &Buffer) {
         };
         let full = full.as_str();
         // TODO: Check perms and file size
-        let channel = match buffer.get_localvar("channelid") {
-            Some(channel) => channel,
-            None => return,
-        };
-        let channel = match channel.parse::<u64>() {
-            Ok(v) => ChannelId(v),
-            Err(_) => return,
+        let channel = if let Some(channel) = buffer.channel_id() {
+            channel
+        } else {
+            return;
         };
         let ctx = match crate::discord::get_ctx() {
             Some(ctx) => ctx,
@@ -577,14 +571,12 @@ fn discord_fmt(cmd: &str, msg: &str, buffer: &Buffer) {
         _ => unreachable!(),
     };
 
-    let channel = match buffer.get_localvar("channelid") {
-        Some(channel) => channel,
-        None => return,
+    let channel = if let Some(channel) = buffer.channel_id() {
+        channel
+    } else {
+        return;
     };
-    let channel = match channel.parse::<u64>() {
-        Ok(v) => ChannelId(v),
-        Err(_) => return,
-    };
+
     let ctx = match crate::discord::get_ctx() {
         Some(ctx) => ctx,
         _ => return,

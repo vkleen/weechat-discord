@@ -106,6 +106,58 @@ impl ChannelExt for Channel {
     }
 }
 
+pub trait BufferExt {
+    fn channel_id(&self) -> Option<ChannelId>;
+    fn guild_id(&self) -> Option<GuildId>;
+
+    fn history_loaded(&self) -> bool;
+    fn set_history_loaded(&self);
+
+    fn nicks_loaded(&self) -> bool;
+    fn set_nicks_loaded(&self);
+}
+
+impl BufferExt for Buffer {
+    fn channel_id(&self) -> Option<ChannelId> {
+        self.get_localvar("channelid")
+            .and_then(|ch| ch.parse::<u64>().ok())
+            .map(Into::into)
+    }
+
+    fn guild_id(&self) -> Option<GuildId> {
+        self.get_localvar("guildid")
+            .and_then(|ch| ch.parse::<u64>().ok())
+            .map(Into::into)
+    }
+
+    fn history_loaded(&self) -> bool {
+        self.get_localvar("loaded_history").is_some()
+    }
+
+    fn set_history_loaded(&self) {
+        self.set_localvar("loaded_history", "true");
+    }
+
+    fn nicks_loaded(&self) -> bool {
+        self.get_localvar("loaded_nicks").is_some()
+    }
+
+    fn set_nicks_loaded(&self) {
+        self.set_localvar("loaded_nicks", "true");
+    }
+}
+
+pub fn pins_for_channel(buffer: &Buffer) -> Option<ChannelId> {
+    buffer
+        .get_localvar("pins_for_channel")
+        .and_then(|id| id.parse().ok())
+        .map(ChannelId)
+}
+
+pub fn set_pins_for_channel(buffer: &Buffer, channel: ChannelId) {
+    buffer.set_localvar("pins_for_channel", &channel.0.to_string());
+}
+
 /// Find the highest hoisted role (used for the user group) and the highest role (used for user coloring)
 pub fn find_highest_roles(cache: &CacheRwLock, member: &Member) -> Option<(Role, Role)> {
     let mut roles = member.roles(cache)?;

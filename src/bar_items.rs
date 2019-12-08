@@ -1,4 +1,4 @@
-use serenity::model::id::{ChannelId, GuildId};
+use crate::utils::BufferExt;
 use std::borrow::Cow;
 use weechat::{bar::BarItem, Weechat};
 
@@ -54,15 +54,8 @@ pub fn init(weechat: &Weechat) -> BarHandles {
         |_, _, buffer| {
             let typing_events = crate::discord::TYPING_EVENTS.lock();
 
-            if let Some(channel_id) = buffer
-                .get_localvar("channelid")
-                .and_then(|ch| ch.parse().ok())
-                .map(ChannelId)
-            {
-                let guild_id = buffer
-                    .get_localvar("guildid")
-                    .and_then(|g| g.parse().ok())
-                    .map(GuildId);
+            if let Some(channel_id) = buffer.channel_id() {
+                let guild_id = buffer.guild_id();
                 let mut users = typing_events
                     .entries
                     .iter()

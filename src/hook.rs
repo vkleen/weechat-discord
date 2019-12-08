@@ -1,5 +1,7 @@
 use crate::{
-    buffers::load_pin_buffer_history, discord, on_main, plugin_print, utils, utils::ChannelExt,
+    buffers::load_pin_buffer_history,
+    discord, on_main, plugin_print, utils,
+    utils::{BufferExt, ChannelExt},
 };
 use crossbeam_channel::unbounded;
 use serenity::{model::prelude::*, prelude::*};
@@ -44,7 +46,7 @@ pub fn init(weechat: &Weechat) -> HookHandles {
     let _query_handle = weechat.hook_command_run(
         "/query",
         |_, ref buffer, ref command| {
-            if buffer.get_localvar("guildid").is_none() {
+            if buffer.guild_id().is_none() {
                 return ReturnCode::Error;
             };
 
@@ -116,15 +118,8 @@ pub fn init(weechat: &Weechat) -> HookHandles {
 }
 
 pub fn buffer_input(buffer: Buffer, text: &str) {
-    let channel = buffer
-        .get_localvar("channelid")
-        .and_then(|id| id.parse().ok())
-        .map(ChannelId);
-
-    let guild = buffer
-        .get_localvar("guildid")
-        .and_then(|id| id.parse().ok())
-        .map(GuildId);
+    let channel = buffer.channel_id();
+    let guild = buffer.guild_id();
 
     if let Some(channel) = channel {
         let ctx = match crate::discord::get_ctx() {
@@ -188,8 +183,8 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
 
         // Wait until messages have been loaded to acknowledge them
         let (tx, rx) = unbounded();
-        if buffer.get_localvar("loaded_history").is_none() {
-            let pinned_channel_id = buffer.get_localvar("pins_for_channel");
+        if !buffer.history_loaded() {
+            let pinned_channel_id = utils::pins_for_channel(&buffer);
 
             if pinned_channel_id.is_some() {
                 load_pin_buffer_history(&buffer);
@@ -199,14 +194,11 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
             crate::buffers::load_history(&buffer, tx);
         }
 
-        if buffer.get_localvar("loaded_nicks").is_none() {
+        if !buffer.nicks_loaded() {
             crate::buffers::load_nicks(&buffer);
         }
 
-        let channel_id = buffer
-            .get_localvar("channelid")
-            .and_then(|id| id.parse().ok())
-            .map(ChannelId);
+        let channel_id = buffer.channel_id();
 
         thread::spawn(move || {
             if rx.recv().is_err() {
@@ -233,7 +225,7 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
 fn handle_buffer_typing(weechat: &Weechat, data: weechat::SignalHookValue) -> ReturnCode {
     if let weechat::SignalHookValue::Pointer(buffer_ptr) = data {
         let buffer = unsafe { crate::utils::buffer_from_ptr(buffer_ptr) };
-        if let Some(chnanel_id) = buffer.get_localvar("channelid") {
+        if let Some(channel_id) = buffer.channel_id() {
             if crate::upgrade_plugin(weechat)
                 .config
                 .send_typing_events
@@ -242,24 +234,22 @@ fn handle_buffer_typing(weechat: &Weechat, data: weechat::SignalHookValue) -> Re
                 if buffer.input().starts_with('/') {
                     return ReturnCode::Ok;
                 }
-                if let Ok(channel_id) = chnanel_id.as_ref().parse().map(ChannelId) {
-                    // TODO: Wait for user to type for 3 seconds
-                    let now = SystemTime::now();
-                    let timestamp_now = now
-                        .duration_since(UNIX_EPOCH)
-                        .expect("Time went backwards")
-                        .as_secs() as u64;
+                // TODO: Wait for user to type for 3 seconds
+                let now = SystemTime::now();
+                let timestamp_now = now
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Time went backwards")
+                    .as_secs() as u64;
 
-                    if unsafe { LAST_TYPING_TIMESTAMP } + 9 < timestamp_now {
-                        unsafe { LAST_TYPING_TIMESTAMP = timestamp_now }
-                        std::thread::spawn(move || {
-                            let ctx = match discord::get_ctx() {
-                                Some(s) => s,
-                                None => return,
-                            };
-                            let _ = channel_id.broadcast_typing(&ctx.http);
-                        });
-                    }
+                if unsafe { LAST_TYPING_TIMESTAMP } + 9 < timestamp_now {
+                    unsafe { LAST_TYPING_TIMESTAMP = timestamp_now }
+                    std::thread::spawn(move || {
+                        let ctx = match discord::get_ctx() {
+                            Some(s) => s,
+                            None => return,
+                        };
+                        let _ = channel_id.broadcast_typing(&ctx.http);
+                    });
                 }
             }
         }
@@ -341,10 +331,7 @@ fn handle_nick_completion(buffer: &Buffer, completion: weechat::Completion) -> R
         None => return ReturnCode::Ok,
     };
 
-    let channel_id = buffer
-        .get_localvar("channelid")
-        .and_then(|id| id.parse().ok())
-        .map(ChannelId);
+    let channel_id = buffer.channel_id();
 
     if let Some(Channel::Guild(channel)) = channel_id.and_then(|c| c.to_channel(ctx).ok()) {
         let channel = channel.read();
@@ -369,10 +356,7 @@ fn handle_role_completion(buffer: &Buffer, completion: weechat::Completion) -> R
         None => return ReturnCode::Ok,
     };
 
-    let guild = buffer
-        .get_localvar("guildid")
-        .and_then(|id| id.parse().ok())
-        .map(GuildId);
+    let guild = buffer.guild_id();
 
     if let Some(guild) = guild {
         if let Some(guild) = guild.to_guild_cached(&ctx.cache) {
@@ -456,7 +440,9 @@ pub fn handle_query(command: &str) -> ReturnCode {
 
 // TODO: Handle command options
 fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
-    if buffer.get_localvar("guildid").is_none() {
+    let guild = if let Some(id) = buffer.guild_id() {
+        id
+    } else {
         return ReturnCode::Ok;
     };
 
@@ -484,13 +470,6 @@ fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
                 .map(|g| g.id)
                 .collect()
         } else {
-            let guild = buffer
-                .get_localvar("guildid")
-                .expect("must to be some, checked at top of function");
-            let guild = match guild.parse::<u64>() {
-                Ok(v) => GuildId(v),
-                Err(_) => return ReturnCode::OkEat,
-            };
             vec![guild]
         };
     }
@@ -520,7 +499,7 @@ fn handle_nick(buffer: &Buffer, command: &str) -> ReturnCode {
 }
 
 fn handle_join(buffer: &Buffer, command: &str) -> ReturnCode {
-    let verbose = buffer.get_localvar("guildid").is_some();
+    let verbose = buffer.guild_id().is_some();
 
     crate::command::join(
         &buffer.get_weechat(),

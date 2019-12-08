@@ -110,6 +110,7 @@ Autojoin channels:
 You can use `/discord autojoin <guild-name> [<channel-name>]` to start watching a channel or entire guild.
 Any channel or guild marked as autojoin will be automatically joined when weecord connects.
 
+A typing indicator can be added with the `discord_typing` bar item by appending `,discord_typing` to `weechat.bar.status.items`.
 
 Messages can be edited and deleted using ed style substitutions.
 

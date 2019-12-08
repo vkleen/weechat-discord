@@ -24,6 +24,7 @@ pub fn init(weecord: &Discord, token: &str, irc_mode: bool) {
     let (discord_client, events) = match DiscordClient::start(weecord, token) {
         Ok(d) => d,
         Err(e) => {
+            // Cannot use plugin_print because we haven't finished init
             weecord.print(&format!(
                 "discord: An error occurred connecting to discord: {}",
                 e

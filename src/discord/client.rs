@@ -22,7 +22,14 @@ impl DiscordClient {
 
         let shard_manager = client.shard_manager.clone();
         thread::spawn(move || {
-            client.start_shards(1).unwrap();
+            if let Err(e) = client.start_shards(1) {
+                crate::on_main(move |weecord| {
+                    weecord.print(&format!(
+                        "discord: An error occurred connecting to discord: {}",
+                        e
+                    ));
+                });
+            }
         });
         Ok((DiscordClient { shard_manager }, rx))
     }

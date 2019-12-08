@@ -140,15 +140,10 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
                         .map(|msg| channel.delete_message(&ctx.http, msg.id))
                     {
                         buffer.print(&format!(
-                            "[discord] An error occurred deleting a message: {}",
+                            "{}\tAn error occurred deleting a message: {}",
+                            weechat.get_prefix("network"),
                             e
                         ));
-                    } else {
-                        buffer.print(&format!(
-                            "{}\tMessage ({}) deleted",
-                            weechat.get_prefix("network"),
-                            line,
-                        ))
                     }
                 },
                 parsing::LineEdit::Sub {
@@ -171,18 +166,10 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
                         })
                     {
                         buffer.print(&format!(
-                            "[discord] An error occurred editing a message: {}",
+                            "{}\tAn error occurred editing a message: {}",
+                            weechat.get_prefix("network"),
                             e
                         ));
-                    } else {
-                        buffer.print(&format!(
-                            "{}\t{}s/{}/{}/{}",
-                            weechat.get_prefix("network"),
-                            line,
-                            old,
-                            new,
-                            options.unwrap_or_default()
-                        ))
                     }
                 },
             }

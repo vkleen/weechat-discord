@@ -494,6 +494,8 @@ pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_chann
     buffer.clear();
     buffer.set_history_loaded();
 
+    let fetch_count: i32 = on_main_blocking(|weecord| weecord.config.message_fetch_count.value());
+
     let sealed_buffer = buffer.seal();
 
     std::thread::spawn(move || {
@@ -502,7 +504,7 @@ pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_chann
             _ => return,
         };
 
-        if let Ok(msgs) = channel.messages(ctx, |retriever| retriever.limit(25)) {
+        if let Ok(msgs) = channel.messages(ctx, |retriever| retriever.limit(fetch_count as u64)) {
             on_main(move |weechat| {
                 let ctx = match crate::discord::get_ctx() {
                     Some(ctx) => ctx,

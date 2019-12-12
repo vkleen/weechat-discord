@@ -1,5 +1,7 @@
 use crate::{utils, utils::GuildOrChannel};
-use weechat::{BooleanOption, ConfigOption, ConfigSectionInfo, StringOption, Weechat};
+use weechat::{
+    BooleanOption, ConfigOption, ConfigSectionInfo, IntegerOption, StringOption, Weechat,
+};
 
 pub struct Config {
     pub token: StringOption,
@@ -10,6 +12,7 @@ pub struct Config {
     pub send_typing_events: BooleanOption,
     pub typing_messages: BooleanOption,
     pub irc_mode: BooleanOption,
+    pub message_fetch_count: IntegerOption,
     pub config: weechat::Config<()>,
 }
 
@@ -103,6 +106,19 @@ pub fn init(weechat: &Weechat) -> Config {
         None::<()>,
     );
 
+    let message_fetch_count = section.new_integer_option(
+        "message_load_count",
+        "How many messages will be fetched when a buffer is loaded",
+        "",
+        0,
+        100,
+        "25",
+        "25",
+        false,
+        None,
+        None::<()>,
+    );
+
     config.read();
 
     Config {
@@ -114,6 +130,7 @@ pub fn init(weechat: &Weechat) -> Config {
         send_typing_events,
         typing_messages,
         irc_mode,
+        message_fetch_count,
         config,
     }
 }

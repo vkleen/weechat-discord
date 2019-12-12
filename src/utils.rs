@@ -300,9 +300,9 @@ pub fn get_users_nth_message(
     channel: ChannelId,
     n: usize,
 ) -> serenity::Result<Message> {
-    if n > 50 {
+    if n > 100 {
         return Err(serenity::Error::ExceededLimit(
-            "Cannot fetch more than 50 items".into(),
+            "Cannot fetch more than 100 items".into(),
             n as u32,
         ));
     }

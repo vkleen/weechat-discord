@@ -33,7 +33,15 @@ pub fn render_msg(
             msg_content.push('\n');
         }
         if let Some(ref author) = embed.author {
-            msg_content.push_str(&author.name);
+            msg_content.push_str(&format!(
+                "{}{}{}",
+                weechat.color("bold"),
+                author.name,
+                weechat.color("reset"),
+            ));
+            if let Some(url) = &author.url {
+                msg_content.push_str(&format!(" ({})", url));
+            }
             msg_content.push('\n');
         }
         if let Some(ref title) = embed.title {

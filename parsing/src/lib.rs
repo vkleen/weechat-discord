@@ -1,7 +1,6 @@
 use lazy_static::lazy_static;
-use simple_ast::regex::Regex;
 pub use simple_ast::MarkdownNode;
-use simple_ast::{Parser, Rule, Styled};
+use simple_ast::{regex::Regex, Parser, Rule, Styled};
 
 pub fn parse_markdown(str: &str) -> Styled<MarkdownNode> {
     use simple_ast::markdown_rules::*;

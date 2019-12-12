@@ -381,3 +381,24 @@ pub fn create_mentions(cache: &CacheRwLock, guild_id: Option<GuildId>, input: &s
 
     out
 }
+
+/// Remove the guild id from global emojis
+pub fn clean_emojis(input: &str) -> String {
+    let mut out = String::from(input);
+
+    lazy_static! {
+        static ref GLOBAL_EMOJI: Regex = Regex::new(r"<:(.*?):(\d*?)>").unwrap();
+    }
+
+    let global_emoji = GLOBAL_EMOJI.captures_iter(input);
+    for emoji_match in global_emoji {
+        let emoji_name = emoji_match.get(1).unwrap().as_str();
+
+        out = out.replace(
+            emoji_match.get(0).unwrap().as_str(),
+            &format!(":{}:", emoji_name),
+        );
+    }
+
+    out
+}

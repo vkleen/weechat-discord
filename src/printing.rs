@@ -15,6 +15,7 @@ pub fn render_msg(
         opts = opts.display_as_member_from(guild);
     }
     let mut msg_content = serenity::utils::content_safe(&cache, &msg.content, &opts);
+    msg_content = crate::utils::clean_emojis(&msg_content);
     if msg.edited_timestamp.is_some() {
         let edited_text =
             weechat.color("8").into_owned() + " (edited)" + &weechat.color("reset").into_owned();

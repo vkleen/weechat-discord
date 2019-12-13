@@ -5,7 +5,7 @@ use crate::{
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use serenity::model::{gateway::Activity, user::OnlineStatus};
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 use weechat::{Buffer, CommandHook, ConfigOption, ReturnCode, Weechat};
 
 lazy_static! {
@@ -93,10 +93,19 @@ fn connect(weechat: &Weechat) {
     let weecord = crate::upgrade_plugin(weechat);
     let token: String = weecord.config.token.value().into_owned();
     if !token.is_empty() {
-        if unsafe { &crate::discord::CONTEXT }.is_none() {
-            crate::discord::init(weecord, &token, crate::utils::get_irc_mode(weechat));
+        let token = if token.starts_with("${sec.data") {
+            weechat.eval_string_expression(&token).map(Cow::into_owned)
         } else {
-            plugin_print("Already connected");
+            Some(token)
+        };
+        if let Some(t) = token {
+            if unsafe { &crate::discord::CONTEXT }.is_none() {
+                crate::discord::init(weecord, &t, crate::utils::get_irc_mode(weechat));
+            } else {
+                plugin_print("Already connected");
+            }
+        } else {
+            weechat.print("Error: failed to evaluate token option, expected valid ${sec.data...}")
         }
     } else {
         plugin_print("Error: weecord.main.token unset. Run:");

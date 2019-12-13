@@ -60,7 +60,7 @@ fn run_command(buffer: &Buffer, cmd: &str) {
 
     match args.base {
         "connect" => connect(weechat),
-        "dis&connect" => disconnect(weechat),
+        "disconnect" => disconnect(weechat),
         "irc-mode" => irc_mode(weechat),
         "discord-mode" => discord_mode(weechat),
         "token" => token(weechat, &args),

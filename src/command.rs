@@ -93,7 +93,7 @@ fn connect(weechat: &Weechat) {
     let weecord = crate::upgrade_plugin(weechat);
     let token: String = weecord.config.token.value().into_owned();
     if !token.is_empty() {
-        if crate::discord::DISCORD.lock().is_none() {
+        if unsafe { &crate::discord::CONTEXT }.is_none() {
             crate::discord::init(weecord, &token, crate::utils::get_irc_mode(weechat));
         } else {
             plugin_print("Already connected");

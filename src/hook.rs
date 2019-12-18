@@ -118,6 +118,9 @@ pub fn init(weechat: &Weechat) -> HookHandles {
 }
 
 pub fn buffer_input(buffer: Buffer, text: &str) {
+    let text = if text.is_empty() {
+        return
+    }
     let channel = buffer.channel_id();
     let guild = buffer.guild_id();
 
@@ -173,7 +176,7 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
         let text = utils::create_mentions(&ctx.cache, guild, text);
         channel
             .say(ctx, text)
-            .unwrap_or_else(|_| panic!("Unable to send message to {}", channel.0));
+            .unwrap_or_else(|e| panic!("Unable to send message to {}: {:#?}", channel.0, e));
     }
 }
 

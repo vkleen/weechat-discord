@@ -119,8 +119,10 @@ pub fn init(weechat: &Weechat) -> HookHandles {
 
 pub fn buffer_input(buffer: Buffer, text: &str) {
     let text = if text.is_empty() {
-        return
-    }
+        return;
+    } else {
+        text
+    };
     let channel = buffer.channel_id();
     let guild = buffer.guild_id();
 

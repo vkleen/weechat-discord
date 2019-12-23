@@ -278,7 +278,6 @@ fn watch(weechat: &Weechat, args: &Args) {
 }
 
 fn watched(weechat: &Weechat) {
-    weechat.print("");
     let mut channels = Vec::new();
     let mut guilds = Vec::new();
 
@@ -293,6 +292,13 @@ fn watched(weechat: &Weechat) {
             utils::GuildOrChannel::Channel(guild, channel) => channels.push((guild, channel)),
         }
     }
+
+    if guilds.is_empty() && channels.is_empty() {
+        weechat.print("There are no watched guilds or channels");
+        return;
+    }
+
+    weechat.print("");
 
     weechat.print(&format!("Watched Servers: ({})", guilds.len()));
     for guild in guilds {
@@ -380,7 +386,6 @@ fn autojoin(weechat: &Weechat, args: &Args, buffer: &Buffer) {
 }
 
 fn autojoined(weechat: &Weechat) {
-    weechat.print("");
     let mut channels = Vec::new();
     let mut guilds = Vec::new();
 
@@ -395,6 +400,13 @@ fn autojoined(weechat: &Weechat) {
             utils::GuildOrChannel::Channel(guild, channel) => channels.push((guild, channel)),
         }
     }
+
+    if guilds.is_empty() && channels.is_empty() {
+        weechat.print("There are no guilds or channels set to autojoin");
+        return;
+    }
+
+    weechat.print("");
 
     weechat.print(&format!("Autojoin Servers: ({})", guilds.len()));
     for guild in guilds {

@@ -63,7 +63,17 @@ pub fn init(weechat: &Weechat) -> BarHandles {
                     .map(|e| e.user_name.clone())
                     .collect::<Vec<_>>();
                 users.dedup();
-                let users = users.join(", ");
+
+                let (head, has_more) = if users.len() > 3 {
+                    (&users[..3], true)
+                } else {
+                    (&users[..], false)
+                };
+
+                let mut users = head.join(", ");
+                if has_more {
+                    users = users + ", ...";
+                }
 
                 if users.is_empty() {
                     "".into()

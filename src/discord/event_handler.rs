@@ -251,9 +251,8 @@ impl EventHandler for Handler {
         _new: Option<Message>,
         event: MessageUpdateEvent,
     ) {
-        if let Some(channel) = ctx.cache.read().channels.get(&event.channel_id) {
-            let guild_id = channel.read().guild_id;
-            let buffer_name = utils::buffer_id_for_channel(Some(guild_id), event.channel_id);
+        fn update_message(guild_id: Option<GuildId>, channel_id: ChannelId, message_id: MessageId) {
+            let buffer_name = utils::buffer_id_for_channel(guild_id, channel_id);
 
             thread::spawn(move || {
                 let ctx = match crate::discord::get_ctx() {
@@ -261,9 +260,8 @@ impl EventHandler for Handler {
                     _ => return,
                 };
 
-                let mut msgs = if let Ok(msgs) = event
-                    .channel_id
-                    .messages(ctx, |retriever| retriever.limit(1).around(event.id))
+                let mut msgs = if let Ok(msgs) =
+                    channel_id.messages(ctx, |retriever| retriever.limit(1).around(message_id))
                 {
                     msgs
                 } else {
@@ -281,7 +279,7 @@ impl EventHandler for Handler {
                     };
 
                     let (_, new_content) =
-                        crate::printing::render_msg(&ctx.cache, weecord, &msg, Some(guild_id));
+                        crate::printing::render_msg(&ctx.cache, weecord, &msg, guild_id);
 
                     crate::buffers::modify_buffer_lines(
                         weecord,
@@ -292,6 +290,18 @@ impl EventHandler for Handler {
                 })
             });
         }
+
+        let (guild, channel, id) = match ctx.cache.read().channel(&event.channel_id) {
+            Some(Channel::Guild(channel)) => {
+                let channel = channel.read();
+                (Some(channel.guild_id), channel.id, event.id)
+            },
+            Some(Channel::Group(channel)) => (None, channel.read().channel_id, event.id),
+            Some(Channel::Private(channel)) => (None, channel.read().id, event.id),
+            _ => return,
+        };
+
+        update_message(guild, channel, id);
     }
 
     fn ready(&self, ctx: Context, ready: Ready) {

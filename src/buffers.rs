@@ -622,13 +622,9 @@ pub fn load_nicks(buffer: &Buffer) {
 
         let guild = guild_id.to_guild_cached(ctx).expect("No guild cache item");
 
-        // Typeck not smart enough
-        let none_user: Option<UserId> = None;
         // TODO: What to do with more than 1000 members?
-        let members = match guild.read().members(ctx, Some(250), none_user) {
-            Ok(members) => members,
-            Err(_) => return,
-        };
+        // NOTE: using `guild.read().members` 403s and invalidates a users verification status
+        let members: Vec<_> = guild.read().members.values().cloned().collect();
 
         drop(guild);
 

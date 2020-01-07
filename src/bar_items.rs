@@ -1,6 +1,7 @@
 use crate::utils::BufferExt;
+use serenity::model::id::{ChannelId, GuildId};
 use std::borrow::Cow;
-use weechat::{bar::BarItem, Weechat};
+use weechat::{bar::BarItem, ConfigOption, Weechat};
 
 pub struct BarHandles {
     _guild_name: BarItem<()>,
@@ -52,33 +53,17 @@ pub fn init(weechat: &Weechat) -> BarHandles {
     let _typing_indicator = weechat.new_bar_item(
         "discord_typing",
         |_, _, buffer| {
-            let typing_events = crate::discord::TYPING_EVENTS.lock();
-
             if let Some(channel_id) = buffer.channel_id() {
+                let weechat = buffer.get_weechat();
+                let config = &crate::upgrade_plugin(&weechat).config;
+                let max_users = config.user_typing_list_max.value() as usize;
+                let expanded = config.user_typing_list_expanded.value();
                 let guild_id = buffer.guild_id();
-                let mut users = typing_events
-                    .entries
-                    .iter()
-                    .filter(|e| e.guild_id == guild_id && e.channel_id == channel_id)
-                    .map(|e| e.user_name.clone())
-                    .collect::<Vec<_>>();
-                users.dedup();
 
-                let (head, has_more) = if users.len() > 3 {
-                    (&users[..3], true)
+                if expanded {
+                    expanded_typing_list(channel_id, guild_id, max_users)
                 } else {
-                    (&users[..], false)
-                };
-
-                let mut users = head.join(", ");
-                if has_more {
-                    users = users + ", ...";
-                }
-
-                if users.is_empty() {
-                    "".into()
-                } else {
-                    format!("typing: {}", users)
+                    terse_typing_list(channel_id, guild_id, max_users)
                 }
             } else {
                 "".into()
@@ -93,4 +78,62 @@ pub fn init(weechat: &Weechat) -> BarHandles {
         _full_name,
         _typing_indicator,
     }
+}
+
+fn terse_typing_list(channel_id: ChannelId, guild_id: Option<GuildId>, max_names: usize) -> String {
+    let (head, has_more) = get_users_for_typing_list(channel_id, guild_id, max_names);
+
+    let mut users = head.join(", ");
+    if has_more {
+        users = users + ", ...";
+    }
+    if users.is_empty() {
+        "".into()
+    } else {
+        format!("typing: {}", users)
+    }
+}
+
+fn expanded_typing_list(
+    channel_id: ChannelId,
+    guild_id: Option<GuildId>,
+    max_names: usize,
+) -> String {
+    let (head, has_more) = get_users_for_typing_list(channel_id, guild_id, max_names);
+
+    if head.is_empty() {
+        "".into()
+    } else if has_more {
+        "Several people are typing...".into()
+    } else if head.len() == 1 {
+        format!("{} is typing", head[0])
+    } else {
+        let prefix = &head[..head.len() - 1];
+        format!(
+            "{} and {} are typing",
+            prefix.join(", "),
+            head[head.len() - 1]
+        )
+    }
+}
+
+fn get_users_for_typing_list(
+    channel_id: ChannelId,
+    guild_id: Option<GuildId>,
+    max_names: usize,
+) -> (Vec<String>, bool) {
+    let mut users = crate::discord::TYPING_EVENTS
+        .lock()
+        .entries
+        .iter()
+        .filter(|e| e.guild_id == guild_id && e.channel_id == channel_id)
+        .map(|e| e.user_name.clone())
+        .collect::<Vec<_>>();
+    users.dedup();
+    let (head, has_more) = if users.len() > max_names {
+        (&users[..max_names], true)
+    } else {
+        (&users[..], false)
+    };
+    (head.to_vec(), has_more)
 }

@@ -13,6 +13,8 @@ pub struct Config {
     pub typing_messages: BooleanOption,
     pub irc_mode: BooleanOption,
     pub message_fetch_count: IntegerOption,
+    pub user_typing_list_max: IntegerOption,
+    pub user_typing_list_expanded: BooleanOption,
     pub config: weechat::Config<()>,
 }
 
@@ -119,6 +121,29 @@ pub fn init(weechat: &Weechat) -> Config {
         None::<()>,
     );
 
+    let user_typing_list_max = section.new_integer_option(
+        "user_typing_list_max",
+        "How many users will be displayed at most in the typing indicator",
+        "",
+        0,
+        100,
+        "3",
+        "3",
+        false,
+        None,
+        None::<()>,
+    );
+
+    let user_typing_list_expanded = section.new_boolean_option(
+        "user_typing_list_expanded",
+        "Format the typing list more like the electron client",
+        false,
+        false,
+        false,
+        None,
+        None::<()>,
+    );
+
     config.read();
 
     Config {
@@ -131,6 +156,8 @@ pub fn init(weechat: &Weechat) -> Config {
         typing_messages,
         irc_mode,
         message_fetch_count,
+        user_typing_list_max,
+        user_typing_list_expanded,
         config,
     }
 }

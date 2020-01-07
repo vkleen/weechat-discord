@@ -176,9 +176,15 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
             return;
         }
         let text = utils::create_mentions(&ctx.cache, guild, text);
-        channel
-            .say(ctx, text)
-            .unwrap_or_else(|e| panic!("Unable to send message to {}: {:#?}", channel.0, e));
+        if let Err(e) = channel.say(ctx, text) {
+            let weechat = buffer.get_weechat();
+            buffer.print(&format!(
+                "{}\tUnable to send message to {}: {:#?}",
+                weechat.get_prefix("network"),
+                channel.0,
+                e
+            ));
+        }
     }
 }
 

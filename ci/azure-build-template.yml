@@ -31,10 +31,23 @@ jobs:
       - script: |
           rustc -Vv
           cargo -V
+          echo "##vso[task.setvariable variable=rustcVersion]$(rustc -V)"
         displayName: Query rust and cargo versions
+
+      - task: Cache@2
+        inputs:
+          key: '"rustc" | "$(Agent.OS)" | "$(rustcVersion)" | Cargo.lock'
+          path: ./target
+        displayName: Cache target directory
 
       - script: cargo build --release
         displayName: Build
+
+      - script: |
+          find ./target/debug -type f -maxdepth 1 -delete
+          rm -fr ./target/debug/{deps,.fingerprint}/{*weechat*,*main*,*test*}
+          rm -f  ./target/.rustc_info.json
+        displayName: Clean up ./target
 
 
       - script: cp target/release/libweecord.* $(Build.ArtifactStagingDirectory)/

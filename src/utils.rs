@@ -6,6 +6,7 @@ use serenity::{
     model::{id::ChannelId, prelude::*},
     prelude::*,
 };
+use std::borrow::Cow;
 use std::sync::Arc;
 use weechat::{Buffer, ConfigOption, Weechat};
 
@@ -73,6 +74,20 @@ pub fn format_user_status_prefix(weechat: &Weechat, status: Option<OnlineStatus>
     )
 }
 
+pub fn nick_color(weechat: &Weechat, nick: &String) -> String {
+    weechat.info_get("nick_color_name", nick)
+        .unwrap_or_else(
+            || weechat.info_get("irc_nick_color_name", nick)
+                .unwrap_or_else(|| Cow::from("reset"))).to_string()
+}
+
+pub fn format_nick_color(weechat: &Weechat, nick: &String) -> String {
+    let color_name = nick_color(weechat, nick);
+    let prefix = weechat.color(&color_name);
+    let suffix = weechat.color("reset");
+    return prefix.to_string() + nick + &suffix.to_string();
+}
+
 pub trait ChannelExt {
     fn name(&self) -> String;
     fn last_message(&self) -> Option<MessageId>;
@@ -80,7 +95,6 @@ pub trait ChannelExt {
 
 impl ChannelExt for Channel {
     fn name(&self) -> String {
-        use std::borrow::Cow;
         use Channel::*;
         match self {
             Guild(channel) => channel.read().name().to_string(),

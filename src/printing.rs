@@ -1,4 +1,7 @@
-use crate::{discord::formatting, utils::BufferExt};
+use crate::{
+    discord::formatting,
+    utils::{BufferExt,format_nick_color},
+};
 use serenity::{cache::CacheRwLock, model::prelude::*};
 use weechat::{hdata::HDataPointer, Buffer, HasHData, Weechat};
 
@@ -64,7 +67,7 @@ pub fn render_msg(
         }
     }
 
-    let author = author_display_name(cache, &msg, guild);
+    let author = format_nick_color(weechat, &author_display_name(cache, &msg, guild));
 
     use MessageType::*;
     if let Regular = msg.kind {

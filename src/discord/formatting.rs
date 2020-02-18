@@ -24,6 +24,8 @@ fn collect_styles(weechat: &Weechat, styles: &[Rc<RwLock<MarkdownNode>>]) -> Str
 }
 
 // TODO: Spoilers, code syntax highlighting?
+// TODO: if the whole line is wrapped in *, render as CTCP ACTION rather than
+// as fully italicized message.
 fn discord_to_weechat_reducer(weechat: &Weechat, node: &MarkdownNode) -> String {
     use MarkdownNode::*;
     match node {

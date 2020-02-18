@@ -17,7 +17,7 @@ static mut LAST_TYPING_TIMESTAMP: u64 = 0;
 pub struct HookHandles {
     _buffer_switch_handle: weechat::SignalHook<()>,
     _buffer_typing_handle: weechat::SignalHook<()>,
-    _command_handle: weechat::CommandHook<()>,
+    _command_handles: Vec<weechat::CommandHook<()>>,
     _query_handle: weechat::CommandRunHook<()>,
     _nick_handle: weechat::CommandRunHook<()>,
     _join_handle: weechat::CommandRunHook<()>,
@@ -29,7 +29,7 @@ pub struct HookHandles {
 }
 
 pub fn init(weechat: &Weechat) -> HookHandles {
-    let _command_handle = crate::command::init(weechat);
+    let _command_handles = crate::command::init(weechat);
 
     let _buffer_switch_handle = weechat.hook_signal(
         "buffer_switch",
@@ -105,7 +105,7 @@ pub fn init(weechat: &Weechat) -> HookHandles {
     HookHandles {
         _buffer_switch_handle,
         _buffer_typing_handle,
-        _command_handle,
+        _command_handles,
         _query_handle,
         _nick_handle,
         _join_handle,

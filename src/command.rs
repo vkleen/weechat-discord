@@ -13,12 +13,27 @@ lazy_static! {
     pub static ref LAST_STATUS: Arc<Mutex<OnlineStatus>> = Arc::new(Mutex::new(OnlineStatus::Online));
 }
 
-pub fn init(weechat: &Weechat) -> CommandHook<()> {
-    weechat.hook_command(
+pub fn init(weechat: &Weechat) -> Vec<CommandHook<()>> {
+    let mut hooks = Vec::new();
+    hooks.push(weechat.hook_command(
         CMD_DESCRIPTION,
         |_, buffer, args| run_command(&buffer, &args.collect::<Vec<_>>().join(" ")),
         None,
-    )
+    ));
+    hooks.push(weechat.hook_command(
+        weechat::CommandDescription {
+            name: "me",
+            description: "Send an italicized message to Discord.",
+            args: "",
+            args_description: "",
+            completion: ""
+        },
+        |_, buffer, args| run_command(
+            &buffer,
+            &("/discord me ".to_string() + &args.skip(1).collect::<Vec<_>>().join(" "))),
+        None,
+    ));
+    return hooks;
 }
 
 #[derive(Clone)]

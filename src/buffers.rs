@@ -319,7 +319,7 @@ pub fn create_buffer_from_channel(
 
         buffer.set_localvar("channelid", &channel.id.0.to_string());
         buffer.set_localvar("guildid", &channel.guild_id.0.to_string());
-        buffer.set_localvar("channel_name", &channel.name);
+        buffer.set_localvar("channel", &channel.name);
         buffer.set_localvar("guild_name", guild_name);
         buffer.set_localvar("server", guild_name);
         buffer.set_localvar("type", channel_type);

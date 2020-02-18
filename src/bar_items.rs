@@ -26,7 +26,7 @@ pub fn init(weechat: &Weechat) -> BarHandles {
         "buffer_channel_name",
         |_, _, buffer| {
             buffer
-                .get_localvar("channel_name")
+                .get_localvar("channel")
                 .map(Cow::into_owned)
                 .unwrap_or_default()
         },
@@ -37,7 +37,7 @@ pub fn init(weechat: &Weechat) -> BarHandles {
         "buffer_discord_full_name",
         |_, _, buffer| {
             let guild_name = buffer.get_localvar("guild_name");
-            let channel_name = buffer.get_localvar("channel_name");
+            let channel_name = buffer.get_localvar("channel");
             match (guild_name, channel_name) {
                 // i don't think the second pattern is possible
                 (Some(name), None) | (None, Some(name)) => format!("{}", name),

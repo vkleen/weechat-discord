@@ -277,7 +277,7 @@ fn watch(weechat: &Weechat, args: &Args) {
             let mut watched_items: Vec<_> =
                 watched_items.split(',').filter(|i| !i.is_empty()).collect();
             watched_items.push(&new_channel_id);
-
+            watched_items.sort_unstable();
             watched_items.dedup();
             watched_items.join(",")
         };
@@ -382,7 +382,7 @@ fn autojoin(weechat: &Weechat, args: &Args, buffer: &Buffer) {
                 .filter(|i| !i.is_empty())
                 .collect();
             autojoin_items.push(&new_channel_id);
-
+            autojoin_items.sort_unstable();
             autojoin_items.dedup();
             autojoin_items.join(",")
         };

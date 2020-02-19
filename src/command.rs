@@ -190,7 +190,7 @@ fn noautostart(weechat: &Weechat) {
 
 pub(crate) fn join(_weechat: &Weechat, args: &Args, verbose: bool) -> ReturnCode {
     if args.args.is_empty() && verbose {
-        plugin_print("join requires an guild name and channel name");
+        plugin_print("join requires an guild name and optional channel name");
         ReturnCode::Error
     } else {
         let mut args = args.args.iter();
@@ -241,7 +241,7 @@ pub(crate) fn join(_weechat: &Weechat, args: &Args, verbose: bool) -> ReturnCode
 
 fn watch(weechat: &Weechat, args: &Args) {
     if args.args.is_empty() {
-        plugin_print("watch requires a guild name and channel name");
+        plugin_print("watch requires a guild name and optional channel name");
     } else {
         let mut args = args.args.iter().filter(|i| !i.is_empty());
         let guild_name = match args.next() {
@@ -344,7 +344,7 @@ fn watched(weechat: &Weechat) {
 
 fn autojoin(weechat: &Weechat, args: &Args, buffer: &Buffer) {
     if args.args.is_empty() {
-        plugin_print("autojoin requires a guild name and channel name");
+        plugin_print("autojoin requires a guild name and optional channel name");
     } else {
         let mut opts = args.args.iter().filter(|i| !i.is_empty());
         let guild_name = match opts.next() {

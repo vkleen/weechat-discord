@@ -13,12 +13,27 @@ lazy_static! {
     pub static ref LAST_STATUS: Arc<Mutex<OnlineStatus>> = Arc::new(Mutex::new(OnlineStatus::Online));
 }
 
-pub fn init(weechat: &Weechat) -> CommandHook<()> {
-    weechat.hook_command(
+pub fn init(weechat: &Weechat) -> Vec<CommandHook<()>> {
+    let mut hooks = Vec::new();
+    hooks.push(weechat.hook_command(
         CMD_DESCRIPTION,
         |_, buffer, args| run_command(&buffer, &args.collect::<Vec<_>>().join(" ")),
         None,
-    )
+    ));
+    hooks.push(weechat.hook_command(
+        weechat::CommandDescription {
+            name: "me",
+            description: "Send an italicized message to Discord.",
+            args: "",
+            args_description: "",
+            completion: ""
+        },
+        |_, buffer, args| run_command(
+            &buffer,
+            &("/discord me ".to_string() + &args.skip(1).collect::<Vec<_>>().join(" "))),
+        None,
+    ));
+    return hooks;
 }
 
 #[derive(Clone)]
@@ -73,8 +88,10 @@ fn run_command(buffer: &Buffer, cmd: &str) {
             join(weechat, &args, true);
         },
         "watch" => watch(weechat, &args),
+        "nowatch" => nowatch(weechat, &args),
         "watched" => watched(weechat),
         "autojoin" => autojoin(weechat, &args, buffer),
+        "noautojoin" => noautojoin(weechat, &args),
         "autojoined" => autojoined(weechat),
         "status" => status(&args),
         "pins" | "pinned" => pins(weechat, buffer),
@@ -175,7 +192,7 @@ fn noautostart(weechat: &Weechat) {
 
 pub(crate) fn join(_weechat: &Weechat, args: &Args, verbose: bool) -> ReturnCode {
     if args.args.is_empty() && verbose {
-        plugin_print("join requires an guild name and channel name");
+        plugin_print("join requires an guild name and optional channel name");
         ReturnCode::Error
     } else {
         let mut args = args.args.iter();
@@ -224,56 +241,99 @@ pub(crate) fn join(_weechat: &Weechat, args: &Args, verbose: bool) -> ReturnCode
     }
 }
 
+fn resolve_channel_id(guild_name: &&str, channel_name: Option<&&str>) -> Option<String> {
+    let ctx = match discord::get_ctx() {
+        Some(ctx) => ctx,
+        _ => return None,
+    };
+
+    if let Some(channel_name) = channel_name {
+        if let Some((guild, channel)) =
+            crate::utils::search_channel(&ctx.cache, guild_name, channel_name)
+        {
+            return Some(crate::utils::unique_id(Some(guild.read().id), channel.read().id));
+        } else {
+            plugin_print("Unable to find server and channel");
+            return None;
+        }
+    } else if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
+        return Some(crate::utils::unique_guild_id(guild.read().id));
+    } else {
+        plugin_print("Unable to find server");
+        return None;
+    };
+}
+
+fn add_item(items: Cow<str>, new_item: String) -> String {
+    let mut items: Vec<_> =
+        items.split(',').filter(|i| !i.is_empty()).collect();
+    items.push(&new_item);
+    items.sort_unstable();
+    items.dedup();
+    return items.join(",");
+}
+
+fn remove_item(items: Cow<str>, old_item: String) -> String {
+    let items: Vec<_> =
+        items.split(',').filter(|i| !i.is_empty() && i != &old_item.as_str()).collect();
+    return items.join(",");
+}
+
 fn watch(weechat: &Weechat, args: &Args) {
     if args.args.is_empty() {
-        plugin_print("watch requires a guild name and channel name");
+        plugin_print("watch requires a guild name and optional channel name");
+        return;
+    }
+    let mut args = args.args.iter().filter(|i| !i.is_empty());
+    let guild_name = match args.next() {
+        Some(g) => g,
+        None => return,
+    };
+    let channel_name = args.next();
+
+    let new_channel_id = match resolve_channel_id(guild_name, channel_name) {
+        Some(cid) => cid,
+        None => return,
+    };
+
+    let weecord = crate::upgrade_plugin(weechat);
+    let new_watched = add_item(weecord.config.watched_channels.value(), new_channel_id);
+    let () = on_main_blocking(|weecord| {
+        weecord.config.watched_channels.set(&new_watched);
+    });
+    if let Some(channel_name) = channel_name {
+        plugin_print(&format!("Now watching {} in {}", guild_name, channel_name))
     } else {
-        let mut args = args.args.iter().filter(|i| !i.is_empty());
-        let guild_name = match args.next() {
-            Some(g) => g,
-            None => return,
-        };
-        let channel_name = args.next();
+        plugin_print(&format!("Now watching all of {}", guild_name))
+    }
+}
 
-        let ctx = match discord::get_ctx() {
-            Some(ctx) => ctx,
-            _ => return,
-        };
+fn nowatch(weechat: &Weechat, args: &Args) {
+    if args.args.is_empty() {
+        plugin_print("nowatch requires a guild name and optional channel name");
+        return;
+    }
+    let mut args = args.args.iter().filter(|i| !i.is_empty());
+    let guild_name = match args.next() {
+        Some(g) => g,
+        None => return,
+    };
+    let channel_name = args.next();
 
-        let new_channel_id = if let Some(channel_name) = channel_name {
-            if let Some((guild, channel)) =
-                crate::utils::search_channel(&ctx.cache, guild_name, channel_name)
-            {
-                crate::utils::unique_id(Some(guild.read().id), channel.read().id)
-            } else {
-                plugin_print("Unable to find server and channel");
-                return;
-            }
-        } else if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
-            crate::utils::unique_guild_id(guild.read().id)
-        } else {
-            plugin_print("Unable to find server");
-            return;
-        };
+    let new_channel_id = match resolve_channel_id(guild_name, channel_name) {
+        Some(cid) => cid,
+        None => return,
+    };
 
-        let weecord = crate::upgrade_plugin(weechat);
-        let new_watched = {
-            let watched_items = weecord.config.watched_channels.value();
-            let mut watched_items: Vec<_> =
-                watched_items.split(',').filter(|i| !i.is_empty()).collect();
-            watched_items.push(&new_channel_id);
-
-            watched_items.dedup();
-            watched_items.join(",")
-        };
-        let () = on_main_blocking(|weecord| {
-            weecord.config.watched_channels.set(&new_watched);
-        });
-        if let Some(channel_name) = channel_name {
-            plugin_print(&format!("Now watching {} in {}", guild_name, channel_name))
-        } else {
-            plugin_print(&format!("Now watching all of {}", guild_name))
-        }
+    let weecord = crate::upgrade_plugin(weechat);
+    let new_watched = remove_item(weecord.config.watched_channels.value(), new_channel_id);
+    let () = on_main_blocking(|weecord| {
+        weecord.config.watched_channels.set(&new_watched);
+    });
+    if let Some(channel_name) = channel_name {
+        plugin_print(&format!("No longer watching {} in {}", guild_name, channel_name))
+    } else {
+        plugin_print(&format!("No longer watching all of {}", guild_name))
     }
 }
 
@@ -329,59 +389,64 @@ fn watched(weechat: &Weechat) {
 
 fn autojoin(weechat: &Weechat, args: &Args, buffer: &Buffer) {
     if args.args.is_empty() {
-        plugin_print("autojoin requires a guild name and channel name");
+        plugin_print("autojoin requires a guild name and optional channel name");
+        return;
+    }
+    let mut opts = args.args.iter().filter(|i| !i.is_empty());
+    let guild_name = match opts.next() {
+        Some(g) => g,
+        None => return,
+    };
+    let channel_name = opts.next();
+
+    let new_channel_id = match resolve_channel_id(guild_name, channel_name) {
+        Some(cid) => cid,
+        None => return,
+    };
+
+    let weecord = crate::upgrade_plugin(weechat);
+    let new_autojoined = add_item(weecord.config.autojoin_channels.value(), new_channel_id);
+    weecord.config.autojoin_channels.set(&new_autojoined);
+
+    if let Some(channel_name) = channel_name {
+        plugin_print(&format!(
+            "Now autojoining {} in {}",
+            guild_name, channel_name
+        ));
+        run_command(buffer, &format!("/discord join {}", args.rest));
     } else {
-        let mut opts = args.args.iter().filter(|i| !i.is_empty());
-        let guild_name = match opts.next() {
-            Some(g) => g,
-            None => return,
-        };
-        let channel_name = opts.next();
+        plugin_print(&format!("Now autojoining all channels in {}", guild_name))
+    }
+}
 
-        let ctx = match discord::get_ctx() {
-            Some(ctx) => ctx,
-            _ => return,
-        };
+fn noautojoin(weechat: &Weechat, args: &Args) {
+    if args.args.is_empty() {
+        plugin_print("noautojoin requires a guild name and optional channel name");
+        return;
+    }
+    let mut opts = args.args.iter().filter(|i| !i.is_empty());
+    let guild_name = match opts.next() {
+        Some(g) => g,
+        None => return,
+    };
+    let channel_name = opts.next();
 
-        let new_channel_id = if let Some(channel_name) = channel_name {
-            if let Some((guild, channel)) =
-                crate::utils::search_channel(&ctx.cache, guild_name, channel_name)
-            {
-                crate::utils::unique_id(Some(guild.read().id), channel.read().id)
-            } else {
-                plugin_print("Unable to find server and channel");
-                return;
-            }
-        } else if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
-            crate::utils::unique_guild_id(guild.read().id)
-        } else {
-            plugin_print("Unable to find server");
-            return;
-        };
-        let weecord = crate::upgrade_plugin(weechat);
+    let channel_id = match resolve_channel_id(guild_name, channel_name) {
+        Some(cid) => cid,
+        None => return,
+    };
 
-        let new_autojoined = {
-            let autojoin_items = weecord.config.autojoin_channels.value();
-            let mut autojoin_items: Vec<_> = autojoin_items
-                .split(',')
-                .filter(|i| !i.is_empty())
-                .collect();
-            autojoin_items.push(&new_channel_id);
+    let weecord = crate::upgrade_plugin(weechat);
+    let new_autojoined = remove_item(weecord.config.autojoin_channels.value(), channel_id);
+    weecord.config.autojoin_channels.set(&new_autojoined);
 
-            autojoin_items.dedup();
-            autojoin_items.join(",")
-        };
-        weecord.config.autojoin_channels.set(&new_autojoined);
-
-        if let Some(channel_name) = channel_name {
-            plugin_print(&format!(
-                "Now autojoining {} in {}",
-                guild_name, channel_name
-            ));
-            run_command(buffer, &format!("/discord join {}", args.rest));
-        } else {
-            plugin_print(&format!("Now autojoining all channels in {}", guild_name))
-        }
+    if let Some(channel_name) = channel_name {
+        plugin_print(&format!(
+            "No longer autojoining {} in {}",
+            guild_name, channel_name
+        ));
+    } else {
+        plugin_print(&format!("No longer autojoining all channels in {}", guild_name))
     }
 }
 
@@ -662,9 +727,11 @@ Examples:
 disconnect || \
 query %(weecord_dm_completion) || \
 watch %(weecord_guild_completion) %(weecord_channel_completion) || \
+nowatch %(weecord_guild_completion) %(weecord_channel_completion) || \
 watched || \
 autojoined || \
 autojoin %(weecord_guild_completion) %(weecord_channel_completion) || \
+noautojoin %(weecord_guild_completion) %(weecord_channel_completion) || \
 irc-mode || \
 discord-mode || \
 pins || \

@@ -319,7 +319,7 @@ pub fn create_buffer_from_channel(
 
         buffer.set_localvar("channelid", &channel.id.0.to_string());
         buffer.set_localvar("guildid", &channel.guild_id.0.to_string());
-        buffer.set_localvar("channel_name", &channel.name);
+        buffer.set_localvar("channel", &channel.name);
         buffer.set_localvar("guild_name", guild_name);
         buffer.set_localvar("server", guild_name);
         buffer.set_localvar("type", channel_type);
@@ -569,6 +569,7 @@ pub fn load_dm_nicks(buffer: &Buffer, channel: &PrivateChannel) {
         buffer.add_nick(
             NickArgs {
                 name: &recip.name,
+                color: &utils::nick_color(&weechat, &recip.name),
                 prefix: &utils::get_user_status_prefix(&weechat, &cache, recip.id),
                 ..Default::default()
             },
@@ -579,6 +580,7 @@ pub fn load_dm_nicks(buffer: &Buffer, channel: &PrivateChannel) {
         buffer.add_nick(
             NickArgs {
                 name: &cache.user.name,
+                color: &utils::nick_color(&weechat, &cache.user.name),
                 prefix: &utils::format_user_status_prefix(
                     &weechat,
                     Some(*crate::command::LAST_STATUS.lock()),
@@ -711,6 +713,7 @@ fn add_member_to_nicklist(
             buffer.add_nick(
                 weechat::NickArgs {
                     name: member.display_name().as_ref(),
+                    color: &utils::nick_color(&weechat, member.display_name().as_ref()),
                     ..Default::default()
                 },
                 None,
@@ -733,6 +736,7 @@ fn add_member_to_nicklist(
     buffer.add_nick(
         weechat::NickArgs {
             name: nicklist_name.as_ref(),
+            color: &utils::nick_color(&weechat, &nicklist_name),
             ..Default::default()
         },
         Some(&group),

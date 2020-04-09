@@ -45,11 +45,11 @@ path = "parsing"
 
 [dependencies.weechat]
 git = "https://github.com/terminal-discord/rust-weechat"
-rev = "e3ffbe2"
+rev = "6c42e5e"
 
 [dependencies.weechat-sys]
 git = "https://github.com/terminal-discord/rust-weechat"
-rev = "e3ffbe2"
+rev = "6c42e5e"
 
 #[patch."https://github.com/terminal-discord/rust-weechat"]
 #weechat-sys = { path = "../rust-weechat/weechat-sys" }

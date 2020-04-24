@@ -2,7 +2,10 @@ use crate::Discord;
 use crossbeam_channel::{unbounded, Sender};
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
-use std::{any::Any, cell::RefCell, collections::VecDeque, mem::transmute, thread, time::Duration};
+use std::{
+    any::Any, cell::RefCell, collections::VecDeque, mem::transmute, sync::Arc, thread,
+    time::Duration,
+};
 use weechat::Weechat;
 
 /// Created upon sync initialization, must not be dropped while the plugin is running
@@ -18,22 +21,19 @@ enum Job {
 
 lazy_static! {
     static ref JOB_QUEUE: Mutex<RefCell<VecDeque<Job>>> = Mutex::new(RefCell::new(VecDeque::new()));
+    static ref MAIN_THREAD: Arc<Mutex<Option<thread::ThreadId>>> = Arc::new(Mutex::new(None));
 }
-
-static mut MAIN_THREAD: Option<thread::ThreadId> = None;
 
 /// Initialize thread synchronization, this function must be called on the main thread
 pub fn init(weechat: &weechat::Weechat) -> SyncHandle {
-    unsafe {
-        MAIN_THREAD = Some(thread::current().id());
-    }
+    *MAIN_THREAD.lock() = Some(thread::current().id());
 
     // TODO: Dynamic delay
     SyncHandle(weechat.hook_timer(Duration::from_millis(25), 0, 0, |_, _, _| tick(), None))
 }
 
 pub fn on_main<F: 'static + FnOnce(&Discord) + Send>(cb: F) {
-    if std::thread::current().id() == unsafe { MAIN_THREAD.unwrap() } {
+    if std::thread::current().id() == MAIN_THREAD.lock().unwrap() {
         // already on the main thread, run closure now
         cb(unsafe { &crate::__PLUGIN.as_ref().unwrap() });
     } else {
@@ -55,7 +55,7 @@ pub fn on_main_blocking<R: Send, F: FnOnce(&Discord) -> R + Send, ER: 'static + 
         >(Box::new(cb))
     };
 
-    if std::thread::current().id() == unsafe { MAIN_THREAD.unwrap() } {
+    if std::thread::current().id() == MAIN_THREAD.lock().unwrap() {
         cb(unsafe { &crate::__PLUGIN.as_ref().unwrap() })
     } else {
         let (tx, rx) = unbounded();

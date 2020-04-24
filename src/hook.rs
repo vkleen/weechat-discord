@@ -4,6 +4,7 @@ use crate::{
     utils::{BufferExt, ChannelExt},
 };
 use crossbeam_channel::unbounded;
+use lazy_static::lazy_static;
 use serenity::{model::prelude::*, prelude::*};
 use std::{
     sync::Arc,
@@ -12,7 +13,9 @@ use std::{
 };
 use weechat::{Buffer, CompletionPosition, ConfigOption, ReturnCode, Weechat};
 
-static mut LAST_TYPING_TIMESTAMP: u64 = 0;
+lazy_static! {
+    static ref LAST_TYPING_TIMESTAMP: Arc<Mutex<u64>> = Arc::new(Mutex::new(0));
+}
 
 pub struct HookHandles {
     _buffer_switch_handle: weechat::SignalHook<()>,
@@ -252,8 +255,9 @@ fn handle_buffer_typing(weechat: &Weechat, data: weechat::SignalHookValue) -> Re
                     .expect("Time went backwards")
                     .as_secs() as u64;
 
-                if unsafe { LAST_TYPING_TIMESTAMP } + 9 < timestamp_now {
-                    unsafe { LAST_TYPING_TIMESTAMP = timestamp_now }
+                if *LAST_TYPING_TIMESTAMP.lock() + 9 < timestamp_now {
+                    *LAST_TYPING_TIMESTAMP.lock() = timestamp_now;
+
                     std::thread::spawn(move || {
                         let ctx = match discord::get_ctx() {
                             Some(s) => s,

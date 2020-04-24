@@ -77,7 +77,7 @@ fn run_command(buffer: &Buffer, cmd: &str) {
     }
 
     match args.base {
-        "connect" => connect(weechat),
+        "connect" => crate::upgrade_plugin(weechat).connect(),
         "disconnect" => disconnect(weechat),
         "irc-mode" => irc_mode(weechat),
         "discord-mode" => discord_mode(weechat),
@@ -106,30 +106,6 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         _ => {
             plugin_print("Unknown command");
         },
-    };
-}
-
-fn connect(weechat: &Weechat) {
-    let weecord = crate::upgrade_plugin(weechat);
-    let token: String = weecord.config.token.value().into_owned();
-    if !token.is_empty() {
-        let token = if token.starts_with("${sec.data") {
-            weechat.eval_string_expression(&token).map(Cow::into_owned)
-        } else {
-            Some(token)
-        };
-        if let Some(t) = token {
-            if unsafe { &crate::discord::CONTEXT }.is_none() {
-                crate::discord::init(weecord, &t, crate::utils::get_irc_mode(weechat));
-            } else {
-                plugin_print("Already connected");
-            }
-        } else {
-            weechat.print("Error: failed to evaluate token option, expected valid ${sec.data...}")
-        }
-    } else {
-        plugin_print("Error: weecord.main.token unset. Run:");
-        plugin_print("/discord token 123456789ABCDEF");
     };
 }
 

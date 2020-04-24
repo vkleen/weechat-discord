@@ -26,11 +26,14 @@ pub fn init(weechat: &Weechat) -> Vec<CommandHook<()>> {
             description: "Send an italicized message to Discord.",
             args: "",
             args_description: "",
-            completion: ""
+            completion: "",
         },
-        |_, buffer, args| run_command(
-            &buffer,
-            &("/discord me ".to_string() + &args.skip(1).collect::<Vec<_>>().join(" "))),
+        |_, buffer, args| {
+            run_command(
+                &buffer,
+                &("/discord me ".to_string() + &args.skip(1).collect::<Vec<_>>().join(" ")),
+            )
+        },
         None,
     ));
     return hooks;
@@ -241,7 +244,7 @@ pub(crate) fn join(_weechat: &Weechat, args: &Args, verbose: bool) -> ReturnCode
     }
 }
 
-fn resolve_channel_id(guild_name: &&str, channel_name: Option<&&str>) -> Option<String> {
+fn resolve_channel_id(guild_name: &str, channel_name: Option<&str>) -> Option<String> {
     let ctx = match discord::get_ctx() {
         Some(ctx) => ctx,
         _ => return None,
@@ -251,22 +254,24 @@ fn resolve_channel_id(guild_name: &&str, channel_name: Option<&&str>) -> Option<
         if let Some((guild, channel)) =
             crate::utils::search_channel(&ctx.cache, guild_name, channel_name)
         {
-            return Some(crate::utils::unique_id(Some(guild.read().id), channel.read().id));
+            Some(crate::utils::unique_id(
+                Some(guild.read().id),
+                channel.read().id,
+            ))
         } else {
             plugin_print("Unable to find server and channel");
-            return None;
+            None
         }
     } else if let Some(guild) = crate::utils::search_guild(&ctx.cache, guild_name) {
-        return Some(crate::utils::unique_guild_id(guild.read().id));
+        Some(crate::utils::unique_guild_id(guild.read().id))
     } else {
         plugin_print("Unable to find server");
-        return None;
-    };
+        None
+    }
 }
 
 fn add_item(items: Cow<str>, new_item: String) -> String {
-    let mut items: Vec<_> =
-        items.split(',').filter(|i| !i.is_empty()).collect();
+    let mut items: Vec<_> = items.split(',').filter(|i| !i.is_empty()).collect();
     items.push(&new_item);
     items.sort_unstable();
     items.dedup();
@@ -274,8 +279,10 @@ fn add_item(items: Cow<str>, new_item: String) -> String {
 }
 
 fn remove_item(items: Cow<str>, old_item: String) -> String {
-    let items: Vec<_> =
-        items.split(',').filter(|i| !i.is_empty() && i != &old_item.as_str()).collect();
+    let items: Vec<_> = items
+        .split(',')
+        .filter(|i| !i.is_empty() && i != &old_item.as_str())
+        .collect();
     return items.join(",");
 }
 
@@ -291,7 +298,7 @@ fn watch(weechat: &Weechat, args: &Args) {
     };
     let channel_name = args.next();
 
-    let new_channel_id = match resolve_channel_id(guild_name, channel_name) {
+    let new_channel_id = match resolve_channel_id(guild_name, channel_name.cloned()) {
         Some(cid) => cid,
         None => return,
     };
@@ -320,7 +327,7 @@ fn nowatch(weechat: &Weechat, args: &Args) {
     };
     let channel_name = args.next();
 
-    let new_channel_id = match resolve_channel_id(guild_name, channel_name) {
+    let new_channel_id = match resolve_channel_id(guild_name, channel_name.cloned()) {
         Some(cid) => cid,
         None => return,
     };
@@ -331,7 +338,10 @@ fn nowatch(weechat: &Weechat, args: &Args) {
         weecord.config.watched_channels.set(&new_watched);
     });
     if let Some(channel_name) = channel_name {
-        plugin_print(&format!("No longer watching {} in {}", guild_name, channel_name))
+        plugin_print(&format!(
+            "No longer watching {} in {}",
+            guild_name, channel_name
+        ))
     } else {
         plugin_print(&format!("No longer watching all of {}", guild_name))
     }
@@ -399,7 +409,7 @@ fn autojoin(weechat: &Weechat, args: &Args, buffer: &Buffer) {
     };
     let channel_name = opts.next();
 
-    let new_channel_id = match resolve_channel_id(guild_name, channel_name) {
+    let new_channel_id = match resolve_channel_id(guild_name, channel_name.cloned()) {
         Some(cid) => cid,
         None => return,
     };
@@ -431,7 +441,7 @@ fn noautojoin(weechat: &Weechat, args: &Args) {
     };
     let channel_name = opts.next();
 
-    let channel_id = match resolve_channel_id(guild_name, channel_name) {
+    let channel_id = match resolve_channel_id(guild_name, channel_name.cloned()) {
         Some(cid) => cid,
         None => return,
     };
@@ -446,7 +456,10 @@ fn noautojoin(weechat: &Weechat, args: &Args) {
             guild_name, channel_name
         ));
     } else {
-        plugin_print(&format!("No longer autojoining all channels in {}", guild_name))
+        plugin_print(&format!(
+            "No longer autojoining all channels in {}",
+            guild_name
+        ))
     }
 }
 

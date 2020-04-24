@@ -1,6 +1,6 @@
 use crate::{
     discord::formatting,
-    utils::{BufferExt,format_nick_color},
+    utils::{format_nick_color, BufferExt},
 };
 use serenity::{cache::CacheRwLock, model::prelude::*};
 use weechat::{hdata::HDataPointer, Buffer, HasHData, Weechat};

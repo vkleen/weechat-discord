@@ -58,7 +58,7 @@ def main():
                 continue
             if len(parts[1]) < 6:
                 continue
-            token_candidates.add(candidate[1:-2])
+            token_candidates.add(candidate[1:-1])
 
     if len(token_candidates) == 0:
         print("No Discord tokens found")

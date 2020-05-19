@@ -5,8 +5,10 @@ use crate::{
 };
 use crossbeam_channel::unbounded;
 use lazy_static::lazy_static;
-use serenity::{model::prelude::*, prelude::*};
+use serenity::{client::bridge::gateway, model::prelude::*, prelude::*};
 use std::{
+    borrow::Borrow,
+    iter::FromIterator,
     sync::Arc,
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -223,6 +225,44 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
                 None => return,
             };
             if let Some(channel) = channel_id.and_then(|id| id.to_channel_cached(&ctx)) {
+                if let Some(guild_channel) = channel.clone().guild() {
+                    let guild_id = guild_channel.read().guild_id;
+                    use std::collections::{HashMap, HashSet};
+                    lazy_static! {
+                        static ref CHANNELS: Arc<Mutex<HashMap<GuildId, HashSet<ChannelId>>>> =
+                            Arc::new(Mutex::new(HashMap::new()));
+                    }
+
+                    let mut channels = CHANNELS.lock();
+                    let send = if let Some(guild_channels) = channels.get_mut(&guild_id) {
+                        guild_channels.insert(channel.id())
+                    } else {
+                        channels
+                            .insert(guild_id, HashSet::from_iter(vec![channel.id()].into_iter()));
+                        true
+                    };
+                    if send {
+                        let channels = channels.get(&guild_id).unwrap();
+                        let channels_obj: HashMap<String, Vec<Vec<_>>> = HashMap::from_iter(
+                            channels
+                                .iter()
+                                .map(|ch| (format!("{}", ch.0), vec![vec![0, 99]])),
+                        );
+
+                        let msg = json::object! {
+                            "op" => 14,
+                            "d" => json::object! {
+                                "guild_id" => format!("{}", guild_id.0),
+                                "typing" => true,
+                                "activities" => true,
+                                "channels" => channels_obj,
+                            }
+                        };
+                        ctx.shard
+                            .websocket_message(gateway::Message::Text(msg.to_string()));
+                    }
+                }
+
                 if let Some(rs) = ctx.cache.read().read_state.get(&channel.id()) {
                     if let Some(last_message_id) = channel.last_message() {
                         if rs.last_message_id != last_message_id {

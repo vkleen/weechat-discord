@@ -21,6 +21,7 @@ dirs = "2.0.1"
 crossbeam-channel = "0.4.0"
 regex = "1.2.1"
 indexmap = "1.1.0"
+json = "0.12.4"
 
 [dependencies.parking_lot]
 rev = "046a171"
@@ -28,7 +29,7 @@ git = "https://github.com/terminal-discord/parking_lot"
 
 [dependencies.serenity]
 git = "https://github.com/terminal-discord/serenity"
-rev = "2e878490"
+rev = "9d67e912"
 default_features = false
 features = [
     "builder",

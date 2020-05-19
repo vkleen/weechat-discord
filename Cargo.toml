@@ -15,12 +15,12 @@ pcre = ["parsing/pcre"]
 onig = ["parsing/onig"]
 
 [dependencies]
-libc = "0.2.60"
-lazy_static = "1.3.0"
-dirs = "2.0.1"
-crossbeam-channel = "0.4.0"
-regex = "1.2.1"
-indexmap = "1.1.0"
+libc = "0.2.70"
+lazy_static = "1.4.0"
+dirs = "2.0.2"
+crossbeam-channel = "0.4.2"
+regex = "1.3.7"
+indexmap = "1.3.2"
 json = "0.12.4"
 
 [dependencies.parking_lot]
@@ -46,11 +46,11 @@ path = "parsing"
 
 [dependencies.weechat]
 git = "https://github.com/terminal-discord/rust-weechat"
-rev = "6c42e5e"
+rev = "e9fa6fd"
 
 [dependencies.weechat-sys]
 git = "https://github.com/terminal-discord/rust-weechat"
-rev = "6c42e5e"
+rev = "e9fa6fd"
 
 #[patch."https://github.com/terminal-discord/rust-weechat"]
 #weechat-sys = { path = "../rust-weechat/weechat-sys" }

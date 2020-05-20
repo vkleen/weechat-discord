@@ -1,6 +1,6 @@
-# Weechat Discord NG
+# Weechat Discord
 
-[![Build Status](https://dev.azure.com/terminal-discord/weechat-discord/_apis/build/status/terminal-discord.weechat-discord?branchName=master)](https://dev.azure.com/terminal-discord/weechat-discord/_build/latest?definitionId=2&branchName=master)
+![CI](https://github.com/terminal-discord/weechat-discord/workflows/CI/badge.svg)
 
 A plugin that adds Discord to [Weechat](https://weechat.org/)
 

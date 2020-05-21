@@ -23,7 +23,7 @@ use weechat::{
 
 const OFFLINE_GROUP_NAME: &str = "99999|Offline";
 const ONLINE_GROUP_NAME: &str = "99998|Online";
-const BOT_GROUP_NAME: &str = "99999|Bot";
+const BOT_GROUP_NAME: &str = "99997|Bot";
 
 pub fn create_buffers(ready_data: &Ready) {
     let ctx = match crate::discord::get_ctx() {

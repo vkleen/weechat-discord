@@ -338,14 +338,20 @@ impl EventHandler for Handler {
 
     fn typing_start(&self, ctx: Context, event: TypingStartEvent) {
         // TODO: Do we want to fetch the user if it isn't cached? (check performance)
+        let current_user_id = ctx.cache.read().user.id;
+
         if let Some(user) = event.user_id.to_user_cached(&ctx.cache) {
+            let user = user.read();
+            if user.id == current_user_id {
+                return;
+            }
             // TODO: Resolve guild nick names
             let mut typing_events = TYPING_EVENTS.lock();
             typing_events.entries.push(TypingEntry {
                 channel_id: event.channel_id,
                 guild_id: event.guild_id,
                 user: event.user_id,
-                user_name: user.read().name.clone(),
+                user_name: user.name.clone(),
                 time: event.timestamp,
             });
 

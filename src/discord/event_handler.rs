@@ -9,7 +9,7 @@ use std::{
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use weechat::{Buffer, ConfigOption, Weechat};
+use weechat::{Buffer, Weechat};
 
 const MAX_TYPING_EVENTS: usize = 50;
 
@@ -56,18 +56,15 @@ lazy_static! {
 pub struct Handler {
     sender: Arc<Mutex<Sender<Ready>>>,
     watched_channels: Vec<utils::GuildOrChannel>,
-    typing_messages: bool,
 }
 
 impl Handler {
     pub fn new(weecord: &Discord, sender: Arc<Mutex<Sender<Ready>>>) -> Handler {
         let watched_channels = weecord.config.watched_channels();
-        let typing_messages = weecord.config.typing_messages.value();
 
         Handler {
             sender,
             watched_channels,
-            typing_messages,
         }
     }
 }
@@ -374,24 +371,6 @@ impl EventHandler for Handler {
                     });
                 })
                 .expect("Unable to name thread");
-        }
-
-        if self.typing_messages {
-            if event.user_id == ctx.cache.read().user.id {
-                return;
-            }
-            let buffer_id = crate::utils::buffer_id_for_channel(event.guild_id, event.channel_id);
-            on_main(move |weechat| {
-                if let Some(buffer) = weechat.buffer_search("weecord", &buffer_id) {
-                    let prefix = weechat.get_prefix("network");
-                    let user = event
-                        .user_id
-                        .to_user_cached(ctx.cache)
-                        .map(|user| user.read().name.clone())
-                        .unwrap_or_else(|| "Someone".to_string());
-                    buffer.print(&format!("{}\t{} is typing", prefix, user));
-                }
-            })
         }
     }
 

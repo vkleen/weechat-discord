@@ -10,7 +10,6 @@ pub struct Config {
     pub autostart: BooleanOption,
     pub use_presence: BooleanOption,
     pub send_typing_events: BooleanOption,
-    pub typing_messages: BooleanOption,
     pub irc_mode: BooleanOption,
     pub message_fetch_count: IntegerOption,
     pub user_typing_list_max: IntegerOption,
@@ -88,16 +87,6 @@ pub fn init(weechat: &Weechat) -> Config {
         None::<()>,
     );
 
-    let typing_messages = section.new_boolean_option(
-        "typing_messages",
-        "Print a message when someone in a channel is typing",
-        false,
-        false,
-        false,
-        None,
-        None::<()>,
-    );
-
     let irc_mode = section.new_boolean_option(
         "irc_mode",
         r#"Enable "IRC-Mode" where only the channels you choose will be automatically joined"#,
@@ -153,7 +142,6 @@ pub fn init(weechat: &Weechat) -> Config {
         autostart,
         use_presence,
         send_typing_events,
-        typing_messages,
         irc_mode,
         message_fetch_count,
         user_typing_list_max,

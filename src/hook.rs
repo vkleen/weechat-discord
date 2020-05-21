@@ -7,7 +7,6 @@ use crossbeam_channel::unbounded;
 use lazy_static::lazy_static;
 use serenity::{client::bridge::gateway, model::prelude::*, prelude::*};
 use std::{
-    borrow::Borrow,
     iter::FromIterator,
     sync::Arc,
     thread,

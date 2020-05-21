@@ -1,6 +1,9 @@
-use crate::{buffers, on_main, on_main_blocking, printing, utils, Discord};
+use crate::{
+    buffers, discord, on_main, on_main_blocking, utils, weechat_utils::MessageManager, Discord,
+};
 use lazy_static::lazy_static;
 use serenity::{
+    cache::CacheRwLock,
     model::{gateway::Ready, prelude::*},
     prelude::*,
 };
@@ -9,7 +12,6 @@ use std::{
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use weechat::{Buffer, Weechat};
 
 const MAX_TYPING_EVENTS: usize = 50;
 
@@ -149,18 +151,18 @@ impl EventHandler for Handler {
 
     fn message(&self, ctx: Context, msg: Message) {
         let string_channel = utils::buffer_id_for_channel(msg.guild_id, msg.channel_id);
-        let () = on_main_blocking(move |weechat| {
-            if let Some(buffer) = weechat.buffer_search("weecord", &string_channel) {
-                print_message(&weechat, ctx, &msg, &buffer);
+        let () = on_main_blocking(move |weecord| {
+            if let Some(buffer) = weecord.buffer_manager.get_buffer(&string_channel) {
+                print_message(&ctx.cache, &msg, &buffer);
             } else {
                 match msg.channel_id.to_channel(&ctx) {
                     chan @ Ok(Channel::Private(_)) => {
-                        if let Some(buffer) = weechat.buffer_search("weecord", &string_channel) {
-                            print_message(&weechat, ctx, &msg, &buffer);
+                        if let Some(buffer) = weecord.buffer_manager.get_buffer(&string_channel) {
+                            print_message(&ctx.cache, &msg, &buffer);
                         } else {
                             buffers::create_buffer_from_dm(
                                 &ctx.cache,
-                                &weechat,
+                                &weecord,
                                 chan.unwrap(),
                                 &ctx.cache.read().user.name,
                                 false,
@@ -168,12 +170,12 @@ impl EventHandler for Handler {
                         }
                     },
                     chan @ Ok(Channel::Group(_)) => {
-                        if let Some(buffer) = weechat.buffer_search("weecord", &string_channel) {
-                            print_message(&weechat, ctx, &msg, &buffer);
+                        if let Some(buffer) = weecord.buffer_manager.get_buffer(&string_channel) {
+                            print_message(&ctx.cache, &msg, &buffer);
                         } else {
                             buffers::create_buffer_from_group(
                                 &ctx.cache,
-                                &weechat,
+                                &weecord,
                                 chan.unwrap(),
                                 &ctx.cache.read().user.name,
                             );
@@ -248,47 +250,7 @@ impl EventHandler for Handler {
         _new: Option<Message>,
         event: MessageUpdateEvent,
     ) {
-        fn update_message(guild_id: Option<GuildId>, channel_id: ChannelId, message_id: MessageId) {
-            let buffer_name = utils::buffer_id_for_channel(guild_id, channel_id);
-
-            thread::spawn(move || {
-                let ctx = match crate::discord::get_ctx() {
-                    Some(ctx) => ctx,
-                    _ => return,
-                };
-
-                let mut msgs = if let Ok(msgs) =
-                    channel_id.messages(ctx, |retriever| retriever.limit(1).around(message_id))
-                {
-                    msgs
-                } else {
-                    return;
-                };
-                let msg = match msgs.pop() {
-                    Some(msg) => msg,
-                    None => return,
-                };
-
-                on_main(move |weecord| {
-                    let ctx = match crate::discord::get_ctx() {
-                        Some(ctx) => ctx,
-                        _ => return,
-                    };
-
-                    let (_, new_content) =
-                        crate::printing::render_msg(&ctx.cache, weecord, &msg, guild_id);
-
-                    crate::buffers::modify_buffer_lines(
-                        weecord,
-                        msg.id,
-                        &buffer_name,
-                        &new_content,
-                    );
-                })
-            });
-        }
-
-        let (guild, channel, id) = match ctx.cache.read().channel(&event.channel_id) {
+        let (guild_id, channel_id, message_id) = match ctx.cache.read().channel(&event.channel_id) {
             Some(Channel::Guild(channel)) => {
                 let channel = channel.read();
                 (Some(channel.guild_id), channel.id, event.id)
@@ -298,7 +260,28 @@ impl EventHandler for Handler {
             _ => return,
         };
 
-        update_message(guild, channel, id);
+        let buffer_name = utils::buffer_id_for_channel(guild_id, channel_id);
+
+        thread::spawn(move || {
+            on_main(move |weecord| {
+                let ctx = match crate::discord::get_ctx() {
+                    Some(ctx) => ctx,
+                    _ => return,
+                };
+                let msg = match channel_id
+                    .messages(ctx, |retriever| retriever.limit(1).around(message_id))
+                    .ok()
+                    .and_then(|mut msgs| msgs.pop())
+                {
+                    Some(msgs) => msgs,
+                    None => return,
+                };
+
+                if let Some(buffer) = weecord.buffer_manager.get_buffer(&buffer_name) {
+                    buffer.replace_message(&ctx.cache, &message_id, &msg);
+                }
+            });
+        });
     }
 
     fn ready(&self, ctx: Context, ready: Ready) {
@@ -394,25 +377,22 @@ fn delete_message(ctx: &Context, channel_id: ChannelId, deleted_message_id: Mess
         let buffer_name = utils::buffer_id_for_channel(Some(guild_id), channel_id);
 
         on_main(move |weecord| {
-            crate::buffers::modify_buffer_lines(
-                weecord,
-                deleted_message_id,
-                &buffer_name,
-                &format!(
-                    "{}(deleted){}",
-                    weecord.color("red"),
-                    weecord.color("reset")
-                ),
-            );
+            if let Some(buffer) = weecord.buffer_manager.get_buffer(&buffer_name) {
+                let ctx = match discord::get_ctx() {
+                    Some(ctx) => ctx,
+                    _ => return,
+                };
+
+                buffer.delete_message(&ctx.cache, &deleted_message_id);
+            }
         });
     }
 }
 
-fn print_message(weechat: &Weechat, ctx: Context, msg: &Message, buffer: &Buffer) {
+fn print_message(cache: &CacheRwLock, msg: &Message, buffer: &MessageManager) {
     let muted = utils::buffer_is_muted(&buffer);
-    let notify = !msg.is_own(ctx.cache) && !muted;
-    printing::print_msg(&weechat, &buffer, &msg, notify);
-    printing::inject_msg_id(msg.id, buffer);
+    let notify = !msg.is_own(cache) && !muted;
+    buffer.add_message(cache, &msg, notify);
 }
 
 fn print_guild_status_message(guild_id: GuildId, msg: &str) {

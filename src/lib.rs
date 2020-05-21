@@ -6,10 +6,11 @@ mod command;
 mod config;
 mod discord;
 mod hook;
-mod printing;
 mod sync;
 mod utils;
+mod weechat_utils;
 
+use crate::weechat_utils::BufferManager;
 pub use sync::{on_main, on_main_blocking, upgrade_plugin};
 
 use std::borrow::Cow;
@@ -18,6 +19,7 @@ use weechat::{weechat_plugin, ArgsWeechat, ConfigOption, Weechat, WeechatPlugin,
 pub struct Discord {
     weechat: Weechat,
     config: config::Config,
+    buffer_manager: BufferManager,
     _sync_handle: sync::SyncHandle,
     _hook_handles: hook::HookHandles,
     _bar_handles: bar_items::BarHandles,
@@ -32,12 +34,14 @@ impl WeechatPlugin for Discord {
         let _hook_handles = hook::init(&weechat);
         let _bar_handles = bar_items::init(&weechat);
         let config = config::init(&weechat);
+        let buffer_manager = buffers::init(&weechat);
 
         let autostart = config.autostart.value();
 
         let weecord = Discord {
             weechat,
             config,
+            buffer_manager,
             _sync_handle,
             _hook_handles,
             _bar_handles,

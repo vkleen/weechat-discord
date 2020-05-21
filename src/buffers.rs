@@ -1,8 +1,9 @@
 use crate::{
-    on_main, printing,
+    on_main,
     sync::on_main_blocking,
     utils,
     utils::{BufferExt, ChannelExt},
+    weechat_utils::{BufferManager, MessageManager},
     Discord,
 };
 use indexmap::IndexMap;
@@ -15,15 +16,15 @@ use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
 };
-use weechat::{
-    buffer::HotlistPriority,
-    hdata::{HData, HDataPointer},
-    Buffer, ConfigOption, HasHData, NickArgs, Weechat,
-};
+use weechat::{buffer::HotlistPriority, Buffer, ConfigOption, NickArgs, Weechat};
 
 const OFFLINE_GROUP_NAME: &str = "99999|Offline";
 const ONLINE_GROUP_NAME: &str = "99998|Online";
 const BOT_GROUP_NAME: &str = "99997|Bot";
+
+pub fn init(weechat: &Weechat) -> BufferManager {
+    BufferManager::new(Weechat::from_ptr(weechat.as_ptr()))
+}
 
 pub fn create_buffers(ready_data: &Ready) {
     let ctx = match crate::discord::get_ctx() {
@@ -221,20 +222,20 @@ pub fn create_buffers_from_flat_items(
                     };
 
                     match channel {
-                        channel @ Channel::Private(_) => on_main(move |weechat| {
+                        channel @ Channel::Private(_) => on_main(move |weecord| {
                             let ctx = match crate::discord::get_ctx() {
                                 Some(ctx) => ctx,
                                 _ => return,
                             };
-                            create_buffer_from_dm(&ctx.cache, weechat, channel, &nick, false);
+                            create_buffer_from_dm(&ctx.cache, weecord, channel, &nick, false);
                         }),
 
-                        channel @ Channel::Group(_) => on_main(move |weechat| {
+                        channel @ Channel::Group(_) => on_main(move |weecord| {
                             let ctx = match crate::discord::get_ctx() {
                                 Some(ctx) => ctx,
                                 _ => return,
                             };
-                            create_buffer_from_group(&ctx.cache, weechat, channel, &nick);
+                            create_buffer_from_group(&ctx.cache, weecord, channel, &nick);
                         }),
                         _ => unreachable!(),
                     }
@@ -255,24 +256,10 @@ fn user_online(cache: &Cache, user_id: UserId) -> bool {
     }
 }
 
-fn find_or_make_buffer(weechat: &Weechat, name: &str) -> Buffer {
-    if let Some(buffer) = weechat.buffer_search("weecord", name) {
-        buffer
-    } else {
-        weechat.buffer_new::<(), ()>(
-            name,
-            Some(|_, b, i| crate::hook::buffer_input(b, &i)),
-            None,
-            None,
-            None,
-        )
-    }
-}
-
 pub fn create_guild_buffer(id: GuildId, name: &str) {
     let guild_name_id = utils::buffer_id_for_guild(id);
-    let () = on_main_blocking(move |weechat| {
-        let buffer = find_or_make_buffer(&weechat, &guild_name_id);
+    let () = on_main_blocking(move |weecord| {
+        let buffer = weecord.buffer_manager.get_or_create_buffer(&guild_name_id);
 
         buffer.set_localvar("guild_name", name);
         buffer.set_localvar("server", name);
@@ -312,8 +299,8 @@ pub fn create_buffer_from_channel(
         .map(|rs| rs.last_message_id)
         != channel.last_message_id;
 
-    let () = on_main_blocking(|weechat| {
-        let buffer = find_or_make_buffer(&weechat, &name_id);
+    let () = on_main_blocking(|weecord| {
+        let buffer = weecord.buffer_manager.get_or_create_buffer(&name_id);
 
         buffer.set_short_name(&channel.name);
 
@@ -349,7 +336,7 @@ pub fn create_buffer_from_channel(
 // TODO: Reduce code duplication
 pub fn create_buffer_from_dm(
     cache: &CacheRwLock,
-    weechat: &crate::Weechat,
+    weecord: &crate::Discord,
     channel: Channel,
     nick: &str,
     switch_to: bool,
@@ -361,7 +348,7 @@ pub fn create_buffer_from_dm(
     let channel = channel.read();
 
     let name_id = utils::buffer_id_for_channel(None, channel.id);
-    let buffer = find_or_make_buffer(&weechat, &name_id);
+    let buffer = weecord.buffer_manager.get_or_create_buffer(&name_id);
 
     buffer.set_short_name(&channel.name());
     buffer.set_localvar("channelid", &channel.id.0.to_string());
@@ -389,7 +376,7 @@ pub fn create_buffer_from_dm(
 
 pub fn create_buffer_from_group(
     cache: &CacheRwLock,
-    weechat: &Weechat,
+    weecord: &Discord,
     channel: Channel,
     nick: &str,
 ) {
@@ -411,7 +398,7 @@ pub fn create_buffer_from_group(
 
     let name_id = utils::buffer_id_for_channel(None, channel.channel_id);
 
-    let buffer = find_or_make_buffer(weechat, &name_id);
+    let buffer = weecord.buffer_manager.get_or_create_buffer(&name_id);
 
     buffer.set_short_name(&channel.name());
     buffer.set_localvar("channelid", &channel.channel_id.0.to_string());
@@ -430,10 +417,10 @@ pub fn create_buffer_from_group(
     }
 }
 
-pub fn create_pins_buffer(weechat: &Weechat, channel: &Channel) {
+pub fn create_pins_buffer(weecord: &Discord, channel: &Channel) {
     let buffer_name = format!("Pins.{}", channel.id().0);
 
-    let buffer = find_or_make_buffer(weechat, &buffer_name);
+    let buffer = weecord.buffer_manager.get_or_create_buffer(&buffer_name);
     buffer.switch_to();
 
     buffer.set_title(&format!("Pinned messages in #{}", channel.name()));
@@ -442,7 +429,7 @@ pub fn create_pins_buffer(weechat: &Weechat, channel: &Channel) {
     utils::set_pins_for_channel(&buffer, channel.id());
 }
 
-pub fn load_pin_buffer_history(buffer: &weechat::Buffer) {
+pub fn load_pin_buffer_history(buffer: &MessageManager) {
     let channel = match utils::pins_for_channel(&buffer) {
         Some(ch) => ch,
         None => return,
@@ -450,7 +437,7 @@ pub fn load_pin_buffer_history(buffer: &weechat::Buffer) {
 
     buffer.set_history_loaded();
     buffer.clear();
-    let sealed_buffer = buffer.seal();
+    let buffer_name = buffer.get_name().to_string();
 
     std::thread::spawn(move || {
         let ctx = match crate::discord::get_ctx() {
@@ -464,23 +451,31 @@ pub fn load_pin_buffer_history(buffer: &weechat::Buffer) {
         };
 
         on_main(move |weecord| {
-            let buf = sealed_buffer.unseal(&weecord);
+            let ctx = match crate::discord::get_ctx() {
+                Some(ctx) => ctx,
+                _ => return,
+            };
+            let buf = match weecord.buffer_manager.get_buffer(&buffer_name) {
+                Some(buf) => buf,
+                None => return,
+            };
 
             for pin in pins.iter().rev() {
-                printing::print_msg(&weecord, &buf, &pin, false);
+                buf.add_message(&ctx.cache, pin, false);
             }
         });
     });
 }
+
 pub fn load_pin_buffer_history_for_id(id: ChannelId) {
     on_main(move |weecord| {
-        if let Some(buffer) = weecord.buffer_search("weecord", &format!("Pins.{}", id)) {
+        if let Some(buffer) = weecord.buffer_manager.get_buffer(&format!("Pins.{}", id)) {
             load_pin_buffer_history(&buffer)
         };
     })
 }
 
-pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_channel::Sender<()>) {
+pub fn load_history(buffer: &MessageManager, completion_sender: crossbeam_channel::Sender<()>) {
     if buffer.history_loaded() {
         return;
     }
@@ -496,7 +491,7 @@ pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_chann
 
     let fetch_count: i32 = on_main_blocking(|weecord| weecord.config.message_fetch_count.value());
 
-    let sealed_buffer = buffer.seal();
+    let buffer_name = buffer.get_name().to_string();
 
     std::thread::spawn(move || {
         let ctx = match crate::discord::get_ctx() {
@@ -510,7 +505,10 @@ pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_chann
                     Some(ctx) => ctx,
                     _ => return,
                 };
-                let buf = sealed_buffer.unseal(&weechat);
+                let buf = match weechat.buffer_manager.get_buffer(&buffer_name) {
+                    Some(buf) => buf,
+                    None => return,
+                };
 
                 if let Some(read_state) = ctx.cache.read().read_state.get(&channel) {
                     let unread_in_page = msgs.iter().any(|m| m.id == read_state.last_message_id);
@@ -518,8 +516,8 @@ pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_chann
                     if unread_in_page {
                         let mut backlog = true;
                         for msg in msgs.into_iter().rev() {
-                            printing::print_msg(&weechat, &buf, &msg, false);
-                            printing::inject_msg_id(msg.id, &buf);
+                            buf.add_message(&ctx.cache, &msg, false);
+
                             if backlog {
                                 buf.mark_read();
                                 buf.clear_hotlist();
@@ -532,14 +530,12 @@ pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_chann
                         buf.mark_read();
                         buf.clear_hotlist();
                         for msg in msgs.into_iter().rev() {
-                            printing::print_msg(&weechat, &buf, &msg, false);
-                            printing::inject_msg_id(msg.id, &buf);
+                            buf.add_message(&ctx.cache, &msg, false);
                         }
                     }
                 } else {
                     for msg in msgs.into_iter().rev() {
-                        printing::print_msg(&weechat, &buf, &msg, false);
-                        printing::inject_msg_id(msg.id, &buf);
+                        buf.add_message(&ctx.cache, &msg, false);
                     }
                 }
                 completion_sender.send(()).unwrap();
@@ -548,7 +544,7 @@ pub fn load_history(buffer: &weechat::Buffer, completion_sender: crossbeam_chann
     });
 }
 
-pub fn load_dm_nicks(buffer: &Buffer, channel: &PrivateChannel) {
+pub fn load_dm_nicks(buffer: &MessageManager, channel: &PrivateChannel) {
     let weechat = buffer.get_weechat();
     let use_presence = crate::upgrade_plugin(&weechat).config.use_presence.value();
 
@@ -818,72 +814,6 @@ pub fn update_member_nick(old: &Option<Member>, new: &Member) {
                 }
             }
         })
-    }
-}
-
-pub fn modify_buffer_lines(
-    weecord: &Discord,
-    message_id: MessageId,
-    buffer_name: &str,
-    new_content: &str,
-) {
-    let buffer = match weecord.buffer_search("weecord", &buffer_name) {
-        Some(buf) => buf,
-        None => return,
-    };
-    if !buffer.history_loaded() {
-        return;
-    }
-
-    let buffer_hdata = buffer.get_hdata("buffer").unwrap();
-    let lines_ptr: HDataPointer = buffer_hdata.get_var("own_lines").unwrap();
-    let lines_hdata = lines_ptr.get_hdata("lines").unwrap();
-    let mut maybe_last_line_ptr = lines_hdata.get_var::<HDataPointer>("last_line");
-
-    let mut pointers = Vec::new();
-
-    fn get_msg_id(last_line_hdata: &HData) -> u64 {
-        let line_data_ptr: HDataPointer = last_line_hdata.get_var("data").unwrap();
-
-        let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
-
-        unsafe { line_data_hdata.get_i64_unchecked("date_printed") as u64 }
-    }
-
-    // advance to the edited message
-    while let Some(last_line_ptr) = &maybe_last_line_ptr {
-        let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
-
-        if get_msg_id(&last_line_hdata) == message_id.0 {
-            break;
-        }
-
-        maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
-    }
-
-    // collect all lines of the message
-    while let Some(last_line_ptr) = maybe_last_line_ptr {
-        let last_line_hdata = last_line_ptr.get_hdata("line").unwrap();
-
-        if get_msg_id(&last_line_hdata) != message_id.0 {
-            break;
-        }
-
-        let line_data_ptr: HDataPointer = last_line_hdata.get_var("data").unwrap();
-
-        let line_data_hdata = line_data_ptr.get_hdata("line_data").unwrap();
-
-        pointers.push(line_data_hdata);
-
-        maybe_last_line_ptr = last_line_ptr.advance(&last_line_hdata, -1);
-    }
-
-    let new_lines = new_content.splitn(pointers.len(), '\n');
-    let new_lines = new_lines.map(|l| l.replace("\n", " | "));
-    let new_lines = new_lines.chain(std::iter::repeat("".to_owned()));
-
-    for (line_ptr, new_line) in pointers.iter().rev().zip(new_lines) {
-        line_ptr.update_var("message", new_line);
     }
 }
 

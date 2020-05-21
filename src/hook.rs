@@ -195,6 +195,13 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
 fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
     if let weechat::SignalHookValue::Pointer(buffer_ptr) = data {
         let buffer = unsafe { crate::utils::buffer_from_ptr(buffer_ptr) };
+        let buffer = match crate::upgrade_plugin(&buffer.get_weechat())
+            .buffer_manager
+            .get_buffer(buffer.get_name().as_ref())
+        {
+            Some(buffer) => buffer,
+            None => return ReturnCode::Ok,
+        };
 
         // Wait until messages have been loaded to acknowledge them
         let (tx, rx) = unbounded();
@@ -470,14 +477,14 @@ pub fn handle_query(command: &str) -> ReturnCode {
 
         if let Some(target) = found_members.get(0) {
             if let Ok(chan) = target.create_dm_channel(ctx) {
-                on_main(move |weechat| {
+                on_main(move |weecord| {
                     let ctx = match crate::discord::get_ctx() {
                         Some(ctx) => ctx,
                         _ => return,
                     };
                     crate::buffers::create_buffer_from_dm(
                         &ctx.cache,
-                        &weechat,
+                        &weecord,
                         Channel::Private(Arc::new(RwLock::new(chan))),
                         &current_user_name,
                         true,

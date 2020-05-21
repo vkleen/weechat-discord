@@ -1,6 +1,7 @@
 use crate::{
-    buffers, discord, on_main_blocking, plugin_print, utils,
+    buffers, discord, on_main_blocking, plugin_print, upgrade_plugin, utils,
     utils::{BufferExt, ChannelExt, GuildOrChannel},
+    Discord,
 };
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
@@ -66,7 +67,8 @@ impl<'a> Args<'a> {
 }
 
 fn run_command(buffer: &Buffer, cmd: &str) {
-    let weechat = &buffer.get_weechat();
+    let weechat = buffer.get_weechat();
+    let weecord = upgrade_plugin(&weechat);
 
     let args = Args::from_cmd(cmd);
 
@@ -77,27 +79,27 @@ fn run_command(buffer: &Buffer, cmd: &str) {
     }
 
     match args.base {
-        "connect" => crate::upgrade_plugin(weechat).connect(),
-        "disconnect" => disconnect(weechat),
-        "irc-mode" => irc_mode(weechat),
-        "discord-mode" => discord_mode(weechat),
-        "token" => token(weechat, &args),
-        "autostart" => autostart(weechat),
-        "noautostart" => noautostart(weechat),
+        "connect" => weecord.connect(),
+        "disconnect" => disconnect(weecord),
+        "irc-mode" => irc_mode(weecord),
+        "discord-mode" => discord_mode(weecord),
+        "token" => token(weecord, &args),
+        "autostart" => autostart(weecord),
+        "noautostart" => noautostart(weecord),
         "query" => {
             crate::hook::handle_query(&format!("/query {}", args.rest));
         },
         "join" => {
-            join(weechat, &args, true);
+            join(weecord, &args, true);
         },
-        "watch" => watch(weechat, &args),
-        "nowatch" => nowatch(weechat, &args),
-        "watched" => watched(weechat),
-        "autojoin" => autojoin(weechat, &args, buffer),
-        "noautojoin" => noautojoin(weechat, &args),
-        "autojoined" => autojoined(weechat),
+        "watch" => watch(weecord, &args),
+        "nowatch" => nowatch(weecord, &args),
+        "watched" => watched(weecord),
+        "autojoin" => autojoin(weecord, &args, buffer),
+        "noautojoin" => noautojoin(weecord, &args),
+        "autojoined" => autojoined(weecord),
         "status" => status(&args),
-        "pins" | "pinned" => pins(weechat, buffer),
+        "pins" | "pinned" => pins(weecord, buffer),
         "game" => game(&args),
         "upload" => upload(&args, buffer),
         "me" | "tableflip" | "unflip" | "shrug" | "spoiler" => {
@@ -515,7 +517,7 @@ fn status(args: &Args) {
     plugin_print(&format!("Status set to {} {:#?}", status_str, status));
 }
 
-fn pins(weechat: &Weechat, buffer: &Buffer) {
+fn pins(weechat: &Discord, buffer: &Buffer) {
     let channel = buffer.channel_id();
 
     let channel_id = match channel {

@@ -1,3 +1,4 @@
+use crate::weechat_utils::MessageManager;
 use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -164,14 +165,14 @@ impl BufferExt for Buffer {
     }
 }
 
-pub fn pins_for_channel(buffer: &Buffer) -> Option<ChannelId> {
+pub fn pins_for_channel(buffer: &MessageManager) -> Option<ChannelId> {
     buffer
         .get_localvar("pins_for_channel")
         .and_then(|id| id.parse().ok())
         .map(ChannelId)
 }
 
-pub fn set_pins_for_channel(buffer: &Buffer, channel: ChannelId) {
+pub fn set_pins_for_channel(buffer: &MessageManager, channel: ChannelId) {
     buffer.set_localvar("pins_for_channel", &channel.0.to_string());
 }
 

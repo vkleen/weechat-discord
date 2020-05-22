@@ -149,6 +149,7 @@ mod formatting_utils {
                 msg_content.push('\n');
             }
             if let Some(ref author) = embed.author {
+                msg_content.push('▎');
                 msg_content.push_str(&format!(
                     "{}{}{}",
                     weechat.color("bold"),
@@ -161,20 +162,38 @@ mod formatting_utils {
                 msg_content.push('\n');
             }
             if let Some(ref title) = embed.title {
-                msg_content.push_str(title);
+                msg_content.push_str(
+                    &title
+                        .lines()
+                        .fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x)),
+                );
                 msg_content.push('\n');
             }
             if let Some(ref description) = embed.description {
-                msg_content.push_str(description);
+                msg_content.push_str(
+                    &description
+                        .lines()
+                        .fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x)),
+                );
                 msg_content.push('\n');
             }
             for field in &embed.fields {
                 msg_content.push_str(&field.name);
-                msg_content.push_str(&field.value);
+                msg_content.push_str(
+                    &field
+                        .value
+                        .lines()
+                        .fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x)),
+                );
                 msg_content.push('\n');
             }
             if let Some(ref footer) = embed.footer {
-                msg_content.push_str(&footer.text);
+                msg_content.push_str(
+                    &footer
+                        .text
+                        .lines()
+                        .fold(String::new(), |acc, x| format!("{}▎{}\n", acc, x)),
+                );
                 msg_content.push('\n');
             }
         }

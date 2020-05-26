@@ -6,7 +6,7 @@ use crate::{
 use lazy_static::lazy_static;
 use parking_lot::Mutex;
 use serenity::model::{gateway::Activity, user::OnlineStatus};
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, collections::VecDeque, sync::Arc};
 use weechat::{Buffer, CommandHook, ConfigOption, ReturnCode, Weechat};
 
 lazy_static! {
@@ -40,24 +40,24 @@ pub fn init(weechat: &Weechat) -> Vec<CommandHook<()>> {
     return hooks;
 }
 
-#[derive(Clone)]
-pub(crate) struct Args<'a> {
-    base: &'a str,
-    args: Vec<&'a str>,
-    rest: &'a str,
+#[derive(Clone, Debug)]
+pub struct Args<'a> {
+    pub base: &'a str,
+    pub args: VecDeque<&'a str>,
+    pub rest: &'a str,
 }
 
 impl<'a> Args<'a> {
-    pub(crate) fn from_cmd(cmd: &'a str) -> Args<'a> {
-        let mut args: Vec<_> = cmd.split(' ').skip(1).collect();
+    pub fn from_cmd(cmd: &'a str) -> Args<'a> {
+        let mut args: VecDeque<_> = cmd.split(' ').skip(1).collect();
         if args.is_empty() {
             return Args {
                 base: "",
-                args: Vec::new(),
+                args: VecDeque::new(),
                 rest: "",
             };
         }
-        let base = args.remove(0);
+        let base = args.remove(0).unwrap();
         Args {
             base,
             args,
@@ -87,7 +87,7 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "autostart" => autostart(weecord),
         "noautostart" => noautostart(weecord),
         "query" => {
-            crate::hook::handle_query(&format!("/query {}", args.rest));
+            crate::hook::handle_query(&args);
         },
         "join" => {
             join(weecord, &args, true);

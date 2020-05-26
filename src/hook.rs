@@ -1,5 +1,6 @@
 use crate::{
     buffers::load_pin_buffer_history,
+    command::Args,
     discord, on_main, plugin_print, utils,
     utils::{BufferExt, ChannelExt},
 };
@@ -54,7 +55,9 @@ pub fn init(weechat: &Weechat) -> HookHandles {
                 return ReturnCode::Error;
             };
 
-            handle_query(command)
+            handle_query(&Args::from_cmd(
+                &command.replace("/query ", "/discord query "),
+            ))
         },
         None,
     );
@@ -434,20 +437,39 @@ fn handle_role_completion(buffer: &Buffer, completion: weechat::Completion) -> R
 
 // TODO: Make this faster
 // TODO: Handle command options
-pub fn handle_query(command: &str) -> ReturnCode {
-    if command.len() <= "/query ".len() {
-        plugin_print("query requires a username");
-        return ReturnCode::Ok;
+pub fn handle_query(args: &Args) -> ReturnCode {
+    let mut owned_args = args.clone();
+
+    let mut noswitch = false;
+    if let Some(&arg) = owned_args.args.front() {
+        if arg == "-noswitch" {
+            noswitch = true;
+            owned_args.args.pop_front();
+        }
+    }
+    if let Some(&arg) = owned_args.args.front() {
+        if arg == "-server" {
+            plugin_print("The server option is not yet supported");
+            return ReturnCode::Error;
+        }
     }
 
-    let owned_cmd = command.to_owned();
+    if owned_args.args.is_empty() {
+        plugin_print("query requires a username");
+        return ReturnCode::Error;
+    }
+
+    let target = match owned_args.args.pop_front() {
+        Some(target) => target.to_owned(),
+        None => return ReturnCode::Ok,
+    };
+
     thread::spawn(move || {
         let ctx = match crate::discord::get_ctx() {
             Some(ctx) => ctx,
             _ => return,
         };
         let current_user = &ctx.cache.read().user;
-        let substr = &owned_cmd["/query ".len()..].trim();
 
         let mut found_members: Vec<User> = Vec::new();
         for private_channel in ctx.cache.read().private_channels.values() {
@@ -455,7 +477,7 @@ pub fn handle_query(command: &str) -> ReturnCode {
                 .read()
                 .name()
                 .to_lowercase()
-                .contains(&substr.to_lowercase())
+                .contains(&target.to_lowercase())
             {
                 found_members.push(private_channel.read().recipient.read().clone())
             }
@@ -466,7 +488,7 @@ pub fn handle_query(command: &str) -> ReturnCode {
             for guild in &guilds {
                 if let Some(guild) = guild.id.to_guild_cached(ctx) {
                     let guild = guild.read().clone();
-                    for m in guild.members_containing(substr, false, true) {
+                    for m in guild.members_containing(&target.to_lowercase(), false, true) {
                         found_members.push(m.user.read().clone());
                     }
                 }
@@ -488,14 +510,14 @@ pub fn handle_query(command: &str) -> ReturnCode {
                         &weecord,
                         Channel::Private(Arc::new(RwLock::new(chan))),
                         &current_user_name,
-                        true,
+                        !noswitch,
                     );
                 });
                 return;
             }
         }
 
-        plugin_print(&format!("Could not find user {:?}", substr));
+        plugin_print(&format!("Could not find user {:?}", target));
     });
     ReturnCode::OkEat
 }

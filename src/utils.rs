@@ -1,4 +1,4 @@
-use crate::weechat_utils::MessageManager;
+use crate::{plugin_print, weechat_utils::MessageManager};
 use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -397,6 +397,34 @@ pub fn create_mentions(cache: &CacheRwLock, guild_id: Option<GuildId>, input: &s
         }
     }
 
+    out
+}
+
+pub fn expand_guild_emojis(cache: &CacheRwLock, guild_id: Option<GuildId>, input: &str) -> String {
+    let mut out = String::from(input);
+    lazy_static! {
+        static ref EMOJI_SYNTAX: Regex = Regex::new(r"(.?):(\w+):").unwrap();
+    }
+
+    let emojis = EMOJI_SYNTAX.captures_iter(input);
+    if let Some(guild) = guild_id.and_then(|id| id.to_guild_cached(cache)) {
+        let guild = guild.read();
+        for emoji_match in emojis {
+            if let Some(prefix) = emoji_match.get(1) {
+                if prefix.as_str() == "\\" {
+                    continue;
+                }
+            }
+            if let Some(emoji_match) = emoji_match.get(2) {
+                let emoji_name = emoji_match.as_str();
+                if let Some(guild_emoji) =
+                    guild.emojis.values().find(|emoji| emoji.name == emoji_name)
+                {
+                    out = out.replace(&format!(":{}:", emoji_name), &guild_emoji.mention());
+                }
+            }
+        }
+    }
     out
 }
 

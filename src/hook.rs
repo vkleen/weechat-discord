@@ -180,6 +180,7 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
             return;
         }
         let text = utils::create_mentions(&ctx.cache, guild, text);
+        let text = utils::expand_guild_emojis(&ctx.cache, guild, &text);
         if let Err(e) = channel.say(ctx, text) {
             let weechat = buffer.get_weechat();
             buffer.print(&format!(

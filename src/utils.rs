@@ -349,6 +349,7 @@ pub fn create_mentions(cache: &CacheRwLock, guild_id: Option<GuildId>, input: &s
     lazy_static! {
         static ref CHANNEL_MENTION: Regex = Regex::new(r"#([a-z_-]+)").unwrap();
         static ref USER_MENTION: Regex = Regex::new(r"@(.{0,32}?)#(\d{2,4})").unwrap();
+        static ref ROLE_MENTION: Regex = Regex::new(r"@([^\s]{1,32})").unwrap();
     }
 
     let channel_mentions = CHANNEL_MENTION.captures_iter(input);
@@ -393,6 +394,25 @@ pub fn create_mentions(cache: &CacheRwLock, guild_id: Option<GuildId>, input: &s
         for (id, user) in &cache.read().users {
             if user.read().name == user_name {
                 out = out.replace(user_match.get(0).unwrap().as_str(), &id.mention());
+            }
+        }
+    }
+
+    let role_mentions = ROLE_MENTION.captures_iter(input);
+    for role_match in role_mentions {
+        let role_name = role_match.get(1).unwrap().as_str();
+
+        if let Some(guild) = guild_id.and_then(|g| g.to_guild_cached(cache)) {
+            if let Some(role) = guild
+                .read()
+                .roles
+                .values()
+                .find(|role| role.name == role_name)
+            {
+                if !role.mentionable {
+                    continue;
+                }
+                out = out.replace(role_match.get(0).unwrap().as_str(), &role.mention());
             }
         }
     }

@@ -1,4 +1,4 @@
-use crate::{plugin_print, weechat_utils::MessageManager};
+use crate::weechat_utils::MessageManager;
 use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use regex::Regex;

@@ -477,11 +477,11 @@ pub fn load_pin_buffer_history_for_id(id: ChannelId) {
     })
 }
 
-pub fn load_history(buffer: &MessageManager, completion_sender: crossbeam_channel::Sender<()>) {
-    if buffer.history_loaded() {
-        return;
-    }
-
+pub fn load_history(
+    buffer: &MessageManager,
+    completion_sender: crossbeam_channel::Sender<()>,
+    fetch_count: i32,
+) {
     let channel = if let Some(channel) = buffer.channel_id() {
         channel
     } else {
@@ -491,8 +491,6 @@ pub fn load_history(buffer: &MessageManager, completion_sender: crossbeam_channe
 
     buffer.clear();
     buffer.set_history_loaded();
-
-    let fetch_count: i32 = on_main_blocking(|weecord| weecord.config.message_fetch_count.value());
 
     let buffer_name = buffer.get_name().to_string();
 
@@ -554,7 +552,7 @@ pub fn load_history(buffer: &MessageManager, completion_sender: crossbeam_channe
                     ctx.shard
                         .websocket_message(gateway::Message::Text(msg.to_string()));
                 }
-                completion_sender.send(()).unwrap();
+                let _ = completion_sender.send(());
             });
         }
     });

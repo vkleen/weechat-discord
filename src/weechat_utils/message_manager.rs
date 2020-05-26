@@ -47,6 +47,12 @@ impl MessageManager {
         }
     }
 
+    /// Removes all content from the buffer
+    pub fn clear(&self) {
+        self.messages.borrow_mut().clear();
+        self.buffer.clear();
+    }
+
     /// Add a message to the end of a buffer (chronologically)
     pub fn add_message(&self, cache: &CacheRwLock, msg: &Message, notify: bool) -> Vec<UserId> {
         let unknown_users = self.print_msg(cache, msg, notify);

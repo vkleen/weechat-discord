@@ -1,6 +1,7 @@
 use crate::{
     buffers, discord, on_main_blocking, plugin_print, upgrade_plugin, utils,
     utils::{BufferExt, ChannelExt, GuildOrChannel},
+    weechat_utils::MessageManager,
     Discord,
 };
 use lazy_static::lazy_static;
@@ -104,6 +105,12 @@ fn run_command(buffer: &Buffer, cmd: &str) {
         "upload" => upload(&args, buffer),
         "me" | "tableflip" | "unflip" | "shrug" | "spoiler" => {
             discord_fmt(args.base, args.rest, buffer)
+        },
+        "rehistory" => {
+            let buffer_name = buffer.get_name().to_string();
+            if let Some(buffer) = weecord.buffer_manager.get_buffer(&buffer_name) {
+                rehistory(weecord, &args, &*buffer);
+            }
         },
         _ => {
             plugin_print("Unknown command");
@@ -659,6 +666,17 @@ fn discord_fmt(cmd: &str, msg: &str, buffer: &Buffer) {
     let _ = channel.send_message(&ctx.http, |m| m.content(msg));
 }
 
+fn rehistory(weecord: &Discord, args: &Args, buffer: &MessageManager) {
+    buffer.clear();
+    let default_fetch_count = weecord.config.message_fetch_count.value();
+    let count = args
+        .args
+        .front()
+        .and_then(|c| c.parse::<i32>().ok())
+        .unwrap_or(default_fetch_count);
+    buffers::load_history(buffer, crossbeam_channel::unbounded().0, count);
+}
+
 const CMD_DESCRIPTION: weechat::CommandDescription = weechat::CommandDescription {
     name: "discord",
     description: "\
@@ -685,7 +703,8 @@ Originally by https://github.com/khyperia/weechat-discord",
     tableflip
     unflip
     shrug
-    spoiler",
+    spoiler
+    rehistory",
     args_description: "
     connect: sign in to discord and open chat buffers
     disconnect: sign out of Discord
@@ -702,6 +721,7 @@ Originally by https://github.com/khyperia/weechat-discord",
     noautostart: disable autostart
     status: set your Discord online status
     token: set Discord login token
+    rehistory: reload the history in the current buffer
     upload: upload a file to the current channel
 
 Examples:
@@ -735,5 +755,6 @@ tableflip || \
 unflip || \
 shrug || \
 spoiler || \
+rehistory || \
 join %(weecord_guild_completion) %(weecord_channel_completion)",
 };

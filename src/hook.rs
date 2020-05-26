@@ -199,7 +199,9 @@ pub fn buffer_input(buffer: Buffer, text: &str) {
 fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
     if let weechat::SignalHookValue::Pointer(buffer_ptr) = data {
         let buffer = unsafe { crate::utils::buffer_from_ptr(buffer_ptr) };
-        let buffer = match crate::upgrade_plugin(&buffer.get_weechat())
+        let weechat = buffer.get_weechat();
+        let weecord = crate::upgrade_plugin(&weechat);
+        let buffer = match weecord
             .buffer_manager
             .get_buffer(buffer.get_name().as_ref())
         {
@@ -217,7 +219,9 @@ fn handle_buffer_switch(data: weechat::SignalHookValue) -> ReturnCode {
                 return ReturnCode::Ok;
             }
 
-            crate::buffers::load_history(&buffer, tx);
+            let fetch_count = weecord.config.message_fetch_count.value();
+
+            crate::buffers::load_history(&buffer, tx, fetch_count);
         }
 
         if !buffer.nicks_loaded() {

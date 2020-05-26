@@ -153,9 +153,7 @@ fn token(weechat: &Weechat, args: &Args) {
     } else {
         let weecord = crate::upgrade_plugin(weechat);
         let new_value = args.rest.trim_matches('"');
-        let before = weecord.config.token.value();
-        let change = weecord.config.token.set(new_value);
-        format_option_change("token", new_value, Some(&before), change);
+        weecord.config.token.set(new_value);
 
         plugin_print("Set Discord token");
     }

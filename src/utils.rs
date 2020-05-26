@@ -92,6 +92,19 @@ pub fn format_nick_color(weechat: &Weechat, nick: &String) -> String {
     return prefix.to_string() + nick + &suffix.to_string();
 }
 
+pub fn colorize_string(weechat: &Weechat, color: &str, string: &str) -> String {
+    if string.is_empty() {
+        string.to_owned()
+    } else {
+        format!(
+            "{}{}{}",
+            weechat.color(color),
+            string,
+            weechat.color("reset")
+        )
+    }
+}
+
 pub trait ChannelExt {
     fn name(&self) -> String;
     fn last_message(&self) -> Option<MessageId>;

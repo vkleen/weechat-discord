@@ -116,7 +116,10 @@ impl Deref for MessageManager {
 }
 
 mod formatting_utils {
-    use crate::{discord::formatting, utils::format_nick_color};
+    use crate::{
+        discord::formatting,
+        utils::{colorize_string, format_nick_color},
+    };
     use serenity::{
         cache::CacheRwLock,
         model::{
@@ -125,7 +128,7 @@ mod formatting_utils {
         },
     };
     use std::str::FromStr;
-    use weechat::Weechat;
+    use weechat::{ConfigOption, Weechat};
 
     pub fn msg_tags(cache: &CacheRwLock, msg: &Message, notify: bool) -> Vec<String> {
         let is_private = if let Some(channel) = msg.channel(cache) {
@@ -239,12 +242,35 @@ mod formatting_utils {
             }
         }
 
+        let mut prefix = String::new();
+
+        if let Some(nick_prefix) = weechat.get_string_option("weechat.look.nick_prefix") {
+            if let Some(color) = weechat.get_string_option("weechat.color.chat_nick_prefix") {
+                prefix.push_str(&colorize_string(
+                    weechat,
+                    &color.value(),
+                    &nick_prefix.value(),
+                ))
+            }
+        }
+
         let author = format_nick_color(weechat, &author_display_name(cache, &msg, guild));
+        prefix.push_str(&author);
+
+        if let Some(nick_suffix) = weechat.get_string_option("weechat.look.nick_suffix") {
+            if let Some(color) = weechat.get_string_option("weechat.color.chat_nick_suffix") {
+                prefix.push_str(&colorize_string(
+                    weechat,
+                    &color.value(),
+                    &nick_suffix.value(),
+                ))
+            }
+        }
 
         use serenity::model::channel::MessageType::*;
         if let Regular = msg.kind {
             (
-                author,
+                prefix,
                 formatting::discord_to_weechat(weechat, &msg_content),
                 unknown_users,
             )

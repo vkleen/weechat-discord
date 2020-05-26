@@ -29,7 +29,7 @@ git = "https://github.com/terminal-discord/parking_lot"
 
 [dependencies.serenity]
 git = "https://github.com/terminal-discord/serenity"
-rev = "9d67e912"
+rev = "c366477b"
 default_features = false
 features = [
     "builder",

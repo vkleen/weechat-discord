@@ -9,11 +9,13 @@ use crate::{
 use indexmap::IndexMap;
 use serenity::{
     cache::{Cache, CacheRwLock},
+    client::bridge::gateway,
+    constants::OpCode,
     model::prelude::*,
     prelude::*,
 };
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     sync::Arc,
 };
 use weechat::{buffer::HotlistPriority, Buffer, ConfigOption, NickArgs, Weechat};
@@ -485,6 +487,7 @@ pub fn load_history(buffer: &MessageManager, completion_sender: crossbeam_channe
     } else {
         return;
     };
+    let guild = buffer.guild_id();
 
     buffer.clear();
     buffer.set_history_loaded();
@@ -505,6 +508,7 @@ pub fn load_history(buffer: &MessageManager, completion_sender: crossbeam_channe
                     Some(ctx) => ctx,
                     _ => return,
                 };
+                let mut unknown_users = HashSet::new();
                 let buf = match weechat.buffer_manager.get_buffer(&buffer_name) {
                     Some(buf) => buf,
                     None => return,
@@ -516,7 +520,7 @@ pub fn load_history(buffer: &MessageManager, completion_sender: crossbeam_channe
                     if unread_in_page {
                         let mut backlog = true;
                         for msg in msgs.into_iter().rev() {
-                            buf.add_message(&ctx.cache, &msg, false);
+                            unknown_users.extend(buf.add_message(&ctx.cache, &msg, false));
 
                             if backlog {
                                 buf.mark_read();
@@ -530,13 +534,25 @@ pub fn load_history(buffer: &MessageManager, completion_sender: crossbeam_channe
                         buf.mark_read();
                         buf.clear_hotlist();
                         for msg in msgs.into_iter().rev() {
-                            buf.add_message(&ctx.cache, &msg, false);
+                            unknown_users.extend(buf.add_message(&ctx.cache, &msg, false));
                         }
                     }
                 } else {
                     for msg in msgs.into_iter().rev() {
-                        buf.add_message(&ctx.cache, &msg, false);
+                        unknown_users.extend(buf.add_message(&ctx.cache, &msg, false));
                     }
+                }
+                if let Some(guild) = guild {
+                    let msg = json::object! {
+                        "op" =>  OpCode::GetGuildMembers.num(),
+                        "d" => json::object! {
+                            "guild_id" => guild.0.to_string(),
+                            "user_ids" => (unknown_users.iter().map(|id| id.to_string())).collect::<Vec<_>>(),
+                            "nonce" => channel.0.to_string(),
+                        }
+                    };
+                    ctx.shard
+                        .websocket_message(gateway::Message::Text(msg.to_string()));
                 }
                 completion_sender.send(()).unwrap();
             });

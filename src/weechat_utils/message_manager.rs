@@ -1,7 +1,10 @@
 use crate::utils::BufferExt;
 use serenity::{
     cache::CacheRwLock,
-    model::{channel::Message, id::MessageId},
+    model::{
+        channel::Message,
+        id::{MessageId, UserId},
+    },
 };
 use std::{cell::RefCell, ops::Deref, sync::Arc};
 use weechat::Buffer;
@@ -23,19 +26,21 @@ impl MessageManager {
     }
 
     /// Format and print message to the buffer
-    fn print_msg(&self, cache: &CacheRwLock, msg: &Message, notify: bool) {
+    fn print_msg(&self, cache: &CacheRwLock, msg: &Message, notify: bool) -> Vec<UserId> {
         let weechat = self.buffer.get_weechat();
         let maybe_guild = self.buffer.guild_id();
-        let (prefix, content) = formatting_utils::render_msg(cache, &weechat, msg, maybe_guild);
+        let (prefix, content, unknown_users) =
+            formatting_utils::render_msg(cache, &weechat, msg, maybe_guild);
         self.buffer.print_tags_dated(
             msg.timestamp.timestamp(),
             &formatting_utils::msg_tags(cache, msg, notify).join(","),
             &format!("{}\t{}", prefix, content),
         );
+        unknown_users
     }
 
     /// Clear the buffer and reprint all messages
-    fn redraw_buffer(&self, cache: &CacheRwLock) {
+    pub fn redraw_buffer(&self, cache: &CacheRwLock) {
         self.buffer.clear();
         for message in self.messages.borrow().iter() {
             self.print_msg(cache, &message, false);
@@ -43,13 +48,19 @@ impl MessageManager {
     }
 
     /// Add a message to the end of a buffer (chronologically)
-    pub fn add_message(&self, cache: &CacheRwLock, msg: &Message, notify: bool) {
-        self.print_msg(cache, msg, notify);
+    pub fn add_message(&self, cache: &CacheRwLock, msg: &Message, notify: bool) -> Vec<UserId> {
+        let unknown_users = self.print_msg(cache, msg, notify);
         self.messages.borrow_mut().push(msg.clone());
+        unknown_users
     }
 
     // Overwrite a previously printed message, has no effect if the message does not exist
-    pub fn replace_message(&self, cache: &CacheRwLock, id: &MessageId, msg: &Message) {
+    pub fn replace_message(
+        &self,
+        cache: &CacheRwLock,
+        id: &MessageId,
+        msg: &Message,
+    ) -> Vec<UserId> {
         if let Some(old_msg) = self
             .messages
             .borrow_mut()
@@ -61,16 +72,32 @@ impl MessageManager {
         // Using hdata to edit the line might be more efficient Would still use redrawing as a fall
         // back in the event that the edit has a different amount of lines
         self.redraw_buffer(cache);
+        let (_, _, unknown_users) = formatting_utils::render_msg(
+            cache,
+            &self.buffer.get_weechat(),
+            msg,
+            self.buffer.guild_id(),
+        );
+        unknown_users
     }
 
     /// Delete a previously printed message, has no effect if the message does not exist
-    pub fn delete_message(&self, cache: &CacheRwLock, id: &MessageId) {
+    pub fn delete_message(&self, cache: &CacheRwLock, id: &MessageId) -> Vec<UserId> {
         let index = self.messages.borrow().iter().position(|it| &it.id == id);
+        let mut unknown_users = Vec::new();
         if let Some(index) = index {
-            self.messages.borrow_mut().remove(index);
+            let msg = self.messages.borrow_mut().remove(index);
+            unknown_users = formatting_utils::render_msg(
+                cache,
+                &self.buffer.get_weechat(),
+                &msg,
+                self.buffer.guild_id(),
+            )
+            .2;
         };
         // Performance, see comment above
         self.redraw_buffer(cache);
+        unknown_users
     }
 }
 
@@ -84,7 +111,14 @@ impl Deref for MessageManager {
 
 mod formatting_utils {
     use crate::{discord::formatting, utils::format_nick_color};
-    use serenity::{cache::CacheRwLock, model::prelude::*};
+    use serenity::{
+        cache::CacheRwLock,
+        model::{
+            channel::{Channel, Message},
+            id::{GuildId, UserId},
+        },
+    };
+    use std::str::FromStr;
     use weechat::Weechat;
 
     pub fn msg_tags(cache: &CacheRwLock, msg: &Message, notify: bool) -> Vec<String> {
@@ -121,15 +155,16 @@ mod formatting_utils {
         weechat: &Weechat,
         msg: &Message,
         guild: Option<GuildId>,
-    ) -> (String, String) {
-        let mut opts = serenity::utils::ContentSafeOptions::new()
+    ) -> (String, String, Vec<UserId>) {
+        let opts = serenity::utils::ContentSafeOptions::new()
             .clean_here(false)
-            .clean_everyone(false);
-        if let Some(guild) = guild {
-            opts = opts.display_as_member_from(guild);
-        }
+            .clean_everyone(false)
+            .clean_user(false);
+
         let mut msg_content = serenity::utils::content_safe(&cache, &msg.content, &opts);
         msg_content = crate::utils::clean_emojis(&msg_content);
+        let unknown_users = clean_users(cache, &mut msg_content, true, guild);
+
         if msg.edited_timestamp.is_some() {
             let edited_text = weechat.color("8").into_owned()
                 + " (edited)"
@@ -200,11 +235,12 @@ mod formatting_utils {
 
         let author = format_nick_color(weechat, &author_display_name(cache, &msg, guild));
 
-        use MessageType::*;
+        use serenity::model::channel::MessageType::*;
         if let Regular = msg.kind {
             (
                 author,
                 formatting::discord_to_weechat(weechat, &msg_content),
+                unknown_users,
             )
         } else {
             let (prefix, body) = match msg.kind {
@@ -240,7 +276,7 @@ mod formatting_utils {
                 ),
                 Regular | __Nonexhaustive => unreachable!(),
             };
-            (weechat.get_prefix(prefix).into_owned(), body)
+            (weechat.get_prefix(prefix).into_owned(), body, unknown_users)
         }
     }
 
@@ -256,5 +292,96 @@ mod formatting_utils {
                 .map(|member| member.display_name().to_string())
         });
         display_name.unwrap_or_else(|| msg.author.name.to_owned())
+    }
+
+    /// Convert raw mentions into human readable form, returning all ids that were not converted
+    /// Extracted from serenity and modified
+    fn clean_users(
+        cache: &CacheRwLock,
+        s: &mut String,
+        show_discriminator: bool,
+        guild: Option<GuildId>,
+    ) -> Vec<UserId> {
+        let mut unknown_users = Vec::new();
+        let mut progress = 0;
+
+        while let Some(mut mention_start) = s[progress..].find("<@") {
+            mention_start += progress;
+
+            if let Some(mut mention_end) = s[mention_start..].find('>') {
+                mention_end += mention_start;
+                mention_start += "<@".len();
+
+                let has_exclamation = if s[mention_start..]
+                    .as_bytes()
+                    .get(0)
+                    .map_or(false, |c| *c == b'!')
+                {
+                    mention_start += "!".len();
+
+                    true
+                } else {
+                    false
+                };
+
+                if let Ok(id) = UserId::from_str(&s[mention_start..mention_end]) {
+                    let replacement = if let Some(guild) = guild {
+                        if let Some(guild) = cache.read().guild(&guild) {
+                            if let Some(member) = guild.read().members.get(&id) {
+                                if show_discriminator {
+                                    Some(format!("@{}", member.distinct()))
+                                } else {
+                                    Some(format!("@{}", member.display_name()))
+                                }
+                            } else {
+                                unknown_users.push(id);
+                                None
+                            }
+                        } else {
+                            unknown_users.push(id);
+                            None
+                        }
+                    } else {
+                        let user = cache.read().users.get(&id).cloned();
+
+                        if let Some(user) = user {
+                            let user = user.read();
+
+                            if show_discriminator {
+                                Some(format!("@{}#{:04}", user.name, user.discriminator))
+                            } else {
+                                Some(format!("@{}", user.name))
+                            }
+                        } else {
+                            unknown_users.push(id);
+                            None
+                        }
+                    };
+
+                    let code_start = if has_exclamation { "<@!" } else { "<@" };
+                    let to_replace = format!("{}{}>", code_start, &s[mention_start..mention_end]);
+
+                    if let Some(replacement) = replacement {
+                        *s = s.replace(&to_replace, &replacement);
+                    } else {
+                        progress = mention_end;
+                    }
+                } else {
+                    let id = &s[mention_start..mention_end].to_string();
+
+                    if !id.is_empty() && id.as_bytes().iter().all(u8::is_ascii_digit) {
+                        let code_start = if has_exclamation { "<@!" } else { "<@" };
+                        let to_replace = format!("{}{}>", code_start, id);
+
+                        *s = s.replace(&to_replace, &"@invalid-user");
+                    } else {
+                        progress = mention_end;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+        unknown_users
     }
 }

@@ -8,6 +8,7 @@ use serenity::{
     prelude::*,
 };
 use std::{
+    collections::HashMap,
     sync::{mpsc::Sender, Arc},
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -145,6 +146,27 @@ impl EventHandler for Handler {
             buffers::update_member_nick(&old, &new);
             if ctx.cache.read().user.id == new.user_id() {
                 buffers::update_nick();
+            }
+        });
+    }
+
+    fn guild_members_chunk(
+        &self,
+        ctx: Context,
+        guild_id: GuildId,
+        _offline_members: HashMap<UserId, Member>,
+        nonce: Option<String>,
+    ) {
+        on_main(move |weecord| {
+            if let Some(channel_id) = nonce {
+                if let Ok(channel_id) = channel_id.parse::<u64>().map(|id| ChannelId(id)) {
+                    if let Some(buffer) = weecord
+                        .buffer_manager
+                        .get_buffer(&utils::buffer_id_for_channel(Some(guild_id), channel_id))
+                    {
+                        buffer.redraw_buffer(&ctx.cache);
+                    }
+                }
             }
         });
     }

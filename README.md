@@ -21,7 +21,7 @@ Use at your own risk, using this program could get your account or ip disabled, 
 
 ### Installation
 
-Binaries are automatically compiled for macOS and linux on [Github Actions](https://github.com/terminal-discord/weechat-discord/actions)
+Binaries are automatically compiled for macOS and linux on [Github Actions](https://terminal-discord.vercel.app/api/latest-build?redirect)
 
 #### Building
 

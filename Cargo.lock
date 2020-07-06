@@ -1398,6 +1398,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.7.0"
+source = "git+https://github.com/vkleen/serenity?rev=84282b05#84282b054c3dac30f663555f1400fbb7ef4d6262"
 dependencies = [
  "base64 0.10.1",
  "bitflags",

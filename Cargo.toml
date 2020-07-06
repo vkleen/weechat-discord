@@ -26,7 +26,7 @@ parking_lot = "0.9.0"
 
 [dependencies.serenity]
 git = "https://github.com/vkleen/serenity"
-rev = "93e6c7d2"
+rev = "84282b05"
 default_features = false
 features = [
     "builder",
